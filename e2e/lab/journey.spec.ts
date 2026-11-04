@@ -43,7 +43,7 @@ const EXPECTED_CALLS = [
   'POST /api/scenario/parse',
   'POST /api/projects',
   'POST /api/projects/:id/steps/knowledge',
-  'POST /api/projects/:id/stakeholders/discover',
+  'POST /api/projects/:id/stakeholders/propose',
   'POST /api/projects/:id/stakeholders/approve',
   'POST /api/projects/:id/actors/generate',
   'POST /api/projects/:id/analysis',

@@ -314,8 +314,7 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   **Custom** opens a field for the person's own words. **Research automatically** is a switch, on by default
   where the server researches, and a line beside it says what it does in each state, by what the server says it
   can do: where a search provider is behind it (`research.discovery.available`), "Swarm finds and reads public
-  sources for you."; where none is, as in this build, "Reads the website you name. With none, it asks you for a
-  source."; with the switch off, "Manual sources only: Swarm reads what you add."; and where the server does not
+  sources for you."; where none is, as in this build, "Reads the site you name, or asks for one."; with the switch off, "Manual sources only: Swarm reads what you add."; and where the server does not
   research, "Off on this server. Attach your own sources.", which is also why it cannot be turned on there. It is
   the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its own and why
   the review says what it will do before it does it. The page promises a search only where the server says it has

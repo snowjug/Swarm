@@ -123,7 +123,7 @@ export function researchSwitchNote(options: {
   if (!options.on) return 'Manual sources only: Swarm reads what you add.';
   return options.discovery
     ? 'Swarm finds and reads public sources for you.'
-    : 'Reads the website you name. With none, it asks you for a source.';
+    : 'Reads the site you name, or asks for one.';
 }
 
 /** What research will do for the project that is about to be made: read what is named, look, or ask for a source. */

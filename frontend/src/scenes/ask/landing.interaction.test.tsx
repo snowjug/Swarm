@@ -166,9 +166,7 @@ describe('on a server that researches for itself, and has no search provider', (
     const { user, onSubmit } = renderAsk({ config: RESEARCHING });
     expect(researchSwitch().checked).toBe(true);
     expect(researchSwitch().disabled).toBe(false);
-    expect(
-      screen.getByText('Reads the website you name. With none, it asks you for a source.'),
-    ).toBeTruthy();
+    expect(screen.getByText('Reads the site you name, or asks for one.')).toBeTruthy();
     // It does not say that it finds sources, because it cannot.
     expect(screen.queryByText(SEARCH_PROMISE)).toBeNull();
     expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);

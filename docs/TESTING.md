@@ -516,8 +516,7 @@ directory (never your own data):
     like a demonstration launcher (one link, after everything that matters); and a template fills the box to be
     written over, and a question that is only the template is not read. Each test says which server it is
     about. Most are about the one the suite starts, which researches (it does unless it is set not to) and has no
-    search provider behind it: the switch is on and says what it does there ("Reads the website you name. With
-    none, it asks you for a source."), a question alone is enough to ask, and in Ground it waits, calmly, as
+    search provider behind it: the switch is on and says what it does there ("Reads the site you name, or asks for one."), a question alone is enough to ask, and in Ground it waits, calmly, as
     **Needs a source**; where the server is otherwise they stop and say why. The tests that tell the page what the
     server says (a search provider, constraints) are about what the page claims: it says that Swarm finds and reads
     public sources only where a provider is behind the server. The first screen of a server where research is off

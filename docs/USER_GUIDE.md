@@ -95,8 +95,7 @@ unfold.", and what it asks of you is one question.
    **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
    quarters").
 3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
-   research. What the line beside it says is what the server does: "Reads the website you name. With none, it
-   asks you for a source." where no search provider is behind the server, as in this build, and "Swarm finds and
+   research. What the line beside it says is what the server does: "Reads the site you name, or asks for one." where no search provider is behind the server, as in this build, and "Swarm finds and
    reads public sources for you." only where there is one. With it on, a question that has no source of your own
    is researched first, and so is one that names a site or a page, beside any sources you add: after you
    continue, Swarm reads the site or page you named and what it links to

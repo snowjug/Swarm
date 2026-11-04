@@ -458,7 +458,7 @@ describe('what the page says research does, by what the server does', () => {
       'Swarm finds and reads public sources for you.',
     );
     expect(researchSwitchNote({ available: true, on: true, discovery: false })).toBe(
-      'Reads the website you name. With none, it asks you for a source.',
+      'Reads the site you name, or asks for one.',
     );
     expect(researchSwitchNote({ available: true, on: false, discovery: true })).toBe(
       'Manual sources only: Swarm reads what you add.',

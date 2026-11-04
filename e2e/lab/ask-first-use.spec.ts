@@ -233,9 +233,7 @@ test.describe('the first ten seconds, with nothing explained', () => {
     // when none is. It says nothing of a search, because nothing here can search.
     await expect(researchSwitch(page)).toBeEnabled();
     await expect(researchSwitch(page)).toBeChecked();
-    await expect(
-      page.getByText('Reads the website you name. With none, it asks you for a source.'),
-    ).toBeVisible();
+    await expect(page.getByText('Reads the site you name, or asks for one.')).toBeVisible();
     await expect(siteBox(page)).toBeEnabled();
     await expect(
       page.getByText(/finds and reads public sources|looks for public sources/u),
@@ -427,9 +425,7 @@ test.describe('what the page claims, by what the server says it can do', () => {
   }) => {
     await told(page, { research: true, discovery: false });
     await openAsk(page);
-    await expect(
-      page.getByText('Reads the website you name. With none, it asks you for a source.'),
-    ).toBeVisible();
+    await expect(page.getByText('Reads the site you name, or asks for one.')).toBeVisible();
     await expect(page.getByText(/finds and reads public sources/u)).toBeHidden();
 
     const searching = await page.context().newPage();

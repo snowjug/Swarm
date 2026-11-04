@@ -51,7 +51,8 @@
     font-weight: 540;
   }
   .sw-ask-foot__fine {
-    max-width: 44ch;
+    /* One line where the page is wide enough, which keeps the sentence inside the first screen at 1440 by 900. */
+    max-width: 96ch;
     color: var(--ink-3);
     font-size: var(--fs-small);
     line-height: 1.45;
