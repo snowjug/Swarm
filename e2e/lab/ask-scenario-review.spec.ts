@@ -18,6 +18,7 @@ import {
   answerQuestion,
   apiCalls,
   bar,
+  backToQuestion,
   chooseExample,
   coveredByBars,
   editText,
@@ -42,13 +43,28 @@ import {
   scenarioOf,
   textOf,
 } from '../support/ask';
+import { MANUAL_PAGE_URL, startServerWithoutResearch } from '../support/ask-server';
 import type { ScenarioFrame } from '../../shared/scenario';
 
 // The scenario Swarm reads from the question, laid out to be read and corrected before anything is made: what each
 // edit does to the rows that were there and to the rows that were not, where focus goes, what the bar at the foot
 // says, and what the project is made from. Rules mode. Motion is reduced so that nothing is measured while it moves.
 
-test.use({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
+test.use({
+  baseURL: MANUAL_PAGE_URL,
+  reducedMotion: 'reduce',
+  viewport: { width: 1440, height: 900 },
+});
+// A server where research is off needs a source for every project, which is what the bar at the foot says when there is
+// none: a server of that kind is started here (see `startServerWithoutResearch`). Where research is on, the project
+// can be made from the question alone, and the review says what research does (ask-first-use.spec.ts).
+let stopServer: (() => Promise<void>) | null = null;
+test.beforeAll(async () => {
+  stopServer = await startServerWithoutResearch();
+});
+test.afterAll(async () => {
+  await stopServer?.();
+});
 
 const READ_DECISION = 'The harbour office doubles the mooring fee for visiting boats';
 const BAR = bar;
@@ -480,7 +496,7 @@ test.describe('going on from the scenario', () => {
     const decision = 'Double the mooring fee from the first of June';
     await editText(page, 'The decision or event', decision, { multiline: true });
 
-    await page.getByRole('button', { name: 'Question', exact: true }).click();
+    await backToQuestion(page).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(HEADING);
     await exploreButton(page).click();
     await expect(reviewHeading(page)).toBeVisible();
@@ -652,7 +668,7 @@ test.describe('the bar at the foot of the scenario', () => {
       await expect(goOn(page)).toBeInViewport({ ratio: 1 });
       await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight / 2));
       await expect(goOn(page)).toBeInViewport({ ratio: 1 });
-      await expect(page.getByRole('button', { name: 'Question', exact: true })).toBeInViewport({
+      await expect(backToQuestion(page)).toBeInViewport({
         ratio: 1,
       });
     });

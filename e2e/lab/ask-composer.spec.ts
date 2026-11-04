@@ -25,6 +25,7 @@ import {
   assumptionsButton,
   atRest,
   bar,
+  backToQuestion,
   chipName,
   chooseExample,
   chooseHorizon,
@@ -61,12 +62,28 @@ import {
   textOf,
   tray,
 } from '../support/ask';
+import { MANUAL_PAGE_URL, startServerWithoutResearch } from '../support/ask-server';
 
 // The first ten seconds: what a person sees before they have typed a word, what a keyboard reaches, what the
 // first press asks of the server, and that it all holds on a phone. Rules mode: no model is called. Motion is
 // reduced throughout, so that nothing is measured while it moves; the one test about motion says so.
 
-test.use({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
+test.use({
+  baseURL: MANUAL_PAGE_URL,
+  reducedMotion: 'reduce',
+  viewport: { width: 1440, height: 900 },
+});
+// These are the specs of a server where research is off (`RESEARCH_ENABLED=off`), where a project needs a source of its
+// own: a server of that kind is started here, on a port of its own (see `startServerWithoutResearch`). The first
+// screen of a server where research is on, which is the default of the suite's servers, is ask-first-use.spec.ts, and
+// what it does with a site that is named is ask-research.spec.ts.
+let stopServer: (() => Promise<void>) | null = null;
+test.beforeAll(async () => {
+  stopServer = await startServerWithoutResearch();
+});
+test.afterAll(async () => {
+  await stopServer?.();
+});
 
 const writes = (made: Parameters<typeof apiCalls>[0]): string[] =>
   apiCalls(made).filter((call) => !call.startsWith('GET '));
@@ -107,10 +124,17 @@ test.describe('the first screen', () => {
     await expect(page.getByRole('navigation', { name: 'Journey' })).toHaveCount(0);
     await expect(page).not.toHaveURL(/[?&](?:project|scene)=/u);
 
-    // The way from a question to a decision, in order, as a list of steps that open; the first is open.
+    // The way from a question to a decision, in order, as a list of steps that open; the first is open. The server keeps
+    // the constraints of a decision, as every server does, so its third step says so.
     const path = page.getByRole('list', { name: 'How Swarm works' });
     await expect(path.getByRole('listitem')).toHaveCount(5);
-    const names = ['Question', 'Research', 'People', 'Possible futures', 'Decision'];
+    const names = [
+      'Question',
+      'Research',
+      'People and constraints',
+      'Possible futures',
+      'Decision',
+    ];
     for (const [at, name] of names.entries()) {
       await expect(path.getByRole('button').nth(at)).toHaveAccessibleName(name);
       await expect(path.getByRole('button').nth(at)).toHaveAttribute(
@@ -380,7 +404,7 @@ test.describe('asking', () => {
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
     await readScenario(page);
 
-    await page.getByRole('button', { name: 'Question', exact: true }).click();
+    await backToQuestion(page).click();
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(HEADING);
     await expect(questionBox(page)).toHaveValue(HARBOUR_QUESTION);
     await expect(tray(page).getByRole('listitem')).toHaveCount(1);
@@ -393,7 +417,7 @@ test.describe('asking', () => {
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
     await readScenario(page);
 
-    await page.getByRole('button', { name: 'Question', exact: true }).click();
+    await backToQuestion(page).click();
     await expect(questionBox(page)).toBeVisible();
     await expect(questionBox(page), `focus is on ${await focusedElement(page)}`).toBeFocused();
   });
@@ -462,14 +486,14 @@ test.describe('asking', () => {
     await expect(page.getByRole('main').locator('blockquote')).toHaveText(HARBOUR_QUESTION);
 
     // The same question, read again, is not read twice; a changed one is.
-    await page.getByRole('button', { name: 'Question', exact: true }).click();
+    await backToQuestion(page).click();
     await exploreButton(page).click();
     await expect(reviewHeading(page)).toBeVisible();
     expect(writes(made)).toEqual(['POST /api/scenario/parse']);
 
     const other =
       'What could happen if the harbour office halves the mooring fee for sailing clubs?';
-    await page.getByRole('button', { name: 'Question', exact: true }).click();
+    await backToQuestion(page).click();
     await questionBox(page).fill(other);
     await exploreButton(page).click();
     await expect(reviewHeading(page)).toBeVisible();
@@ -1054,12 +1078,14 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
     test('is clean with nothing written', async ({ page }) => {
       await openAsk(page, { theme });
       await expect(page.locator('html')).toHaveAttribute('data-theme', theme);
+      await atRest(page);
       await expectNoAxeViolations(page, `${theme}: the first screen`);
     });
 
     test('is clean with an example loaded', async ({ page }) => {
       await openAsk(page, { theme });
       await chooseExample(page, EXAMPLES[0]!);
+      await atRest(page);
       await expectNoAxeViolations(page, `${theme}: an example loaded`);
     });
 
@@ -1076,6 +1102,7 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await openAsk(page, { theme });
       await optionsButton(page).click();
       await expect(page.getByRole('dialog', { name: 'Options' })).toBeVisible();
+      await atRest(page);
       await expectNoAxeViolations(page, `${theme}: the options`);
     });
 
@@ -1125,6 +1152,7 @@ for (const theme of ['light', 'dark', 'high-contrast'] as const) {
       await questionBox(page).fill('Why?');
       await exploreButton(page).click();
       await expect(asked(page)).toContainText('Say a little more');
+      await atRest(page);
       await expectNoAxeViolations(page, `${theme}: the question refused`);
     });
   });

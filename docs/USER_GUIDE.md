@@ -91,16 +91,19 @@ unfold.", and what it asks of you is one question.
    Try example.org, or the address of one page."). It is optional, and it is where automatic research
    starts: Swarm has no search provider, so without a website (and without a source of your own) research has
    nothing to read, and a website matters only when research runs, which is for a question with no source of
-   your own. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
+   your own, or one that names a site or a page, beside any sources you add. **Time horizon** asks over what time the effects should be judged: **Not sure**, **Next quarter**,
    **6 months**, **1 year**, **3 years** or **Custom**, which takes your own words ("For example, the next two
    quarters").
 3. **Choose whether Swarm researches.** **Research automatically** is on by default where the server does
-   research: "Swarm finds and reads public sources for you." With it on, a question that has no source of
-   your own is researched first: after you continue, Swarm reads the site or page you named and what it
-   links to ([what that does and does not do](../README.md#automatic-research)). That line promises more than
-   this build does: with no website and no source of your own there is nothing for research to read, and
-   Ground says **Needs a source**. Attach a source of your own and the project is read from
-   your sources, as it always was, and research does not start. Turned off it says "Manual sources only:
+   research. What the line beside it says is what the server does: "Reads the website you name. With none, it
+   asks you for a source." where no search provider is behind the server, as in this build, and "Swarm finds and
+   reads public sources for you." only where there is one. With it on, a question that has no source of your own
+   is researched first, and so is one that names a site or a page, beside any sources you add: after you
+   continue, Swarm reads the site or page you named and what it links to
+   ([what that does and does not do](../README.md#automatic-research)). With no website and no source of your
+   own there is nothing for research to read, and Ground says **Needs a source**. Attach a source of your own
+   and name no site, and the project is read from your sources, as it always was, and research does not start.
+   Turned off it says "Manual sources only:
    Swarm reads what you add.", and the website field is greyed out and says it is used by automatic research.
    Where the server does not research, the switch is off and cannot be turned on ("Off on this server. Attach
    your own sources.").
@@ -145,17 +148,24 @@ unfold.", and what it asks of you is one question.
    do it** (the alternatives to compare; **Add a way**), **Who is affected** and **Assumed**. Each assumption
    is marked **Yours** or **System assumption**, and you can add or remove them. **Swarm asks** lists at most
    three questions that it needs answered: **Answer** or **Skip** each. **Evidence** lists what was
-   attached. Where research is on, a line there says what research will do ("Automatic research is on. After
-   you continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."),
-   and it says so whether or not you attached a source: research starts only for a question that has none, and
-   it reads only the site or page you named.
+   attached. Where research will run, a line there says what it will do, by what the server can do ("Automatic
+   research is on. After you continue, Swarm reads example.org and the pages it links to, and lists every page it
+   reads." for a site you named; "This server cannot look for sources from a question alone. After you continue,
+   Swarm asks you to name a website or add a source." for a question alone, where no search provider is behind
+   the server). It says so whether or not you attached a source when you named a site, and says nothing when
+   your own sources are what is used: research starts only for a question that has none, or that names a site or
+   a page, and it reads only the site or page you named.
    **Add evidence** adds your own. **How it was read** says how the question was read. A chip says whether it was read by rules, by a
    model, or edited by you. **Question** goes back to the first screen with everything you wrote.
 9. **Ground it.** **Ground it** creates the project and starts reading the evidence, or researching for it.
    Nothing ran before this: "Nothing runs until you continue." sits beside the button. For a question with no
-   source of its own and research on, the research run is started as the project is made, and Ground opens on
-   it; if the project is saved and the run could not be started, the page says "The exploration was saved, but
-   Swarm could not start researching" with the reason, and Ground offers **Start research**. If the reading of the
+   source of its own, or one that names a site or a page, and research on, the research run is started as the
+   project is made (the sources you added are kept: the run reads first and then grounds the project with all of
+   them), and Ground opens on it; if the project is saved and the run could not be started, the page says "The
+   exploration was saved, but Swarm could not start researching" with the reason, and Ground offers **Start
+   research**. A project that already holds ten sources, the most it can, has no room for what research would
+   read, so the page says that the website you named was not read, and **Ground it** in Ground reads the sources
+   you added. If the reading of the
    question fails, the page says so and offers **Try again** (focus is already on it) or **Continue without
    reading**, which starts without a scenario, and so without the time frame, place and assumptions you gave.
 
@@ -163,8 +173,12 @@ unfold.", and what it asks of you is one question.
 templates above. **How Swarm works** is a row of five steps that you can open (press one, or rest the pointer
 on it), saying what Swarm does and what you decide at each: **Question**,
 **Research**, **People** (**People and constraints** on a server that keeps constraints), **Possible futures**
-and **Decision**; where research is off the second step says that Swarm reads the files and pages you add and
-nothing else. A line of short words says what every exploration includes: **Evidence linked**, **Assumptions
+and **Decision**. They are the path in plain words, and the six scenes of the journey carry it out: the
+question is Ask, research is Ground, the people and constraints are Map, the possible futures are Simulate
+and Compare, and the decision is Decide. What the second step says follows what the server does: where
+research is off it says that Swarm reads the files and pages you add and nothing else; where research is on and
+no search provider is behind the server (as in this build) it says that Swarm reads the website you name and the
+files you add; only where there is a provider does it say that Swarm finds and reads public sources. A line of short words says what every exploration includes: **Evidence linked**, **Assumptions
 visible**, **Alternatives compared**, **Constraints considered** (only where the server has them) and **Human
 approval before simulation**, and **What this means** says what each is. These describe what Swarm does, not
 how good a result is.
@@ -240,8 +254,8 @@ the sources fill the first screen.
   **Reject** it. The section appears only once a report has been checked and lists some; when the check
   found none, a line says so, and until then there is no empty section. See the
   [grounding review](#grounding-review-model-assisted-reports).
-- **Research** is there where the server researches. A question with no sources of its own is researched
-  first: the status chip, the four figures (**Pages read**, **Sources used**, **Sites**, **Conflicts**) and the
+- **Research** is there where the server researches. A question with no sources of its own, or one that names a
+  site or a page, is researched first: the status chip, the four figures (**Pages read**, **Sources used**, **Sites**, **Conflicts**) and the
   one main button (**Start research**, **Pause**, **Resume**, **Finish early**, **Cancel**, **Try again**) are
   the run's, and the six stages (Planning, Finding sources, Reading, Extracting evidence, Checking conflicts,
   Ready) light as it reaches them. Under them is every page it looked at: its title, its site, what kind of

@@ -2,27 +2,28 @@ import type { ReactNode, Ref } from 'react';
 import { ChevronDown } from 'lucide-react';
 import { Button, Field, Input, Switch } from '../../design/ui';
 import { LIMITS } from '../../lib/intake';
-import { GUIDANCE_MAX } from './research';
+import { GUIDANCE_MAX, researchSwitchNote } from './research';
 import { Reveal } from './Reveal';
 import './Advanced.css';
 
-/** Automatic research: on or off, and when the server cannot do it, off and saying so. */
+/**
+ * Automatic research: on or off, and when the server cannot do it, off and saying so. What it says it does when it is
+ * on is what this server does (`researchSwitchNote`).
+ */
 export function ResearchSwitch({
   available,
+  discovery,
   on,
   onChange,
   disabled,
 }: {
   available: boolean;
+  discovery: boolean;
   on: boolean;
   onChange: (on: boolean) => void;
   disabled: boolean;
 }) {
-  const description = !available
-    ? 'Off on this server. Attach your own sources.'
-    : on
-      ? 'Swarm finds and reads public sources for you.'
-      : 'Manual sources only: Swarm reads what you add.';
+  const description = researchSwitchNote({ available, on, discovery });
   return (
     <Switch
       className="sw-ask-research"

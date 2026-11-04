@@ -2,7 +2,6 @@ import { expect, test, type Page, type Route } from '@playwright/test';
 import { expectNoAxeViolations, expectNoHorizontalOverflow, watchPage } from '../support/helpers';
 import { projectOf } from '../support/app';
 import {
-  HARBOUR_NOTES,
   HARBOUR_QUESTION,
   HEADING,
   PROMPTS,
@@ -15,6 +14,7 @@ import {
   openAsk,
   optionsButton,
   questionBox,
+  readScenario,
   researchSwitch,
   reviewHeading,
   siteBox,
@@ -26,9 +26,13 @@ import {
 // what it does by itself, why to trust it, and that it explores and does not predict. They type one question and
 // press the one button; Swarm reads the question into a scenario they can correct, and one more press starts.
 //
-// Where the server researches for itself (`research.enabled` in its settings) this runs against it, end to end. Where
-// it does not yet, the page is told that it does, and the one call that makes the project is answered with a project
-// the server made from the same question, so that what is measured is what the page sends and where it goes next.
+// What the first screen draws is what the server says it can do, so each test here says which server it is about.
+// The first is about any server. Most are about the one the suite starts, which is the default: research is on, and no
+// search provider is behind it, so a question alone has nothing to read and waits, calmly, for a source (they say so
+// and stop where the server is otherwise). The ones that tell the page what the server says (`told`) are about what the
+// page claims for a server that has what the suite's server has not: a search provider, or no constraints. The first
+// screen of a server where research is off is ask-composer.spec.ts, and what research does with a site that is named,
+// beside the sources that were added, is ask-research.spec.ts.
 
 test.use({ reducedMotion: 'reduce', viewport: { width: 1440, height: 900 } });
 
@@ -41,51 +45,71 @@ const words = (text: string): string[] => text.split(/\s+/u).filter(Boolean);
 
 interface Told {
   research: boolean;
+  /** The server can look for sources from a question alone: a search provider is behind it. */
+  discovery: boolean;
   constraints: boolean;
 }
 
-/** Whether the server under test says it researches, as the page is told. */
-async function serverResearches(page: Page): Promise<boolean> {
+/** What the server under test says it does about research, as the page reads it. */
+async function serverResearch(page: Page): Promise<{ researches: boolean; discovers: boolean }> {
   const config = (await (await page.request.get('/api/config')).json()) as {
-    research?: { enabled?: unknown };
+    research?: { enabled?: unknown; discovery?: { available?: unknown } };
   };
-  return config.research?.enabled === true;
+  return {
+    researches: config.research?.enabled === true,
+    discovers: config.research?.discovery?.available === true,
+  };
 }
 
-/** Says to the page that the server has what later work adds, and nothing else about it changes. */
+/**
+ * Says to the page that the server has what later work adds, and nothing else about it changes. A server that is told
+ * it researches has no search provider unless it is told that it has.
+ */
 async function told(page: Page, what: Partial<Told>): Promise<void> {
   await page.route('**/api/config', async (route: Route) => {
     const response = await route.fetch();
     const body = (await response.json()) as Record<string, unknown>;
-    if (what.research) body.research = { enabled: true };
+    if (what.research) {
+      body.research = {
+        enabled: true,
+        discovery: { available: what.discovery === true, provider: null, message: 'Told.' },
+      };
+    }
     if (what.constraints !== undefined) body.features = { constraints: what.constraints };
     await route.fulfill({ response, json: body });
   });
 }
 
+/** What the review says research does for a question alone, by whether a search provider is behind the server. */
+const FOR_A_QUESTION_ALONE = {
+  searches:
+    /Automatic research is on\. After you continue, Swarm looks for public sources, and lists every page it reads\./u,
+  cannot:
+    /This server cannot look for sources from a question alone\. After you continue, Swarm asks you to name a website or add a source\./u,
+};
+
 /**
- * What the page sends to make the project, captured. Where the server does not research for itself yet, the call is
- * answered with a project that the server makes from the same question and a source (what the call would have
- * returned), so that the page goes where it goes next.
+ * What the page sends to make the project, captured as it is sent: the request carries what was asked, and the server
+ * answers it as it does.
  */
-async function capturingCreation(page: Page, researching: boolean) {
+function capturingCreation(page: Page): { body: Record<string, unknown> | null } {
   const sent: { body: Record<string, unknown> | null } = { body: null };
-  await page.route('**/api/projects', async (route) => {
-    if (route.request().method() !== 'POST') return route.fallback();
-    sent.body = route.request().postDataJSON() as Record<string, unknown>;
-    if (researching) return route.continue();
-    const made = await page.request.post('/api/projects', {
-      data: {
-        name: 'Mooring fee, made for the first-use test',
-        question: HARBOUR_QUESTION,
-        workflow: 'guided',
-        documents: [HARBOUR_NOTES],
-        settings: { mode: 'local', agentCount: 6, rounds: 4, seed: 42, network: 'community' },
-      },
-    });
-    return route.fulfill({ status: 201, contentType: 'application/json', body: await made.text() });
+  page.on('request', (request) => {
+    if (request.method() === 'POST' && new URL(request.url()).pathname === '/api/projects') {
+      sent.body = request.postDataJSON() as Record<string, unknown>;
+    }
   });
   return sent;
+}
+
+/**
+ * Says that a test is about the server the suite starts by default: research is on (a server researches unless it is
+ * set not to) and no search provider is behind it. Where the server is otherwise the test stops, and says why.
+ */
+async function aServerThatResearchesAndCannotSearch(page: Page): Promise<void> {
+  const { researches, discovers } = await serverResearch(page);
+  test.skip(!researches, 'This server does not research.');
+  test.skip(discovers, 'This server can search for sources, and this is about one that cannot.');
 }
 
 /** What a person can read and press before scrolling, counted as the eye does: words in view, and the controls in view. */
@@ -199,12 +223,35 @@ test.describe('the first ten seconds, with nothing explained', () => {
     expect(problems).toEqual([]);
   });
 
+  test('on a server that researches draws the switch on and in reach, with what it does here, and needs no source to be asked', async ({
+    page,
+  }) => {
+    await aServerThatResearchesAndCannotSearch(page);
+    await openAsk(page);
+
+    // On, and in reach; and what it says is what it does here: it reads the website that is named, and asks for a source
+    // when none is. It says nothing of a search, because nothing here can search.
+    await expect(researchSwitch(page)).toBeEnabled();
+    await expect(researchSwitch(page)).toBeChecked();
+    await expect(
+      page.getByText('Reads the website you name. With none, it asks you for a source.'),
+    ).toBeVisible();
+    await expect(siteBox(page)).toBeEnabled();
+    await expect(
+      page.getByText(/finds and reads public sources|looks for public sources/u),
+    ).toHaveCount(0);
+
+    // A question is enough to ask: nothing has to be attached first.
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await expect(exploreButton(page)).toBeEnabled();
+    await expect(page.getByText('Add a source', { exact: true })).toHaveCount(0);
+  });
+
   test('one question reaches the start of research in three interactions, with no documentation, and the time to the first action is logged', async ({
     page,
   }, info) => {
-    const researching = await serverResearches(page);
-    if (!researching) await told(page, { research: true });
-    const sent = await capturingCreation(page, researching);
+    await aServerThatResearchesAndCannotSearch(page);
+    const sent = capturingCreation(page);
     const problems = watchPage(page);
 
     // Nothing is read before the first press: no page of documentation, no help, no dialog.
@@ -250,7 +297,8 @@ test.describe('the first ten seconds, with nothing explained', () => {
     await expect(reviewHeading(page)).toBeVisible();
     await expect(goOn(page)).toBeVisible();
     await expect(page.getByText('Nothing runs until you continue.')).toBeVisible();
-    await expect(page.getByText(/Automatic research is on\. After you continue/u)).toBeVisible();
+    // What research will do is what this server can do: it cannot look for sources from a question alone, and says so.
+    await expect(page.getByText(FOR_A_QUESTION_ALONE.cannot)).toBeVisible();
 
     // 3. Going on starts it: the request carries a question and the intake for research, and no document.
     await act('press Ground it', () => goOn(page).click());
@@ -263,7 +311,7 @@ test.describe('the first ten seconds, with nothing explained', () => {
     expect(sent.body!.question).toBe(HARBOUR_QUESTION);
     expect(sent.body!.research).toEqual({ auto: true });
     expect(sent.body!.scenario, 'the scenario the person confirmed').toBeTruthy();
-    if (researching) expect(sent.body!.documents).toEqual([]);
+    expect(sent.body!.documents).toEqual([]);
 
     expect(interactions).toBeLessThanOrEqual(INTERACTIONS);
     expect(
@@ -272,15 +320,18 @@ test.describe('the first ten seconds, with nothing explained', () => {
     ).toBe(true);
     expect(problems.filter((problem) => !/status of 4\d\d/u.test(problem))).toEqual([]);
 
-    const record = `ready ${ready} ms, first action ${firstAction} ms (${inPage === null ? 'n/a' : `${Math.round(inPage)} ms in the page`}), research started ${total} ms, ${interactions} interactions, ${researching ? 'against the server' : 'with the page told that the server researches'}`;
+    const record = `ready ${ready} ms, first action ${firstAction} ms (${inPage === null ? 'n/a' : `${Math.round(inPage)} ms in the page`}), research started ${total} ms, ${interactions} interactions`;
     info.annotations.push({ type: 'time to first action', description: record });
     console.log(`first use: ${record}`);
+
+    // A question alone is not an error where nothing can search: it waits for a source, which the person can give.
+    await expect(page.locator('[data-moment]')).toHaveText('Needs a source', { timeout: 120_000 });
   });
 
   test('is done from the keyboard alone, from a cold load to the press that asks', async ({
     page,
   }) => {
-    await told(page, { research: true });
+    await aServerThatResearchesAndCannotSearch(page);
     await openAsk(page);
 
     // From the top of the page: the skip link, the bar, and the question, which is the first thing in the page.
@@ -315,13 +366,17 @@ test.describe('the first ten seconds, with nothing explained', () => {
   test('can be asked from the question box with Ctrl+Enter, and from the website field', async ({
     page,
   }) => {
-    await told(page, { research: true });
+    await aServerThatResearchesAndCannotSearch(page);
     await openAsk(page);
     await questionBox(page).fill(HARBOUR_QUESTION);
     await siteBox(page).fill('harbour.example.org');
     await siteBox(page).press('Control+Enter');
     await expect(reviewHeading(page)).toBeVisible();
-    await expect(page.getByText(/starting from harbour\.example\.org/u)).toBeVisible();
+    await expect(
+      page.getByText(
+        'Automatic research is on. After you continue, Swarm reads harbour.example.org and the pages it links to, and lists every page it reads.',
+      ),
+    ).toBeVisible();
   });
 });
 
@@ -329,7 +384,7 @@ test.describe('the website a person names', () => {
   test('is understood as a site or as a page, and a mistake is met with a hint and not with a refusal from the server', async ({
     page,
   }) => {
-    await told(page, { research: true });
+    await aServerThatResearchesAndCannotSearch(page);
     await openAsk(page);
     await expect(siteBox(page)).toBeEnabled();
     await questionBox(page).fill(HARBOUR_QUESTION);
@@ -355,7 +410,7 @@ test.describe('the website a person names', () => {
   });
 
   test('is out of reach where research is off, and says why, with the switch', async ({ page }) => {
-    await told(page, { research: true });
+    await aServerThatResearchesAndCannotSearch(page);
     await openAsk(page);
     await researchSwitch(page).click();
     await expect(researchSwitch(page)).not.toBeChecked();
@@ -367,6 +422,42 @@ test.describe('the website a person names', () => {
 });
 
 test.describe('what the page claims, by what the server says it can do', () => {
+  test('promises a search for sources only where a search provider is behind the server', async ({
+    page,
+  }) => {
+    await told(page, { research: true, discovery: false });
+    await openAsk(page);
+    await expect(
+      page.getByText('Reads the website you name. With none, it asks you for a source.'),
+    ).toBeVisible();
+    await expect(page.getByText(/finds and reads public sources/u)).toBeHidden();
+
+    const searching = await page.context().newPage();
+    await told(searching, { research: true, discovery: true });
+    await openAsk(searching);
+    await expect(
+      searching.getByText('Swarm finds and reads public sources for you.'),
+    ).toBeVisible();
+    await searching
+      .getByRole('list', { name: 'How Swarm works' })
+      .getByRole('button')
+      .nth(1)
+      .click();
+    await expect(
+      searching
+        .getByRole('region', { name: 'How Swarm works' })
+        .getByText(/^Swarm\s+finds and reads public sources/u),
+    ).toBeVisible();
+
+    // And in the review, for the question alone: it says what is to come, and no more.
+    await questionBox(searching).fill(HARBOUR_QUESTION);
+    await readScenario(searching);
+    await expect(searching.getByText(FOR_A_QUESTION_ALONE.searches)).toBeVisible();
+    await questionBox(page).fill(HARBOUR_QUESTION);
+    await readScenario(page);
+    await expect(page.getByText(FOR_A_QUESTION_ALONE.cannot)).toBeVisible();
+  });
+
   test('draws four signals and four steps of what Swarm does, and five where constraints are kept', async ({
     page,
   }) => {
@@ -409,8 +500,16 @@ test.describe('what the page claims, by what the server says it can do', () => {
     const flow = page.getByRole('region', { name: 'How Swarm works' });
     await steps.nth(1).click();
     await expect(steps.nth(1)).toHaveAttribute('aria-expanded', 'true');
-    await expect(flow.getByText(/^Swarm\s+finds and reads public sources/u)).toBeVisible();
-    await expect(flow.getByText(/^You\s+can name a site to start from/u)).toBeVisible();
+    // Told that it researches and has no search provider, which is how a server is today: what is read is what is named.
+    await expect(
+      flow.getByText(/^Swarm\s+reads the website you name and the files you add/u),
+    ).toBeVisible();
+    await expect(
+      flow.getByText(
+        /^You\s+name a site to start from and add your own files; see every source it used\./u,
+      ),
+    ).toBeVisible();
+    await expect(flow.getByText(/finds and reads public sources/u)).toBeHidden();
 
     await steps.nth(1).focus();
     await page.keyboard.press('ArrowRight');

@@ -110,6 +110,82 @@ export function researchIntake(fields: IntakeFields): ResearchIntakeInput {
 }
 
 /**
+ * What the switch for automatic research says it does, by what this server does. Where research is on it finds sources
+ * from a question alone only if a search provider is behind it (`discovery`); without one it reads the website that is
+ * named, and asks for a source when none is.
+ */
+export function researchSwitchNote(options: {
+  available: boolean;
+  on: boolean;
+  discovery: boolean;
+}): string {
+  if (!options.available) return 'Off on this server. Attach your own sources.';
+  if (!options.on) return 'Manual sources only: Swarm reads what you add.';
+  return options.discovery
+    ? 'Swarm finds and reads public sources for you.'
+    : 'Reads the website you name. With none, it asks you for a source.';
+}
+
+/** What research will do for the project that is about to be made: read what is named, look, or ask for a source. */
+type ResearchPlan = { kind: 'reads'; named: string } | { kind: 'searches' } | { kind: 'asks' };
+
+/**
+ * What research will actually do, by what the person said and what this server can do. Nothing where research is off,
+ * or where the project has sources of its own and no site was named: those sources are what is used. A site or a page
+ * that was named is read, with what it links to. For a question alone it is what this server can do: look for public
+ * sources where a search provider is behind it, and otherwise ask for a website or a source.
+ */
+function researchPlan(options: {
+  runs: boolean;
+  discovery: boolean;
+  site: Site;
+  documents: number;
+}): ResearchPlan | null {
+  if (!options.runs) return null;
+  const { site } = options;
+  if (site.kind === 'domain') return { kind: 'reads', named: site.domain };
+  if (site.kind === 'url') return { kind: 'reads', named: `a page of ${site.host}` };
+  if (options.documents > 0) return null;
+  return { kind: options.discovery ? 'searches' : 'asks' };
+}
+
+/** What the review says about research before the person goes on, in the part of it that holds the evidence. */
+export function researchNote(options: {
+  runs: boolean;
+  discovery: boolean;
+  site: Site;
+  documents: number;
+}): string | null {
+  const plan = researchPlan(options);
+  if (!plan) return null;
+  if (plan.kind === 'reads') {
+    return `Automatic research is on. After you continue, Swarm reads ${plan.named} and the pages it links to, and lists every page it reads.`;
+  }
+  return plan.kind === 'searches'
+    ? 'Automatic research is on. After you continue, Swarm looks for public sources, and lists every page it reads.'
+    : 'This server cannot look for sources from a question alone. After you continue, Swarm asks you to name a website or add a source.';
+}
+
+/**
+ * The same, short, for the bar at the foot of the review, where the person decides: it follows "Nothing runs until you
+ * continue." and says what the press that goes on will do. It never says that a source is needed, because where
+ * research runs none is.
+ */
+export function researchNext(options: {
+  runs: boolean;
+  discovery: boolean;
+  site: Site;
+  documents: number;
+}): string | null {
+  const plan = researchPlan(options);
+  if (!plan) return null;
+  if (plan.kind === 'reads') return `Then Swarm reads ${plan.named}.`;
+  return plan.kind === 'searches'
+    ? 'Then Swarm looks for public sources.'
+    : 'Then Swarm asks you for a website or a source.';
+}
+
+/**
  * The scenario that was read from the question, with what the person said beside it put where it belongs: their time
  * frame and assumptions as `withContext` places them, and their place as the geography. Their own words answer the
  * questions the reading asked about them, so those questions go. Nothing is added that they did not say.

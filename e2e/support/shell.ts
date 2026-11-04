@@ -1,6 +1,7 @@
 import { expect, type APIRequestContext, type Locator, type Page } from '@playwright/test';
 import { EXAMPLE_SCENARIOS } from '../../shared/example-scenarios';
 import { SCENES, SCENE_LABEL, addressOf, journey, settled, type SceneName } from './app';
+import { chooseExampleNamed } from './ask';
 import { SOURCE, expectNoAxeViolations } from './helpers';
 
 // What the specs of the shell share: projects made over HTTP at each point of the journey, a reading of the
@@ -409,10 +410,13 @@ export async function provokeNotice(page: Page): Promise<Locator> {
 // The first screen, walked as a person does
 // ---------------------------------------------------------------------------------------------
 
-/** Picks an example on the first screen, reads it into a scenario and starts the exploration. Returns its id. */
+/**
+ * Picks a sample case on the first screen, where they are behind one quiet link; reads it into a scenario and starts
+ * the exploration. `example` is the name the case has in the list. Returns the id of the project.
+ */
 export async function startFromExample(page: Page, example: string): Promise<string> {
   await page.goto('/');
-  await page.getByRole('button', { name: example, exact: true }).click();
+  await chooseExampleNamed(page, example);
   await page.getByRole('button', { name: 'Explore', exact: true }).click();
   await page.getByRole('button', { name: 'Ground it' }).click();
   await page.waitForURL(/[?&]project=/u);

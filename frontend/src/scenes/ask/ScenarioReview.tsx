@@ -351,6 +351,7 @@ export function ScenarioReview({
   evidence,
   issues,
   error,
+  next = null,
   continuing,
   onBack,
   onContinue,
@@ -363,6 +364,8 @@ export function ScenarioReview({
   evidence: ReactNode;
   issues: readonly string[];
   error: string | null;
+  /** What the press that goes on will do, in a few words, said after "Nothing runs until you continue." */
+  next?: string | null;
   continuing: boolean;
   onBack: () => void;
   onContinue: () => void;
@@ -665,7 +668,10 @@ export function ScenarioReview({
           ) : issues.length > 0 ? (
             <span>{issues[0]}</span>
           ) : (
-            <span className="sw-rv__ok">Nothing runs until you continue.</span>
+            <>
+              <span className="sw-rv__ok">Nothing runs until you continue.</span>
+              {next && <span className="sw-rv__next">{next}</span>}
+            </>
           )}
         </div>
         <Button

@@ -439,7 +439,7 @@ a page this server fetched is **retrieved public evidence**.
 ### Automatic research
 
 With **Research automatically** on (the default, on a server that has research and page reading on), a
-question with no source of its own is researched first, as the first phase of grounding the project
+question with no source of its own, or one that names a site or a page to read, is researched first, as the first phase of grounding the project
 ([how it works](./backend/src/research/README.md)). Swarm plans what to look for (things to find, never an
 address), reads the page or the site you named and the pages they link to, extracts evidence with provenance,
 checks the new passages for conflicts and goes on. The stages are Planning, Finding sources, Reading,
@@ -452,7 +452,7 @@ research off.
   **blocked**, says so (Ground shows it as **Needs a source**, not as an error), and points to the ways on:
   name a page or a site (**Add a site or page**), or paste or attach text (**Paste or attach**). Swarm does
   not read the pages of a search engine. The website field and the research guidance count only when research
-  runs, which is for a question with no source of your own.
+  runs, which is for a question with no source of your own, or one that names a site or a page.
 - **The reading is deterministic code, and a model is only advice.** Which addresses are fetched, in what
   order, how often and when to stop are decided by code from the budget and from what pages link to; a model,
   where you chose one, only writes the plan of what to look for and may suggest a site, which is shown and

@@ -15,7 +15,7 @@ import type {
 import { api, ApiError, errorMessage } from '../api';
 import { researchApi } from '../api/research';
 import { keepLab, needsPolling } from '../lib/console';
-import { rememberIntake } from '../lib/research';
+import { rememberIntake, startsResearch } from '../lib/research';
 
 interface Resource<T> {
   data: T | null;
@@ -242,9 +242,11 @@ export function useConsole() {
       if (signal.aborted) return;
       put(project);
       rememberIntake(project.id, input.research);
-      // A question with no source of its own is made from what research finds: its research is what starts, and the
-      // run exists by the time the page that shows it opens.
-      if (input.documents.length === 0 && input.research?.auto === true) {
+      // Research is what starts when it was asked for and has something to do: the question brought no source of its
+      // own, or the person named a site or a page for it to read (the sources they added are kept, and research adds to
+      // them). The job that a run starts reads first and then grounds the project, so its evidence is not started as
+      // well: a second job on the same stage would only conflict. The run exists by the time the page that shows it opens.
+      if (startsResearch(input)) {
         let failure: unknown = null;
         try {
           await researchApi.start(project.id, { intake: input.research }, signal);
@@ -255,9 +257,14 @@ export function useConsole() {
         if (signal.aborted) return;
         if (version === navigation.current) selectProject(project.id);
         if (failure !== null && alive.current) {
+          // A project that holds the most sources it can has no room for what research would read, and trying again
+          // cannot change that: what is left to do is to ground the sources it has.
+          const full = failure instanceof ApiError && failure.code === 'DOCUMENT_LIMIT';
           setActionError({
             id: project.id,
-            message: `The exploration was saved, but Swarm could not start researching. ${errorMessage(failure)} Open Ground and press “Start research” to try again.`,
+            message: full
+              ? `The exploration was saved, but the website you named was not read. ${errorMessage(failure)} Open Ground and press “Ground it” to read the sources you added.`
+              : `The exploration was saved, but Swarm could not start researching. ${errorMessage(failure)} Open Ground and press “Start research” to try again.`,
           });
         }
         return project;

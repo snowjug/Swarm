@@ -163,7 +163,7 @@ under "Swarm asks", the notes are under **How it was read**, and a chip says whe
 rules, read by a model, or edited by you. The review opens with focus on its heading, and its **Question**
 (back) and **Ground it** buttons stay at the foot of the screen, so that a long scenario never hides the
 choice. **Ground it** sends the frame with the project, which creates the project and starts reading the
-evidence, or, for a question with no source of its own and research on, starts the research run (see
+evidence, or, for a question with no source of its own, or one that names a site or a page, and research on, starts the research run (see
 [the research README](../backend/src/research/README.md)). If a reading fails, the page says so and offers
 **Try again** or **Continue without reading**,
 which creates the project with no frame. Every step is optional, nothing is sent until the person asks

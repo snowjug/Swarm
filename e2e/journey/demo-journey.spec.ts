@@ -299,10 +299,13 @@ test('the presentation, step by step, in a real browser', async ({
     await expect(page.getByRole('heading', { level: 1 })).toHaveText(
       'See how a decision could unfold.',
     );
+    // The path is told in five stages in plain words, which the six scenes of the journey carry out: the question (Ask),
+    // research (Ground), people and constraints (Map), possible futures (Simulate and Compare) and the decision (Decide).
+    // It is the story of what Swarm does, and not a second copy of the bar of scenes that appears once there is a project.
     const path = page.getByRole('list', { name: 'How Swarm works' }).getByRole('listitem');
-    await expect(path).toHaveCount(6);
-    await expect(path.first()).toContainText('Ask');
-    await expect(path.last()).toContainText('Decide');
+    await expect(path).toHaveCount(5);
+    await expect(path.first()).toContainText('Question');
+    await expect(path.last()).toContainText('Decision');
     await expect(page.getByRole('textbox', { name: 'Your what-if question' })).toBeVisible();
     await axe(page, 'home');
     await shot(page, '01-home');

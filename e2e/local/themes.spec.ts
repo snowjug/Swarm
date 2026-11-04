@@ -8,6 +8,7 @@ import {
   step,
   type ThemeName,
 } from '../support/app';
+import { chooseExampleNamed } from '../support/ask';
 import { apiContext, expectNoBrowserPaintedControls, watchPage } from '../support/helpers';
 import {
   arrived,
@@ -280,7 +281,7 @@ for (const theme of THEMES) {
     test(`the first screen filled in from an example passes axe`, async ({ page }) => {
       const problems = watchPage(page);
       await page.goto('/');
-      await page.getByRole('button', { name: 'Online store checkout', exact: true }).click();
+      await chooseExampleNamed(page, 'Online store checkout');
       await audit(page, `${theme}: first screen, filled in`);
       if (theme !== 'light') await expectNoBrowserPaintedControls(page, `${theme}: filled in`);
       expect(problems).toEqual([]);
@@ -289,7 +290,7 @@ for (const theme of THEMES) {
     test('the scenario that is read from a question passes axe', async ({ page }) => {
       const problems = watchPage(page);
       await page.goto('/');
-      await page.getByRole('button', { name: 'Online store checkout', exact: true }).click();
+      await chooseExampleNamed(page, 'Online store checkout');
       await page.getByRole('button', { name: 'Explore', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Ground it' })).toBeVisible();
       await audit(page, `${theme}: the scenario that was read`);

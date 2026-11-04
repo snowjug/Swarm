@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
 import { expectScene, goTo, journey, notices, projectOf, settled, step } from '../support/app';
+import { chooseExampleNamed } from '../support/ask';
 import { apiContext, listProjects, watchPage } from '../support/helpers';
 import { pipelineCalls, recordApi } from '../support/lab-api';
 import {
@@ -74,7 +75,7 @@ async function walk(
   });
 
   await test.step('an example gives the question and its evidence, which are read into a scenario that can be corrected', async () => {
-    await page.getByRole('button', { name: EXAMPLE, exact: true }).click();
+    await chooseExampleNamed(page, EXAMPLE);
     await page.getByRole('button', { name: 'Explore', exact: true }).click();
     await expect(page.getByRole('heading', { level: 1, name: 'Your scenario' })).toBeVisible();
     // Reading is not running: nothing exists on the server until the person goes on.
@@ -273,7 +274,7 @@ test.describe('coming back to an exploration part-way', () => {
   }) => {
     const problems = watchPage(page);
     await page.goto('/');
-    await page.getByRole('button', { name: EXAMPLE, exact: true }).click();
+    await chooseExampleNamed(page, EXAMPLE);
     await page.getByRole('button', { name: 'Explore', exact: true }).click();
     await page.getByRole('button', { name: 'Ground it' }).click();
     await page.waitForURL(/[?&]project=/u);
