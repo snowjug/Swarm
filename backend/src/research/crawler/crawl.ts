@@ -4,6 +4,7 @@ import { admitSeeds, refuse } from './follow.js';
 import type { Candidate } from './frontier.js';
 import { alreadyRead, circuitOpen, domainLimit } from './errors.js';
 import { CrawlRun, SMALLEST_ROOM } from './run.js';
+import { passEnd, wakeAfter } from './schedule.js';
 import { readAddress } from './task.js';
 
 /** The kinds of stop at which what is being read is let go of; for every other, what is begun is finished. */
@@ -93,8 +94,8 @@ function refuseForRobots(
   });
 }
 
-/** Starts reading what can be read now: the best address on a host that is free and has waited long enough. */
-function start(run: CrawlRun, active: Set<Promise<void>>): void {
+/** Starts reading what can be read at `now`: the best address on a host that is free and has waited long enough. */
+function start(run: CrawlRun, active: Set<Promise<void>>, now: number): void {
   const { budget } = run.input;
   while (run.stop === null && active.size < run.tuning.maxConcurrent) {
     // What is being read counts against the limits before it is read, so that they cannot be passed.
@@ -102,7 +103,7 @@ function start(run: CrawlRun, active: Set<Promise<void>>): void {
     const room = budget.maxTotalBytes - run.used.bytes - run.reservedBytes;
     if (room < SMALLEST_ROOM) return;
     const candidate = run.frontier.take(
-      (next) => !run.activeHosts.has(next.host) && run.gate.readyIn(next.host) === 0,
+      (next) => !run.activeHosts.has(next.host) && run.gate.readyIn(next.host, now) === 0,
     );
     if (!candidate) return;
     if (!admit(run, candidate)) continue;
@@ -120,12 +121,16 @@ function start(run: CrawlRun, active: Set<Promise<void>>): void {
   }
 }
 
-/** The shortest time until something that is waiting could be read. */
-function earliestReady(run: CrawlRun): number {
+/**
+ * The shortest time from `now` until something that is waiting could be read: 0 for what could be read at
+ * once, and Infinity when nothing that is waiting is waiting for time alone. It is judged by the same
+ * reading of the clock as what `start` started, so that the two cannot disagree about a host.
+ */
+function earliestReady(run: CrawlRun, now: number): number {
   let soonest = Number.POSITIVE_INFINITY;
   for (const host of run.frontier.hosts()) {
     if (run.activeHosts.has(host)) continue;
-    soonest = Math.min(soonest, run.gate.readyIn(host));
+    soonest = Math.min(soonest, run.gate.readyIn(host, now));
   }
   return soonest;
 }
@@ -142,13 +147,24 @@ async function pause(run: CrawlRun): Promise<void> {
   }
 }
 
-/** Waits until a read ends, the next place frees up, or the time limit comes. */
-async function wait(run: CrawlRun, active: ReadonlySet<Promise<void>>): Promise<void> {
+/**
+ * Waits until a read ends, the next place frees up, or the time limit comes. `ready` is how long the next
+ * place has to wait, by the reading of the clock the pass decided by; `wakeAfter` says which of those are
+ * asked for. A wait that ends early (a timer can, by the clock that decides what to do next) is not a
+ * problem: the pass that follows reads the clock again, and asks for what is left.
+ */
+async function wait(
+  run: CrawlRun,
+  active: ReadonlySet<Promise<void>>,
+  ready: number,
+): Promise<void> {
   const wake = new AbortController();
   const signal = AbortSignal.any([run.signal, wake.signal]);
-  const timers: number[] = [Math.max(1, run.input.budget.maxElapsedMs - run.elapsed())];
-  const ready = earliestReady(run);
-  if (Number.isFinite(ready) && ready > 0) timers.push(ready);
+  const timers = wakeAfter({
+    ready,
+    reading: active.size,
+    timeLeft: run.input.budget.maxElapsedMs - run.elapsed(),
+  });
   const sleeps = timers.map((ms) => run.deps.sleep(ms, signal).catch(() => undefined));
   try {
     await Promise.race([...active, ...sleeps]);
@@ -164,8 +180,38 @@ function exhausted(run: CrawlRun): ResearchStopReason {
   return 'frontier-exhausted';
 }
 
+/** The most times in a row that places are taken back without anything being started after it. */
+const MOST_RECOVERIES = 3;
+
+/**
+ * Takes back the places of the sites that addresses are queued on, and says so. It is for a crawl with
+ * nothing being read, in which every place that is still held is one that a request did not give back.
+ * True when a place was taken back, so that another pass is worth making.
+ */
+function recover(run: CrawlRun): boolean {
+  let hosts = 0;
+  for (const host of run.frontier.hosts()) if (run.gate.settle(host)) hosts += 1;
+  if (hosts === 0) return false;
+  run.emit({
+    type: 'scheduler-recovered',
+    reason: 'place-not-given-back',
+    hosts,
+    queued: run.frontier.size,
+  });
+  return true;
+}
+
+/**
+ * The loop of the crawl. Every pass reads the clock once, and starts and waits by that reading; every
+ * wake-up, for whatever reason it comes (a read ended, a wait ended, the limit came), begins a new pass,
+ * from a new reading. How a pass can end is in `schedule.ts`: something is being read, nothing is waiting,
+ * or an address is waiting for time alone and the wait for it is asked for. A fourth end, addresses queued
+ * and nothing that would ever wake the crawl for them, is ruled out; `recover` puts it right if it comes
+ * to be, and says so.
+ */
 async function loop(run: CrawlRun): Promise<void> {
   const active = new Set<Promise<void>>();
+  let recoveries = 0;
   try {
     for (;;) {
       run.stop = run.checkStops();
@@ -173,12 +219,20 @@ async function loop(run: CrawlRun): Promise<void> {
       await pause(run);
       run.stop = run.checkStops();
       if (run.stop) break;
-      start(run, active);
-      if (active.size === 0 && (run.frontier.size === 0 || !Number.isFinite(earliestReady(run)))) {
+      const now = run.deps.now();
+      start(run, active, now);
+      const ready = earliestReady(run, now);
+      const end = passEnd({ reading: active.size, queued: run.frontier.size, ready });
+      if (end === 'reading') recoveries = 0;
+      if (end === 'stuck' && recoveries < MOST_RECOVERIES && recover(run)) {
+        recoveries += 1;
+        continue;
+      }
+      if (end === 'done' || end === 'stuck') {
         run.stop = exhausted(run);
         break;
       }
-      await wait(run, active);
+      await wait(run, active, ready);
     }
   } catch (error) {
     if (!run.signal.aborted) {

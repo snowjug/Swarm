@@ -34,7 +34,11 @@ const FIELDS: Record<CrawlEvent['type'], readonly string[]> = {
   'circuit-open': ['host', 'failures', 'reopensInMs', 'url'],
   skipped: ['url', 'reason'],
   'budget-stop': ['reason'],
+  'scheduler-recovered': ['reason', 'hosts', 'queued'],
 };
+
+/** Events that say the crawler found a fault in itself, and are not about anything that happens to an address: no ordinary crawl has one. */
+const INTERNAL: readonly CrawlEvent['type'][] = ['scheduler-recovered'];
 
 function scenario(): { routes: Record<string, Route>; seeds: ReturnType<typeof seed>[] } {
   const sameText = prose(40);
@@ -96,7 +100,12 @@ describe('the audit events', () => {
   it('report every kind of thing that happens, and nothing that is not one of them', async () => {
     const done = await everything();
     const seen = new Set(done.events.map((event) => event.type));
-    expect([...seen].sort()).toEqual(Object.keys(FIELDS).sort());
+    // A crawl that goes as it should has none of the kind that says the crawler found a fault in itself.
+    expect([...seen].sort()).toEqual(
+      Object.keys(FIELDS)
+        .filter((type) => !INTERNAL.includes(type as CrawlEvent['type']))
+        .sort(),
+    );
   });
 
   it('carry only the fields that are listed for them, so that no text of a page or of a site can be in one', async () => {

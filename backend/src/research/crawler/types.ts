@@ -138,7 +138,19 @@ export type CrawlEventBody =
       url: string;
       reason: 'domain-limit' | 'other-site' | 'redirect-refused' | 'already-read';
     }
-  | { type: 'budget-stop'; reason: ResearchStopReason };
+  | { type: 'budget-stop'; reason: ResearchStopReason }
+  /**
+   * The crawl found itself in a state that its own rules rule out, and put it right. It is not about any site:
+   * it says that the crawler has a fault, which is for whoever keeps it, and it is never shown to a person.
+   * `place-not-given-back`: addresses were queued, nothing was being read, and every site they were queued
+   * on was held by a request that had not given its place back; `hosts` such sites were let go of.
+   */
+  | {
+      type: 'scheduler-recovered';
+      reason: 'place-not-given-back';
+      hosts: number;
+      queued: number;
+    };
 
 /**
  * What the crawler reports as it goes, for an audit log. It carries the trace id, a time from the

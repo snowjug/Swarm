@@ -86,6 +86,33 @@ requests a redirect leads to. One request at a time goes to a host, and at most 
 A fetcher that ignores being told to stop is not waited for beyond two seconds (and, at a stop that lets reads
 finish, the time limit of a request and two seconds).
 
+### Waiting, and the clock the crawl decides by
+
+The crawl waits on timers (a site's delay, a retry, the time limit) and decides by a clock (`deps.now`), and
+the two disagree: Node's timers end a millisecond before `Date.now()` says the time has come in a few waits
+in a hundred (measured: 10 of 300 one-millisecond waits, 12 of 300 of 25 ms), and time passes while the crawl
+works, between one reading of the clock and the next. Four rules keep that from mattering (`schedule.ts`,
+`crawl.ts`, `limiter.ts`):
+
+- **A pass is decided by one reading of the clock.** What to start and what to wait for are judged by the same
+  reading, so that they cannot disagree about whether a site is ready. (A crawl that read the clock twice, once to
+  start and once to wait, could find a site not ready for the first and ready for the second, start nothing,
+  ask for no wait, and sleep until its time limit with pages unread.)
+- **Every wake-up begins a new pass from a new reading.** A wait that ends early is asked for again, for what
+  is left of it; one that ends late costs nothing.
+- **With nothing being read, the wait for the next place is always asked for**, for a millisecond at least,
+  however little of it is left. When reads are going on, their ends wake the crawl, and no timer is asked for
+  an address that could be read at once.
+- **Addresses queued, nothing being read and nothing to wake the crawl for them cannot be.** If every site they
+  are queued on is held by a request that did not give its place back (a fetcher's fault), the places are taken
+  back at once, the pass is made again, and a `scheduler-recovered` event says so. That event is not about a site;
+  it says the crawler or its fetcher has a fault, and is not for a person.
+
+A site's delay, the breaker's cooldown and a request's wait for its turn read the clock again after every
+wait, and are never made longer by a clock that was put back. `research-schedule.test.ts` runs a crawl on a
+clock whose waits end up to twelve milliseconds early and each of whose readings takes a millisecond, and
+fails if it reads fewer pages than there are or stops for any reason but having none left.
+
 ## What is read first
 
 A best-first queue, ranked by `score.ts` from numbers decided once in that file: a prior for the kind of
@@ -154,7 +181,9 @@ request is let through, and its answer closes or reopens the breaker.
 
 `onEvent` gets `fetch-start`, `fetch-ok`, `fetch-blocked`, `fetch-failed`, `retry`, `robots-decision`,
 `redirect`, `quarantine`, `duplicate`, `circuit-open`, `skipped` and `budget-stop`, each with the trace id and
-a time from the injected clock. The fields of each kind are a fixed list (`research-events.test.ts` fails on
+a time from the injected clock, and, only when the crawler or its fetcher has a fault, `scheduler-recovered`
+(see "Waiting, and the clock the crawl decides by"; an ordinary crawl has none). The fields of each kind are a
+fixed list (`research-events.test.ts` fails on
 any other), addresses have credentials, fragments and secret-looking query values taken out, and **no event
 carries any text a site wrote**: no title, no link text, no message. A listener that throws, or rejects, does
 not affect the crawl. Events are the same for every kind of address that is not found: they say nothing of

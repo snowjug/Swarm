@@ -76,12 +76,26 @@ export class VirtualClock {
   private order = 0;
   /** Every wait that was asked for, in order. */
   readonly sleeps: number[] = [];
+  /**
+   * For testing how code copes with the timers of a real clock, which can end before the clock that is
+   * read to decide what to do next says their time has come: how many milliseconds early a wait ends. The
+   * clock still moves on by a millisecond at least for every wait that ends.
+   */
+  earlyMs = 0;
+  /**
+   * For the same: milliseconds that pass by themselves each time the clock is read, as they do while code
+   * runs, so that two readings in one stretch of code need not agree.
+   */
+  creepMs = 0;
 
   constructor(start = 1_800_000_000_000) {
     this.time = start;
   }
 
-  readonly now = (): number => this.time;
+  readonly now = (): number => {
+    this.time += this.creepMs;
+    return this.time;
+  };
 
   readonly sleep = (ms: number, signal: AbortSignal): Promise<void> => {
     if (signal.aborted) return Promise.reject(signal.reason);
@@ -109,7 +123,7 @@ export class VirtualClock {
     if (this.timers.length === 0) return false;
     this.timers.sort((a, b) => a.at - b.at || a.seq - b.seq);
     const next = this.timers.shift() as Timer;
-    this.time = Math.max(this.time, next.at);
+    this.time = Math.max(this.time + (this.earlyMs > 0 ? 1 : 0), next.at - this.earlyMs);
     next.fire();
     return true;
   }

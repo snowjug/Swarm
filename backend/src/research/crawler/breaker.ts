@@ -41,7 +41,11 @@ export class Breakers {
   check(host: string): BreakerAnswer {
     const record = this.record(host);
     if (record.openedAt === null) return { allowed: true, state: 'closed', reopensInMs: 0 };
-    const left = record.openedAt + this.cooldownMs - this.now();
+    const now = this.now();
+    // A clock that was put back says it opened in the future: it opened no later than now, and the cooldown
+    // is not made longer by however far the clock was put back.
+    if (record.openedAt > now) record.openedAt = now;
+    const left = record.openedAt + this.cooldownMs - now;
     if (left > 0) return { allowed: false, state: 'open', reopensInMs: left };
     if (record.probing) return { allowed: false, state: 'half-open', reopensInMs: 0 };
     record.probing = true;

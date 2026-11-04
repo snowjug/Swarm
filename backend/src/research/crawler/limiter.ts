@@ -34,28 +34,40 @@ export class HostGate {
     return found;
   }
 
-  private waitFor(host: string, state: HostState): number {
+  /**
+   * How long from `at` until the host has waited long enough since its last request ended. A clock that was
+   * put back says that request ended in the future: it ended no later than `at`, and the host is not made to
+   * wait for however far the clock was put back as well as for the delay.
+   */
+  private waitFor(host: string, state: HostState, at: number): number {
     if (state.endedAt === null) return 0;
-    return Math.max(0, state.endedAt + this.delayFor(host) - this.clock.now());
+    if (state.endedAt > at) state.endedAt = at;
+    return Math.max(0, state.endedAt + this.delayFor(host) - at);
   }
 
-  /** How long until a request to the host could start: 0 when it could now, Infinity while one is running. */
-  readyIn(host: string): number {
+  /**
+   * How long until a request to the host could start: 0 when it could now, Infinity while one is running.
+   * `at` is the reading of the clock the caller is deciding by: a caller that decides several things in one
+   * pass gives every one of them the same, so that they cannot disagree about whether a host is ready.
+   */
+  readyIn(host: string, at: number = this.clock.now()): number {
     const state = this.hosts.get(host);
     if (!state) return 0;
-    return state.busy ? Number.POSITIVE_INFINITY : this.waitFor(host, state);
+    return state.busy ? Number.POSITIVE_INFINITY : this.waitFor(host, state, at);
   }
 
   /**
    * Gives back a place that a request still holds after its fetch has ended. A fetcher gives its place
-   * back as it goes; this is for one that does not, so that a host is never held for ever.
+   * back as it goes; this is for one that does not, so that a host is never held for ever. True when a
+   * place was held.
    */
-  settle(host: string): void {
+  settle(host: string): boolean {
     const state = this.hosts.get(host);
-    if (!state?.busy) return;
+    if (!state?.busy) return false;
     state.busy = false;
     state.endedAt = this.clock.now();
     state.waiting.shift()?.();
+    return true;
   }
 
   /** Resolves, with the function that gives the place back, when a request to the host may start. */
@@ -79,7 +91,9 @@ export class HostGate {
         });
         continue;
       }
-      const wait = this.waitFor(host, state);
+      // The clock is read again after every wait: a wait that ends early (a timer can, by the clock that is
+      // read here) is waited out, and one that ends late costs nothing more.
+      const wait = this.waitFor(host, state, this.clock.now());
       if (wait > 0) {
         await this.clock.sleep(wait, signal);
         continue;
