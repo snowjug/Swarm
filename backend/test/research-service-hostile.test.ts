@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { FLAG_LABEL } from '../src/research/extract/index.js';
-import { searchQueryOf } from '../src/research/search.js';
+import { identifierWordsOf, searchQueryOf } from '../src/research/search.js';
 import { productSignals } from '../src/telemetry/product-signals.js';
 import { researchApp, type ResearchApp } from './support/research-app.js';
 import { INJECTION_HEAVY_PAGE, LOGIN_PAGE, sitePage } from './support/research-pages.js';
@@ -268,8 +268,10 @@ describe('a question and an intake that are hostile', () => {
       true,
     );
     // The search is asked for the names and topics of the plan, and none of what the question tried to say as an instruction.
-    expect(questions).toEqual([searchQueryOf(run!.plan!)]);
+    expect(questions).toEqual([searchQueryOf(run!.plan!, identifierWordsOf(run!.plan!.question))]);
     expect(questions[0]).toMatch(/harbour board/u);
+    // Nor the words of the host names and the e-mail address that the question carried.
+    expect(questions[0]).not.toMatch(/evil|example|boss|corp/iu);
     expect(questions[0]).not.toMatch(ANY_ADDRESS);
     expect(questions[0]).not.toMatch(
       /ignore|instruction|fetch|send it|boss|corp\.example|steal|passwd|169\.254/iu,

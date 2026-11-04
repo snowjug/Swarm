@@ -6,6 +6,7 @@ import { buildApp } from '../src/app.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import { publicFailure, storageUnavailable } from '../src/errors.js';
 import { DatabaseError, isStorageUnavailable } from '../src/storage/failure.js';
+import { openDatabase } from '../src/storage/open.js';
 import { PostgresDatabase } from '../src/storage/postgres/database.js';
 import { Repository } from '../src/storage/repository.js';
 import type { SqlDatabase } from '../src/storage/sql.js';
@@ -59,6 +60,10 @@ describe('which failures of the store mean that it cannot serve', () => {
   it.each([
     ['a connection that failed', '08006'],
     ['a connection that could not be made', '08001'],
+    ['a connection exception that is not told apart', '08000'],
+    ['a connection that does not exist', '08003'],
+    ['a connection that the server refused', '08004'],
+    ['a connection that ended with its outcome unknown', '08007'],
     ['a server that is shutting down', '57P01'],
     ['a server that cannot take connections yet', '57P03'],
     ['a statement that ran past its timeout', '57014'],
@@ -79,12 +84,23 @@ describe('which failures of the store mean that it cannot serve', () => {
     expect(isStorageUnavailable(driver(code))).toBe(true);
   });
 
-  it.each(['23505', '23503', '42P01', '42601', '22P02', 'XX000', '0A000', 'P0001', 'EACCES', null])(
-    'is not a statement the database refused as a defect of what was asked: code %s',
-    (code) => {
-      expect(isStorageUnavailable(driver(code))).toBe(false);
-    },
-  );
+  it.each([
+    '23505',
+    '23503',
+    '42P01',
+    '42601',
+    '22P02',
+    'XX000',
+    '0A000',
+    'P0001',
+    'EACCES',
+    // A protocol violation, such as a statement sent with the wrong number of parameters, is a defect of ours, and
+    // is the one code of class 08 that is not a connection that failed.
+    '08P01',
+    null,
+  ])('is not a statement the database refused as a defect of what was asked: code %s', (code) => {
+    expect(isStorageUnavailable(driver(code))).toBe(false);
+  });
 
   it.each(['econnrefused', ' 08006', '08006 ', '08', '0800', '080061', '57', 'E08006'])(
     'is not a code that only resembles one on the list: %j',
@@ -149,6 +165,41 @@ describe('which failures of the store mean that it cannot serve', () => {
     } finally {
       holder.close();
       waiter.close();
+    }
+  });
+
+  it('is not what PostgreSQL reports for a statement sent with the wrong number of parameters: that is a defect, and stays one', () => {
+    const database = PostgresDatabase.inMemory();
+    try {
+      const wrong = caught(() => database.prepare('SELECT ? AS a').get(1, 2));
+      expect(wrong).toMatchObject({ code: '08P01' });
+      expect(isStorageUnavailable(wrong)).toBe(false);
+    } finally {
+      database.close();
+    }
+  });
+
+  it('is what SQLite itself throws when a disk fills inside a transaction, and not the failed rollback that comes after it', () => {
+    const database = openDatabase(join(workDirectory(), 'full.sqlite'));
+    try {
+      database.exec('CREATE TABLE t (x TEXT)');
+      database.exec('PRAGMA max_page_count = 12');
+      const full = caught(() =>
+        database.transaction(() => {
+          for (let row = 0; row < 500; row += 1)
+            database.prepare('INSERT INTO t (x) VALUES (?)').run('x'.repeat(2_000));
+        }),
+      );
+      // SQLite rolls the transaction back itself, so a ROLLBACK of ours finds none ("cannot rollback"), which would
+      // have been the error to report; the error is the one that came first.
+      expect(full).toMatchObject({ code: 'ERR_SQLITE_ERROR', errcode: 13 });
+      expect(isStorageUnavailable(full)).toBe(true);
+      // And the database is usable afterwards: nothing is left open.
+      expect(database.transaction(() => database.prepare('SELECT 1 AS ok').get())).toEqual({
+        ok: 1,
+      });
+    } finally {
+      database.close();
     }
   });
 

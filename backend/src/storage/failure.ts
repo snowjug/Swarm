@@ -24,20 +24,33 @@ export class DatabaseError extends Error {
 }
 
 /**
- * SQLSTATE classes in which PostgreSQL says that it, and not the statement, is the trouble: a
- * connection that failed or was lost (08), a login that was refused, as when the token of a managed
- * identity lapsed (28), a resource that ran out, such as disk, memory or connections (53), and an
- * operator or a time limit that stopped the work, such as a shutdown or a statement that ran past
- * its timeout (57).
+ * SQLSTATE classes in which PostgreSQL says that it, and not the statement, is the trouble: a login
+ * that was refused, as when the token of a managed identity lapsed (28), a resource that ran out, such
+ * as disk, memory or connections (53), and an operator or a time limit that stopped the work, such as
+ * a shutdown or a statement that ran past its timeout (57).
  */
-const SQLSTATE_CLASSES: ReadonlySet<string> = new Set(['08', '28', '53', '57']);
+const SQLSTATE_CLASSES: ReadonlySet<string> = new Set(['28', '53', '57']);
 
 /**
- * SQLSTATEs outside those classes that mean the same: a server that turned read-only, as one does
- * when it fails over (25006), a transaction that lost its race more often than it is run again
- * (40001, 40P01), and a lock that was not given in time (55P03).
+ * SQLSTATEs outside those classes that mean the same: a connection that failed, could not be made,
+ * does not exist, was refused or ended with its outcome unknown (08000, 08001, 08003, 08004, 08006,
+ * 08007), a server that turned read-only, as one does when it fails over (25006), a transaction that
+ * lost its race more often than it is run again (40001, 40P01), and a lock that was not given in time
+ * (55P03). Class 08 is not taken whole: 08P01 is a protocol violation, such as a statement sent with
+ * the wrong number of parameters, which is a defect of ours and must stay a 500.
  */
-const SQLSTATES: ReadonlySet<string> = new Set(['25006', '40001', '40P01', '55P03']);
+const SQLSTATES: ReadonlySet<string> = new Set([
+  '08000',
+  '08001',
+  '08003',
+  '08004',
+  '08006',
+  '08007',
+  '25006',
+  '40001',
+  '40P01',
+  '55P03',
+]);
 
 /** What the network reports when the server cannot be reached, or stops answering, or is not found by name. */
 const SYSTEM_CODES: ReadonlySet<string> = new Set([

@@ -341,8 +341,8 @@ visible to another tenant.
    goes back to waiting (`pending`, not `failed`) so that a person can name a page or a site, or add sources of their
    own. A provider (`search.ts`: `wikipedia`, or `brave` with a key) is asked once, for the names and topics of the
    plan and never the question as typed (`searchTermsOf`: at most 8 terms and 180 characters, with no control
-   character, no quote that could end a phrase, and no word that is a reference number, a key, a figure, an address or a
-   clause of a script written without spaces; with nothing left, nothing is asked and the run ends `blocked`), over
+   character, no quote that could end a phrase, and no word that is a reference number, a key, a figure, an address, a word of an
+   e-mail address or a host name that the question carries, or a clause of a script written without spaces; with nothing left, nothing is asked and the run ends `blocked`), over
    HTTPS with no redirect followed, within 1 MB and
    `RESEARCH_SEARCH_TIMEOUT_MS`. It answers with addresses only: a title and a snippet are what a site says about
    itself, and are dropped. Every address then goes to the crawler as any other, and one that a rule refuses is a

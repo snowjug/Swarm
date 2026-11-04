@@ -126,7 +126,15 @@ async function openPg(settings: Extract<WorkerConfig, { kind: 'pg' }>): Promise<
       }),
     async reconnect() {
       await client.end().catch(() => undefined);
-      await connect();
+      try {
+        await connect();
+      } catch (error) {
+        // What fails here is a connection that cannot be made again: the driver words it with no code when a proxy
+        // accepts and ends it, and a token that could not be had is no driver error at all. Only what the server itself
+        // reported (a login refused, a database that does not exist) keeps its own code.
+        if (error instanceof pg.DatabaseError) throw error;
+        throw lostConnection();
+      }
     },
     async close() {
       await client.end().catch(() => undefined);

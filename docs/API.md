@@ -9,7 +9,10 @@ Some not-found/rate-limit responses omit `requestId`; no provider error body is 
 A database that is down, too slow or held by others is `503 STORAGE_UNAVAILABLE` with `Retry-After: 60` and the same
 words every time ("Swarm cannot use its database right now. Nothing you did caused this. Wait a minute, then try
 again."): the kind of failure is told by the class and code the driver gives, never by its message, so no host, address,
-statement or credential is in the answer, a log line or a trace. Any other failure of the store stays `500 INTERNAL_ERROR`.
+statement or credential is in the answer, a log line or a trace. A connection that cannot be made again (a proxy that
+ends it, a token that could not be had) is told the same way, and so is a full or failing disk on SQLite, even inside a
+transaction. Any other failure of the store stays `500 INTERNAL_ERROR`, a defect of ours that PostgreSQL reports as a
+protocol violation (`08P01`, a statement sent with the wrong number of parameters) included.
 
 | Method       | Path                                                                            | Behavior                                                                                                                                                                                                                                                                                                                                                          |
 | ------------ | ------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

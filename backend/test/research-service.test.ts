@@ -510,6 +510,23 @@ describe('a question alone, with a search provider that is a real one', () => {
     expect(app.repository.get(id).question).toBe(question);
   });
 
+  it('is not sent the words of an e-mail address or of a host name that the question carries', async () => {
+    const { asked, fetcher } = answering(200, { web: { results: [] } });
+    const app = await researchApp({
+      search: braveSearch({ apiKey: KEY, endpoint: null, timeoutMs: 2_000, fetch: fetcher }),
+    });
+    const question =
+      'Should we email jane.doe@example.com about the Initech contract on vpn.corp.acme.com?';
+    const id = await app.create(question);
+    await app.post(id, '', {});
+    await app.settle();
+
+    const query = asked[0]?.url.searchParams.get('q') ?? '';
+    expect(query).toContain('Initech');
+    expect(query).not.toMatch(/jane|doe|example|\bcom\b|vpn|corp|acme/iu);
+    expect(app.repository.get(id).question).toBe(question);
+  });
+
   it('asks nothing, and says so, when nothing of the plan can be sent: the question is not the fallback', async () => {
     const { asked, fetcher } = answering(200, { web: { results: [] } });
     const app = await researchApp({

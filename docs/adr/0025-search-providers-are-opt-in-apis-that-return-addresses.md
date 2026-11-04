@@ -36,7 +36,9 @@ trusted.
    left out: one of more than 24 characters, one with a digit (but a year, and a short code such as 5G or B2B), one with
    `@`, `/`, `\`, `:`, `=`, `#` or `%`, and one in a script written without spaces (Chinese, Japanese, Thai and the like:
    the planner reads English, and a clause of such a script is the question itself). A term in which the redactor of page
-   text finds a secret or a person's contact details, and a term of function words alone, are left out whole. **The question
+   text finds a secret or a person's contact details, and a term of function words alone, are left out whole. So are the
+   words of an e-mail address or a host name that the question carries, which the planner takes apart into words that no
+   test of a single word can tell from any other (`identifierWordsOf`); a site to start from has a field of its own. **The question
    is never the fallback:** a plan with no term that can be sent makes no search, and the run says so (it ends `blocked`
    and asks for a site or a source). What is sent out is little, and what a person wrote as a reference number, a key, a
    figure or an address is not in it. The run records, in words, that it asked and with how many names and topics.

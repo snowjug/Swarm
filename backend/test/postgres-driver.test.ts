@@ -133,6 +133,25 @@ describe('the repository over the pg driver', () => {
   }, 60_000);
 });
 
+/** A process that accepts every connection on `port` and ends it at once, as a proxy with no healthy backend does. */
+async function startCloser(port: number): Promise<ChildProcess> {
+  const child = spawn(
+    process.execPath,
+    [
+      '-e',
+      `require('node:net').createServer((socket) => socket.end()).listen(${port}, '127.0.0.1', () => console.log('LISTENING'))`,
+    ],
+    { stdio: ['ignore', 'pipe', 'inherit'] },
+  );
+  await new Promise<void>((resolve, reject) => {
+    child.stdout!.on('data', (chunk: Buffer) => {
+      if (chunk.toString('utf8').includes('LISTENING')) resolve();
+    });
+    child.once('exit', () => reject(new Error('The listener that ends connections stopped.')));
+  });
+  return child;
+}
+
 describe('a server that goes away and comes back, over the pg driver', () => {
   const address = (port: string) => `postgres://swarm@127.0.0.1:${port}/postgres?sslmode=disable`;
   const failure = (run: () => unknown): unknown => {
@@ -218,4 +237,28 @@ describe('a server that goes away and comes back, over the pg driver', () => {
       second?.child.kill();
     }
   }, 180_000);
+
+  it('is reported as unavailable, every time, when what answers where it was accepts a connection and ends it at once, as a proxy with no healthy backend does', async () => {
+    const first = await startServer();
+    const database = PostgresDatabase.connect(address(first.port));
+    let closer: ChildProcess | undefined;
+    try {
+      expect(database.prepare('SELECT 1 AS ok').get()).toEqual({ ok: 1 });
+      first.child.kill('SIGKILL');
+      await new Promise((resolve) => setTimeout(resolve, 300));
+      closer = await startCloser(Number(first.port));
+      // The driver words a connection that was accepted and ended with no code ("Connection terminated unexpectedly"),
+      // and a connection that cannot be made again is the database being out of reach, not an internal error.
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        const refused = failure(() => database.prepare('SELECT 2 AS ok').get());
+        expect(refused, `attempt ${attempt + 1}`).toBeInstanceOf(DatabaseError);
+        expect((refused as DatabaseError).code).toBe('08006');
+        expect(isStorageUnavailable(refused)).toBe(true);
+      }
+    } finally {
+      database.close();
+      closer?.kill();
+      first.child.kill();
+    }
+  }, 120_000);
 });

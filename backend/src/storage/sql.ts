@@ -61,7 +61,9 @@ export class SqliteDatabase implements SqlDatabase {
       this.database.exec('COMMIT');
       return result;
     } catch (error) {
-      this.database.exec('ROLLBACK');
+      // A full disk or a failing one ends the transaction on its own, and a ROLLBACK then fails and would replace the
+      // error that is being thrown, which is the one to report.
+      if (this.database.isTransaction) this.database.exec('ROLLBACK');
       throw error;
     } finally {
       this.inTransaction = false;

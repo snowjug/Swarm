@@ -5,6 +5,7 @@ import { searchProviderFor } from '../src/research/discovery.js';
 import {
   SearchFailure,
   braveSearch,
+  identifierWordsOf,
   searchQueryOf,
   searchTermsOf,
   wikipediaSearch,
@@ -201,6 +202,42 @@ describe('what a provider is asked', () => {
     expect(searchQueryOf(plan([''], [' '], 'Fallback?'))).toBe('');
     expect(searchQueryOf(plan(['INC0048213'], ['HR-2026-04417'], 'q'.repeat(400)))).toBe('');
     expect(searchTermsOf(plan([], []))).toEqual([]);
+  });
+});
+
+describe('the words of an e-mail address or a host name that a question holds', () => {
+  it('are found in it, and are the words of nothing else', () => {
+    const question =
+      'Should we email jane.doe@example.com about the Initech contract on vpn.corp.acme.com?';
+    expect([...identifierWordsOf(question)].sort()).toEqual([
+      'acme',
+      'com',
+      'corp',
+      'doe',
+      'example',
+      'jane',
+      'vpn',
+    ]);
+    expect(identifierWordsOf('e.g. the U.S. market grew 3.5m, and Ph.D. staff left')).toEqual(
+      new Set(),
+    );
+  });
+
+  it('are left out of what is asked, because the planner takes the address apart into words that look like any others', () => {
+    const topics = ['email jane', 'doe example', 'com', 'Initech contract', 'vpn corp acme com'];
+    const question =
+      'Should we email jane.doe@example.com about the Initech contract on vpn.corp.acme.com?';
+    expect(searchTermsOf({ entities: [], topics })).toEqual([
+      'email jane',
+      'doe example',
+      'com',
+      'Initech contract',
+      'vpn corp acme com',
+    ]);
+    expect(searchTermsOf({ entities: [], topics }, identifierWordsOf(question))).toEqual([
+      'email',
+      'Initech contract',
+    ]);
   });
 });
 

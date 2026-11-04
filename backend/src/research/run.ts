@@ -32,7 +32,7 @@ import type {
   PageFetcher,
 } from './crawler/types.js';
 import type { SearchProvider } from './discovery.js';
-import { searchFailureSentence, searchTermsOf } from './search.js';
+import { identifierWordsOf, searchFailureSentence, searchTermsOf } from './search.js';
 import type { PdfReader } from './extract/index.js';
 import type { PauseControl } from './pause.js';
 import { buildResearchPlan, planQuestion, stoppingConditionsOf } from './plan.js';
@@ -341,7 +341,7 @@ export class RunPipeline {
     let hits: Awaited<ReturnType<SearchProvider['search']>>;
     // What the provider is sent is a few of the names and topics of the plan, with no identifier, key or figure among
     // them, and never the question as it was typed. With none that can be sent, nothing is asked.
-    const terms = searchTermsOf(this.plan);
+    const terms = searchTermsOf(this.plan, identifierWordsOf(this.plan.question));
     if (terms.length === 0) {
       recorder.event(
         'info',

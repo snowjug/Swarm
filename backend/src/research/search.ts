@@ -115,10 +115,27 @@ const tidy = (text: string): string => text.replace(CONTROL, ' ').replace(/\s+/g
  * such as 5G or B2B. Nor is a run of a script that is written without spaces (Chinese, Japanese, Thai and the like): the
  * planner reads English, and a clause of such a script is the question itself. It errs on the side of sending less.
  */
-function sendable(word: string): boolean {
+function sendable(word: string, avoid: ReadonlySet<string>): boolean {
+  if (avoid.has(word.toLowerCase())) return false;
   if (word.length > MAX_WORD_CHARS || /[@/\\:=#%]/u.test(word) || UNSPACED.test(word)) return false;
   if (/\p{N}/u.test(word)) return YEAR.test(word) || (word.length <= 4 && /\p{L}/u.test(word));
   return true;
+}
+
+const EMAIL_ADDRESS = /[\p{L}\p{N}._%+-]+@[\p{L}\p{N}-]+(?:\.[\p{L}\p{N}-]+)+/gu;
+const HOST_NAME = /\b(?:[\p{L}\p{N}](?:[\p{L}\p{N}-]{0,61}[\p{L}\p{N}])?\.)+\p{L}{2,24}\b/gu;
+
+/**
+ * The words of the e-mail addresses and host names that a text holds, in lower case. The planner takes such an address
+ * apart into words ("jane", "doe", "example", "com") that no test of a single word can tell from any other, so they are
+ * found in the question and left out of what is asked: an e-mail address is a person's, and the name of a host may be of
+ * a system that is not public. A site to start from is named in its own field, not in the question.
+ */
+export function identifierWordsOf(text: string): ReadonlySet<string> {
+  const words = new Set<string>();
+  for (const found of [...text.matchAll(EMAIL_ADDRESS), ...text.matchAll(HOST_NAME)])
+    for (const word of found[0].split(/[^\p{L}\p{N}]+/u)) if (word) words.add(word.toLowerCase());
+  return words;
 }
 
 /** Whether the redactor of what a page may say finds a secret, or the contact details of a person, in a term. */
@@ -134,14 +151,14 @@ function holdsSecret(term: string): boolean {
  * redactor finds a secret. **The question is never the fallback:** a plan with no name and no topic that can be sent
  * gives no term, and then nothing is asked.
  */
-export function searchTermsOf(plan: PlanTerms): string[] {
+export function searchTermsOf(plan: PlanTerms, avoid: ReadonlySet<string> = new Set()): string[] {
   const seen = new Set<string>();
   const terms: string[] = [];
   const add = (raw: string, quoteMany: boolean): void => {
     const words: string[] = [];
     for (const word of tidy(raw).replace(/["“”]/gu, '').split(' ')) {
       const kept = word.replace(EDGES, '');
-      if (!kept || !sendable(kept)) continue;
+      if (!kept || !sendable(kept, avoid)) continue;
       if ([...words, kept].join(' ').length > MAX_TERM_CHARS || words.length >= WORDS_IN_TERM)
         break;
       words.push(kept);
@@ -166,7 +183,8 @@ export function searchTermsOf(plan: PlanTerms): string[] {
 }
 
 /** The terms of the plan as one query, or nothing when there is no term to ask for. */
-export const searchQueryOf = (plan: PlanTerms): string => searchTermsOf(plan).join(' ');
+export const searchQueryOf = (plan: PlanTerms, avoid?: ReadonlySet<string>): string =>
+  searchTermsOf(plan, avoid).join(' ');
 
 // -- what a provider answers ---------------------------------------------------------------------------------------------
 
