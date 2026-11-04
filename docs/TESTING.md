@@ -978,11 +978,14 @@ npm.cmd run lint
 npm.cmd run format
 ```
 
-CI (`.github/workflows/ci.yml`) runs, with `AI_PROVIDER=none`: `npm run check`, `format:check`,
-`npm audit --audit-level=high`, `scan:secrets`, a Playwright install of Chromium and `npm run test:e2e`
-(all five projects), Compose validation, and an actual Docker build with a health, UI and
-`smoke:console` check inside the container (PDF parsing and the full staged local workflow included).
-A second job runs `npm run test:postgres`. It does not run the mutation checks, the load and
+CI (`.github/workflows/ci.yml`) runs, with `AI_PROVIDER=none`, five jobs. **quality**: `npm run check`,
+`format:check`, `npm audit --audit-level=high`, `scan:secrets`, Compose validation, and an actual Docker build with a
+health, UI and `smoke:console` check inside the container (PDF parsing and the full staged local workflow included).
+**e2e**: one job for each browser project (lab, local, model, sign-in, the demonstration journey) and one for the
+production journey and its failure cases, each with its own build, Chromium and up to two hours; they were one step of
+the quality job, which the 30 minutes of that job could not hold, so every run of it ended cancelled. **postgres**:
+`npm run test:postgres`. **iac**: the Bicep validation and the template invariants. **gates**: a summary that fails
+unless all of them passed. It does not run the mutation checks, the load and
 resilience tests, the UI audit, `azure:verify` or the live `demo:journey`. Local Docker image execution
 requires a running engine and is separate from native validation.
 
