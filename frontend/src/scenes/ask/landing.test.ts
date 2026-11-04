@@ -20,6 +20,7 @@ import {
   HORIZONS,
   horizonText,
   researchIntake,
+  researchNext,
   researchNote,
   researchSwitchNote,
   validateIntake,
@@ -50,7 +51,10 @@ function researchSentences(which?: 'with a provider' | 'without a provider'): st
     ),
     ...TRUTH.flatMap((runs) =>
       SITES.flatMap((site) =>
-        [0, 2].flatMap((documents) => researchNote({ runs, discovery, site, documents }) ?? []),
+        [0, 2].flatMap((documents) => {
+          const said = { runs, discovery, site, documents };
+          return [researchNote(said), researchNext(said)].flatMap((line) => line ?? []);
+        }),
       ),
     ),
     ...TRUTH.flatMap((research) => {
@@ -489,9 +493,51 @@ describe('what the page says research does, by what the server does', () => {
   it('says nothing of research where the sources that were added are what is used, or where research is off', () => {
     for (const discovery of TRUTH) {
       expect(researchNote({ runs: true, discovery, site: NONE, documents: 3 })).toBeNull();
+      expect(researchNext({ runs: true, discovery, site: NONE, documents: 3 })).toBeNull();
       for (const site of [NONE, HARBOUR, PAGE]) {
         expect(researchNote({ runs: false, discovery, site, documents: 0 })).toBeNull();
+        expect(researchNext({ runs: false, discovery, site, documents: 0 })).toBeNull();
       }
+    }
+  });
+
+  it.each([
+    [
+      'a site that is named, with no source of its own',
+      true,
+      false,
+      HARBOUR,
+      0,
+      'harbour.example.org',
+    ],
+    [
+      'a site that is named, beside sources of its own',
+      true,
+      false,
+      HARBOUR,
+      2,
+      'harbour.example.org',
+    ],
+    ['a page that is named', true, true, PAGE, 0, 'a page of harbour.example.org'],
+  ] as const)(
+    'says at the foot of the review what the press that goes on will do, in a few words: %s',
+    (_what, runs, discovery, site, documents, named) => {
+      expect(researchNext({ runs, discovery, site, documents })).toBe(`Then Swarm reads ${named}.`);
+    },
+  );
+
+  it('says at the foot of the review, for a question alone, that Swarm looks for sources only where it can, and otherwise that it asks', () => {
+    expect(researchNext({ runs: true, discovery: true, site: NONE, documents: 0 })).toBe(
+      'Then Swarm looks for public sources.',
+    );
+    expect(researchNext({ runs: true, discovery: false, site: NONE, documents: 0 })).toBe(
+      'Then Swarm asks you for a website or a source.',
+    );
+    // It never says that a source is needed: where research runs, none is.
+    for (const discovery of TRUTH) {
+      expect(researchNext({ runs: true, discovery, site: NONE, documents: 0 })).not.toMatch(
+        /\b(?:must|need|needs|require|required|attach at least)\b/iu,
+      );
     }
   });
 
@@ -519,6 +565,10 @@ describe('what the page says research does, by what the server does', () => {
               researchNote({ runs, discovery, site, documents }) !== null,
               JSON.stringify({ runs, discovery, site: site.kind, documents }),
             ).toBe(startsResearch({ documents: Array.from({ length: documents }), research }));
+            // The bar at the foot says it exactly when the evidence part of the review does.
+            expect(researchNext({ runs, discovery, site, documents }) !== null).toBe(
+              researchNote({ runs, discovery, site, documents }) !== null,
+            );
           }
         }
       }

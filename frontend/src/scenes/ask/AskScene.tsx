@@ -50,6 +50,7 @@ import {
   classifySite,
   horizonText,
   researchIntake,
+  researchNext,
   researchNote,
   validateIntake,
   withIntake,
@@ -414,12 +415,14 @@ export function AskScene({
   const heading = phase === 'review' ? 'Your scenario' : 'See how a decision could unfold.';
   const missingSource = asked && documents.length === 0 && !researchRuns;
   // What the review says research will do, by what will happen: nothing where the sources the person added are what is used.
-  const researchLine = researchNote({
+  const research = {
     runs: researchRuns,
     discovery: discovers,
     site: siteKind,
     documents: documents.length,
-  });
+  };
+  const researchLine = researchNote(research);
+  const researchOnward = researchNext(research);
   const advancedSet =
     (geography.trim() ? 1 : 0) + (guidance.trim() ? 1 : 0) + (assumed.length > 0 ? 1 : 0);
   const flags = capabilityFlags(config);
@@ -823,6 +826,7 @@ export function AskScene({
                 notes={read?.notes ?? []}
                 issues={issues}
                 error={error}
+                next={researchOnward}
                 continuing={starting}
                 onBack={() => {
                   wantsQuestion.current = true;

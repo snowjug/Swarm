@@ -26,9 +26,12 @@ const PeopleDialog = lazy(() =>
 
 export type PanelName = 'history' | 'ask' | 'audit' | 'budget' | 'access' | 'people';
 
-/** The question field of the first screen, or failing that the page itself: where "Ask a question" leaves a person. */
+/**
+ * The question field of the first screen, or failing that the page itself: where "Ask a question" leaves a person. The
+ * field is named by the visible label that points at its id (`Composer`), so it is found by that id.
+ */
 function focusTheQuestion(): void {
-  const field = document.querySelector<HTMLElement>('[aria-label="Your what-if question"]');
+  const field = document.getElementById('swarm-question');
   (field ?? document.getElementById('main-content'))?.focus();
 }
 

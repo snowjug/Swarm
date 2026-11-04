@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { chooseExampleNamed } from '../support/ask';
 import {
   expectNoAxeViolations,
   expectNoBrowserPaintedControls,
@@ -102,7 +103,7 @@ test.describe('browser sign-in with Microsoft Entra', () => {
     const page = await second.newPage();
     await page.goto('/');
     await expectSignedIn(page);
-    await page.getByRole('button', { name: 'Online store checkout', exact: true }).click();
+    await chooseExampleNamed(page, 'Online store checkout');
     await page.getByRole('button', { name: 'Explore', exact: true }).click();
     // The refusal may come when the question is read or when the exploration is made; either way it is told, in words.
     const ground = page.getByRole('button', { name: 'Ground it' });

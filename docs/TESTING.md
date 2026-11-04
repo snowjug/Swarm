@@ -99,7 +99,7 @@ runs both over the briefs of the example packs. `readme.test.ts` fails if the RE
 variable, a link or an image that does not exist, or claims what the evidence does not support.
 
 Browser coverage of the lab is the `lab` project, which runs `e2e/lab/*.spec.ts` against built,
-rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-eight
+rules-mode servers (`AI_PROVIDER=none`) of their own and reaches no page on the real internet. Its twenty-nine
 specs are described under [End-to-end, accessibility, security and load
 evidence](#end-to-end-accessibility-security-and-load-evidence). `ask-pipeline.spec.ts` walks the flagship
 demonstrations and a question that no example knows, with a public page as evidence, through the question,
@@ -502,7 +502,7 @@ directory (never your own data):
   the settings menu, where the account lives, says "Signed in · Microsoft Entra" and offers to sign out.
 - **`e2e/lab`** — the scenario lab in rules mode (`AI_PROVIDER=none`), through its pages, so that it needs no
   model. The servers are the real application with throwaway data, so the project neither depends on nor
-  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-eight specs:
+  changes what the others leave behind, and no test in it reaches a page on the real internet. Twenty-nine specs:
   - `ask-first-use.spec.ts`: the first-use task test. A person who has never seen the screen, and is told
     nothing, wants to know what would happen if a harbour office doubled its fee. The first ten seconds say
     what Swarm does, what to type, what it does by itself, why to trust it, and that it explores and does not
@@ -514,11 +514,24 @@ directory (never your own data):
     (one more signal where constraints are kept); a step says what Swarm does and what the person controls when
     it is pressed or reached by the arrows; the page is clean in each theme and at every size; it does not look
     like a demonstration launcher (one link, after everything that matters); and a template fills the box to be
-    written over, and a question that is only the template is not read. Where the server researches the spec
-    runs against it end to end. Where it does not yet, the page is told that it does and the one call that makes
-    the project is answered with a project the server made from the same question, so that what is measured is
-    what the page sends and where it goes next.
-  - `ask-composer.spec.ts`: the first ten seconds. Before a word is typed the page says in one heading
+    written over, and a question that is only the template is not read. Each test says which server it is
+    about. Most are about the one the suite starts, which researches (it does unless it is set not to) and has no
+    search provider behind it: the switch is on and says what it does there ("Reads the website you name. With
+    none, it asks you for a source."), a question alone is enough to ask, and in Ground it waits, calmly, as
+    **Needs a source**; where the server is otherwise they stop and say why. The tests that tell the page what the
+    server says (a search provider, constraints) are about what the page claims: it says that Swarm finds and reads
+    public sources only where a provider is behind the server. The first screen of a server where research is off
+    is `ask-composer.spec.ts`.
+  - `ask-research.spec.ts`: what the first screen asks of research, through the real application and the fixture
+    web of `research-e2e-server.ts` (the server of `research-journey.spec.ts`, started the same way). A site that
+    is named is read beside a source that was added, and the source is kept: the page starts the run and nothing
+    else, the run reads first and grounds the project, and the project holds the person's own text as it was
+    written and the pages that were read. Sources that were added and no site that is named are what is read:
+    the review says nothing of research, the page asks for the evidence to be read and for no research, and the
+    fixture web is not asked for a page. Skipped where the server does not research.
+  - `ask-composer.spec.ts`: the first ten seconds, on a server where research is off (`RESEARCH_ENABLED=off`),
+    which the spec starts on a port of its own ([the ports](#running-one-project-and-the-ports)): a project needs a
+    source there, and the switch is off and out of reach. Before a word is typed the page says in one heading
     what Swarm is for, asks one question, offers the templates as chips that are buttons and the sample
     cases as one quiet link, and keeps the short line and the responsible-use sentence in sight, and
     nothing on it claims to predict. A keyboard reaches the
@@ -572,7 +585,9 @@ directory (never your own data):
     the person is told which blank is left; **Custom** is the way to start from nothing. Each sample case is
     read into a scenario about its own question, and becomes a project whose sources are marked as samples
     and which has no result.
-  - `ask-scenario-review.spec.ts`: the scenario Swarm reads from the question, laid out to be read and
+  - `ask-scenario-review.spec.ts`: the scenario Swarm reads from the question, on the server where research is
+    off that `ask-composer.spec.ts` starts too (a project needs a source there, which the bar at the foot says),
+    laid out to be read and
     corrected before anything is made. It says how it was made, has stored nothing yet and claims
     nothing about the future. Every piece of text is edited where it stands (Enter keeps the edit, Escape
     drops it, and a long text takes Ctrl+Enter); the first edit makes the scenario the person's own and
@@ -883,10 +898,14 @@ which is how two runs on one machine, or a run beside your own server, avoid eac
 `E2E_LAB_WEB_URL` and `E2E_LAB_WEB_FIXTURE_URL` are worked out from the two ports above for the workers (the
 two specs that use the web of fixture pages read them), and you do not set them.
 
-`research-journey.spec.ts` is the one spec that starts a server of its own rather than taking one from the
+`research-journey.spec.ts` and `ask-research.spec.ts` start a server of their own rather than taking one from the
 configuration: the application on `E2E_LAB_RESEARCH_PORT` (3119) and its fixture web on
 `E2E_LAB_RESEARCH_FIXTURE_PORT` (3120), serving the built page unless `E2E_LAB_RESEARCH_PAGE_URL` names a
-development server that proxies to it. Move them as you would the ports above when another run may hold them.
+development server that proxies to it. `ask-composer.spec.ts` and `ask-scenario-review.spec.ts` start one too: the
+application with research off (`RESEARCH_ENABLED=off`) on `E2E_LAB_MANUAL_PORT` (3121), serving the built page
+unless `E2E_LAB_MANUAL_PAGE_URL` names a development server that proxies to it (`E2E_LAB_MANUAL_ORIGINS` lists
+the origin of that page, where the proxy does not rewrite it). Move them as you would the ports above when another
+run may hold them.
 
 ```powershell
 npm.cmd run build   # the servers run the built output in dist/

@@ -155,6 +155,8 @@ async function attachNotes(user: UserEvent) {
 
 const SEARCH_PROMISE = /finds and reads public sources|looks for public sources/u;
 const CANNOT_SEARCH = 'This server cannot look for sources from a question alone.';
+/** The bar at the foot of the review: the way back, what the press that goes on will do, and the way on. */
+const continueBar = () => within(screen.getByRole('group', { name: 'Continue' }));
 
 const written = (call: number) =>
   net.parse.mock.calls[call] as [string, unknown[], unknown, boolean];
@@ -189,6 +191,12 @@ describe('on a server that researches for itself, and has no search provider', (
     expect(screen.queryByText(/Automatic research is on/u)).toBeNull();
     expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);
     expect(screen.getByText('Nothing runs until you continue.')).toBeTruthy();
+    // And at the foot, where the person decides: what the press will do, and no claim that a source is needed.
+    expect(continueBar().getByText('Then Swarm asks you for a website or a source.')).toBeTruthy();
+    expect(continueBar().queryByText(/Attach at least one source/u)).toBeNull();
+    expect(
+      (continueBar().getByRole('button', { name: 'Ground it' }) as HTMLButtonElement).disabled,
+    ).toBe(false);
 
     await user.click(await groundIt());
     expect(onSubmit).toHaveBeenCalledTimes(1);
@@ -213,6 +221,7 @@ describe('on a server that researches for itself, and has no search provider', (
       ),
     ).toBeTruthy();
     expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
+    expect(continueBar().getByText('Then Swarm reads harbour.example.org.')).toBeTruthy();
     await user.click(await groundIt());
     expect(onSubmit.mock.calls[0]![0].research).toEqual({
       auto: true,
@@ -233,6 +242,7 @@ describe('on a server that researches for itself, and has no search provider', (
         'Automatic research is on. After you continue, Swarm reads a page of harbour.example.org and the pages it links to, and lists every page it reads.',
       ),
     ).toBeTruthy();
+    expect(continueBar().getByText('Then Swarm reads a page of harbour.example.org.')).toBeTruthy();
     await user.click(await groundIt());
     expect(onSubmit.mock.calls[0]![0].research).toEqual({
       auto: true,
@@ -252,6 +262,9 @@ describe('on a server that researches for itself, and has no search provider', (
     expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
     expect(document.body.textContent).not.toMatch(SEARCH_PROMISE);
     expect(written(0)[1]).toHaveLength(1);
+    // The bar says that nothing runs, and nothing more: no research runs, and no source is asked for.
+    expect(continueBar().getByText('Nothing runs until you continue.')).toBeTruthy();
+    expect(continueBar().queryByText(/^Then /u)).toBeNull();
 
     await user.click(await groundIt());
     const sent = onSubmit.mock.calls[0]![0];
@@ -452,6 +465,7 @@ describe('on a server that can also look for sources from a question alone', () 
       ),
     ).toBeTruthy();
     expect(screen.queryByText(CANNOT_SEARCH, { exact: false })).toBeNull();
+    expect(continueBar().getByText('Then Swarm looks for public sources.')).toBeTruthy();
 
     await user.click(await groundIt());
     const sent = onSubmit.mock.calls[0]![0];
@@ -523,6 +537,33 @@ describe('on a server that does not research', () => {
     await user.click(await groundIt());
     expect(onSubmit.mock.calls[0]![0].research).toEqual({ auto: false });
     expect(onSubmit.mock.calls[0]![0].documents).toHaveLength(1);
+  });
+
+  it('says in the bar at the foot of the review that a source is needed when every source was taken away, and says no more of research', async () => {
+    const { user, onSubmit } = renderAsk({ config: BASE });
+    await user.click(questionBox());
+    await user.paste(QUESTION);
+    await attachNotes(user);
+    await user.click(explore());
+    await groundIt();
+    // Nothing researches here, so the bar says that nothing runs, and nothing of what comes next.
+    expect(continueBar().getByText('Nothing runs until you continue.')).toBeTruthy();
+    expect(continueBar().queryByText(/^Then /u)).toBeNull();
+    expect(screen.queryByText(/Automatic research is on|cannot look for sources/u)).toBeNull();
+
+    // Take the one source away and go on: the project is not made, and the bar says why, as it always did.
+    await user.click(
+      within(screen.getByRole('list', { name: 'Attached evidence' })).getByRole('button', {
+        name: /^Remove /u,
+      }),
+    );
+    await user.click(await groundIt());
+    expect(
+      await within(screen.getByRole('group', { name: 'Continue' })).findByText(
+        /Attach at least one source document/u,
+      ),
+    ).toBeTruthy();
+    expect(onSubmit).not.toHaveBeenCalled();
   });
 });
 

@@ -312,14 +312,15 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   used by automatic research. **Time horizon** is a segmented control (**Not sure**, **Next quarter**, **6
   months**, **1 year**, **3 years**, **Custom**) that is a list on a phone, where six would not fit in a row;
   **Custom** opens a field for the person's own words. **Research automatically** is a switch, on by default
-  where the server researches, and a line beside it says what it does in each state ("Swarm finds and reads
-  public sources for you.", "Manual sources only: Swarm reads what you add.", and, where the server does not
-  research, "Off on this server. Attach your own sources."), which is also why it cannot be turned on there.
-  It is the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its
-  own and why the review says what it will do before it does it. The first of those lines promises more than
-  this build can do: there is no search provider, so a question with no website and no source of the person's
-  own gives research nothing to read, and Ground says **Needs a source**. Neither the line nor the review's
-  asks the server whether it can find sources.
+  where the server researches, and a line beside it says what it does in each state, by what the server says it
+  can do: where a search provider is behind it (`research.discovery.available`), "Swarm finds and reads public
+  sources for you."; where none is, as in this build, "Reads the website you name. With none, it asks you for a
+  source."; with the switch off, "Manual sources only: Swarm reads what you add."; and where the server does not
+  research, "Off on this server. Attach your own sources.", which is also why it cannot be turned on there. It is
+  the one thing Swarm does that the person did not ask for by name, which is why it is a switch of its own and why
+  the review says what it will do before it does it. The page promises a search only where the server says it has
+  one: with no search provider, a question with no website and no source of the person's own gives research
+  nothing to read, the review says so, and Ground says **Needs a source**.
 - **Three tools sit at the foot of the composer**, **Evidence**, **Advanced** and **Options**; **Options**
   shows only an icon, its word kept in its accessible name.
   - **Evidence** brings files (TXT, Markdown, CSV and JSON, and PDF only where the server reports that it
@@ -359,11 +360,17 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   documents · sample evidence"; its accessible name begins with its visible words, and pressing it brings the
   templates back). The foot also holds "Explore scenarios, not predictions." and the positioning statement.
 - **How Swarm works** is five steps a person can open, **Question**, **Research**, **People** (**People and
-  constraints** where the server keeps constraints), **Possible futures** and **Decision**. Each is a button
+  constraints** where the server keeps constraints), **Possible futures** and **Decision**. They are the path in
+  plain words, and the six scenes of the journey carry it out: the question is Ask, research is Ground, the people
+  and constraints are Map, the possible futures are Simulate and Compare, and the decision is Decide. Each is a
+  button
   (pressing it, or resting a pointer on it for a moment, opens it; the arrow keys, Home and End move between
   them) that shows what Swarm does there and what the person decides, in words, so that nothing is told by the
   drawing alone. What it says follows what the server can do: where research is off the second step is about
-  the sources the person attaches. Each line says what is done and never what the result is.
+  the sources the person attaches, and where research is on with no search provider behind the server (as in this
+  build) it says that Swarm reads the website that is named and the files that are added; only where there is a
+  provider does it say that Swarm finds and reads public sources. Each line says what is done and never what the
+  result is.
 - **What every exploration includes** is a line of short words, **Evidence linked**, **Assumptions visible**,
   **Alternatives compared**, **Constraints considered** and **Human approval before simulation**, each drawn
   only where the server does what it says (the constraints, only where the server reports them), with **What
@@ -372,11 +379,14 @@ composer the screen goes on in a fixed order: the templates (or the note that na
   decision, what it affects, where and over what time, what changes, what is expected if nothing changes,
   ways to do it, who is affected, what is assumed (each marked as the person's or the system's), the
   questions Swarm asks, and the evidence. It needs a sentence, and a source unless research is on. Where
-  research is on, the review says what will happen before it does ("Automatic research is on. After you
-  continue, Swarm looks for public sources, starting from example.org, and lists every page it reads."). The
-  line is shown whether or not a source is attached, and with no website it says no more than that Swarm looks
-  for public sources; what research does is read the website that was named, and only for a question with no
-  source of its own.
+  research will run, the review says what will happen before it does, by what the server can do. For a site or a
+  page that was named: "Automatic research is on. After you continue, Swarm reads example.org and the pages it
+  links to, and lists every page it reads." It says so whether or not a source was attached, and the sources
+  that were added are kept and read with what research reads. For a question alone it says "Automatic research is
+  on. After you continue, Swarm looks for public sources, and lists every page it reads." only where a search
+  provider is behind the server, and otherwise "This server cannot look for sources from a question alone. After
+  you continue, Swarm asks you to name a website or add a source." Where the sources that were added are what is
+  used (no site was named), it says nothing of research, because none runs.
   **Ground it** creates the project and starts reading the evidence, or researching for it; nothing runs
   before that. A reading that takes long enough to notice is a page of its own: the question stays, focus is
   on **Stop**, and Stop or Escape gives focus back to the question with all that was written. A reading that

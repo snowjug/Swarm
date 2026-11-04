@@ -157,6 +157,16 @@ export async function openSamples(page: Page): Promise<Locator> {
   return dialog;
 }
 
+/**
+ * Picks a sample case by the name it has in the list, for a spec that only walks on from it: the question and the
+ * sources are in the composer when this returns. A spec that is about the case itself uses `chooseExample`.
+ */
+export async function chooseExampleNamed(page: Page, name: string): Promise<void> {
+  const dialog = await openSamples(page);
+  await dialog.getByRole('button', { name, exact: true }).click();
+  await expect(dialog).toBeHidden();
+}
+
 /** Picks a sample case and waits until its question and every document are in the composer, and have arrived. */
 export async function chooseExample(page: Page, example: ExampleScenario): Promise<void> {
   const dialog = await openSamples(page);
@@ -320,6 +330,14 @@ export const goOn = (page: Page): Locator =>
   page.getByRole('button', { name: 'Ground it', exact: true });
 /** The bar at the foot of the scenario: the way back, what is missing or that nothing runs yet, and the way on. */
 export const bar = (page: Page): Locator => page.getByRole('group', { name: 'Continue' });
+
+/**
+ * The way back from the scenario to the question. It is the button of the bar, found there and not by its name alone:
+ * the first step of "How Swarm works" on the first screen is a button named "Question" too, and while the first screen
+ * is leaving a press on that one would go nowhere.
+ */
+export const backToQuestion = (page: Page): Locator =>
+  bar(page).getByRole('button', { name: 'Question', exact: true });
 
 /** Presses Explore and waits for the scenario that was read from the question, whole and on its own. */
 export async function readScenario(page: Page): Promise<void> {

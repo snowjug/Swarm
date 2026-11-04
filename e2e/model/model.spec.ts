@@ -1,5 +1,6 @@
 import { expect, test, type APIRequestContext, type PlaywrightWorkerArgs } from '@playwright/test';
 import { openApp } from '../support/app';
+import { chooseStarter } from '../support/ask';
 import { advance, apiContext, createGuided, getProject, watchPage } from '../support/helpers';
 import { forget, openSettings } from '../support/shell';
 
@@ -62,7 +63,7 @@ test.describe('model-assisted workflow against a protocol-faithful fake provider
       await options.getByRole('spinbutton', { name: 'Proxies' }).fill(String(PROXIES));
       await options.getByRole('spinbutton', { name: 'Rounds' }).fill(String(ROUNDS));
       await page.keyboard.press('Escape');
-      await page.getByRole('button', { name: 'Library hours', exact: true }).click();
+      await chooseStarter(page);
       await page.getByRole('button', { name: 'Explore', exact: true }).click();
       await page.getByRole('button', { name: 'Ground it', exact: true }).click();
       await expect(page.getByRole('button', { name: 'Map the stakeholders' })).toBeVisible({

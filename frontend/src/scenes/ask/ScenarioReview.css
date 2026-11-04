@@ -274,6 +274,10 @@
   .sw-rv__error {
     color: var(--c-critical);
   }
+  /* What the press that goes on will do, under the line that says nothing runs until then. */
+  .sw-rv__next {
+    display: block;
+  }
   @media (max-width: 40rem) {
     .sw-rv__bar {
       bottom: calc(var(--s-3) + env(safe-area-inset-bottom));
