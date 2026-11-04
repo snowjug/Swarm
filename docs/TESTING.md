@@ -1049,7 +1049,8 @@ the secret scan with 0 findings, Compose validation, and a container build check
 `smoke:console`); **the whole unit suite again against PostgreSQL (PGlite)**, 8,426 passed and 31 skipped (the Bicep
 invariants, which need no database); the **Bicep** validation; and the browser suites as six jobs, **lab 614** (613 first
 time and one that passed on its retry: a selector of `ground.spec.ts` that matched three "Ready"s, since made
-unambiguous), **local shell, themes and accessibility 354, model 51, sign-in 20, the demonstration journey 8, the
+unambiguous; the next run had one in `report-detail.spec.ts`, which scanned a page before its scene had mounted a headline,
+and `openDecide` now waits for it), **local shell, themes and accessibility 354, model 51, sign-in 20, the demonstration journey 8, the
 production journey and its failure cases 19**. On this machine: the mutation checks (**166 of 166 caught**, and the
 storage area again on the final code, 22 of 22), the UI audit (130 states at five viewports in two themes: no axe
 violation, no overflow, no text or target too small, no console error), the race tests against a real PostgreSQL 16.15
