@@ -541,6 +541,15 @@ export interface BudgetLine {
 const dollars = (value: number): string => `$${value.toFixed(2)}`;
 const of = (spent: string, allowed: string): string => `${spent} of ${allowed}`;
 
+/** What a run says of the model: it planned, it was asked and gave no plan that could be used, or it was not asked. `modelUsed` is "asked". */
+export function modelLine(run: Pick<ResearchRun, 'modelUsed' | 'plan'>): string {
+  if (run.plan?.origin === 'model')
+    return 'A model you chose planned what to look for in this run.';
+  return run.modelUsed
+    ? 'A model you chose was asked to plan this run and did not give a plan that could be used, so rules planned it.'
+    : 'No model was used in this run.';
+}
+
 /** What the run may use, and what it has used, line by line. The ceilings are the server's: they are read here and not set. */
 export function budgetLines(run: ResearchRun): BudgetLine[] {
   const { budget, used: spent } = run;

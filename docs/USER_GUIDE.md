@@ -259,8 +259,8 @@ the sources fill the first screen.
   one main button (**Start research**, **Pause**, **Resume**, **Finish early**, **Cancel**, **Try again**) are
   the run's, and the six stages (Planning, Finding sources, Reading, Extracting evidence, Checking conflicts,
   Ready) light as it reaches them. Under them is every page it looked at: its title, its site, what kind of
-  site it is, an **authority estimate** ("An estimate from the kind of site it is. It says nothing about
-  whether a page is right."), what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or
+  site it is, an **authority estimate** for a page that was read ("An estimate from the kind of site it is. It says
+  nothing about whether a page is right."; a page that was refused, did not answer or was set aside has none), what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or
   Skipped, with the reason of each that was set aside), and **Provenance**: where it was fetched from, when,
   what its content hashes to, whether the site's robots.txt allowed it, and how its text was taken. **Cancel**
   asks first. **Suggestions** are the kinds of source the plan says to look for, and the sites it names, which

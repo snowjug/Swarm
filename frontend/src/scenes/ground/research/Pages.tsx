@@ -54,6 +54,13 @@ const OUTCOME_ICON: Record<SourceOutcome, LucideIcon> = {
   skipped: SkipForward,
 };
 
+/**
+ * The pages that were read, and so have a kind of site to say. A page that was refused, did not answer, was skipped, was a
+ * copy of another or was set aside is on a site that only someone named: an estimate of it would say more than is known, and
+ * "High" beside an address that was never reached is not true of anything.
+ */
+const WAS_READ: ReadonlySet<SourceOutcome> = new Set(['used', 'read']);
+
 /** What kind of site a page is on, as three marks and a word: an estimate, never a verdict, and never only a colour. */
 function Authority({ estimate }: { estimate: AuthorityEstimate }) {
   const steps = AUTHORITY_STEPS[estimate];
@@ -145,14 +152,16 @@ function PageRow({
         <span aria-hidden="true"> · </span>
         {SOURCE_CATEGORY_LABELS[source.category]}
       </p>
-      <p className="sw-research-page__facts">
-        <Authority estimate={source.authority} />
-        {dates.map((date) => (
-          <span key={date.label} className="sw-research-page__date">
-            {date.label} <time dateTime={date.iso}>{formatDay(date.iso)}</time>
-          </span>
-        ))}
-      </p>
+      {(WAS_READ.has(source.outcome) || dates.length > 0) && (
+        <p className="sw-research-page__facts">
+          {WAS_READ.has(source.outcome) && <Authority estimate={source.authority} />}
+          {dates.map((date) => (
+            <span key={date.label} className="sw-research-page__date">
+              {date.label} <time dateTime={date.iso}>{formatDay(date.iso)}</time>
+            </span>
+          ))}
+        </p>
+      )}
       <div className="sw-research-page__state">
         <Chip size="sm" tone={OUTCOME_TONE[source.outcome]} icon={<Icon aria-hidden="true" />}>
           {OUTCOME_LABEL[source.outcome]}

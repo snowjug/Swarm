@@ -5,6 +5,10 @@ from a local application to a first hosted run, and, as importantly, what is **n
 
 ## The verdict, in words that may be used
 
+**NOT PRODUCTION READY.** Nothing has been deployed to, or run in, Azure, so the deployed critical journey, the rollback
+and restore drills, a live alert, a real Entra sign-in, the live Foundry evaluation and PostgreSQL over TLS from Azure have
+not happened, and two registered quality thresholds are still breached. What it is, in words that may be used:
+
 Swarm is **a production-candidate controlled pilot, authored and validated offline, not deployed.**
 
 - It is a pilot for a few invited people on a dev/test credit subscription, not a broad production service.
@@ -20,6 +24,24 @@ Not to be said, because nothing here shows it: production-ready, enterprise-grad
 Azure, "researches the open web" (no search provider is switched on, and neither of the two that are built has met its real service from a deployment), or that rollback works.
 [What would have to be true](./LIMITATIONS.md#what-would-have-to-be-true-to-call-it-production) lists, in order, what
 has to happen before any other words are used.
+
+## The resumed wave (3 to 4 November 2026)
+
+The first session of this wave stopped mid-flight with six worktrees of unmerged work. They were backed up as patches,
+audited against the specification from the code, and merged one at a time after each was validated; then what the audit
+found unfinished was finished. Everything is on `feat/swarm-production-v1`.
+
+| Area                                                              | State                                      | Evidence                                                                                                                                        |
+| ----------------------------------------------------------------- | ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| Landing and first use                                             | Done, validated in a browser               | `e2e/lab` landing, composer, research and review specs                                                                                          |
+| Automatic research from a question alone                          | Done; discovery is **opt-in**              | [ADR 0025](../adr/0025-search-providers-are-opt-in-apis-that-return-addresses.md); `wikipedia` run once against the real API; `brave` never run |
+| Safe crawler, scheduler (J-03), provenance, prompt-injection care | Done, tested on loopback and a fake        | `research-*` unit tests, the journey's failure cases 1 to 5, 11 and 13                                                                          |
+| AI-selected actors, first-class constraints, constraint-aware sim | Done in rules and fake-Foundry modes       | ADRs 0016 to 0022; the AI evaluation (two thresholds still breached)                                                                            |
+| Decision Canvas: ten things in the first viewport                 | Done                                       | `decide-canvas` specs (35), the export numbered 1 to 10                                                                                         |
+| Storage failure as a 503 (J-07), model-task telemetry (J-02)      | Done; read by a review agent (not a human) | `storage-unavailable`, `postgres-driver`, `telemetry-*` tests; journey case 9                                                                   |
+| Foundry provider, Entra, managed identity, PostgreSQL             | Built, **not run in Azure**                | Fakes only: [identity.md](./identity.md), [database.md](./database.md)                                                                          |
+| Hosting, alerts, budget, rollback                                 | Authored as Bicep, **not deployed**        | `npm run iac:validate` (34 checks); template invariants; no drill was run                                                                       |
+| Continuous integration                                            | Repaired                                   | The browser suites run as jobs of their own; one stale title check fixed                                                                        |
 
 ## What was not run
 

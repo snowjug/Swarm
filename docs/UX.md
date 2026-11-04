@@ -453,7 +453,8 @@ sources talk about. Until there is a graph, the sources themselves fill its plac
   Reading, Extracting evidence, Checking conflicts, Ready), each only when the run has reached it, and one that
   failed or was stopped says "Stopped here" before what it held; every page
   the run looked at, with its title, site, kind, an **authority estimate** (three marks and a word, and the
-  line "An estimate from the kind of site it is. It says nothing about whether a page is right."), the dates
+  line "An estimate from the kind of site it is. It says nothing about whether a page is right."; only for a page that
+  was read: a page that was refused, did not answer, was skipped, repeats another or was set aside has none), the dates
   the page states, what became of it (Used, Read, Quarantined, Blocked, Failed, Duplicate or Skipped, with a
   plain reason for each that was set aside) and **Provenance** (the requested and final address, when it was
   fetched, what its content hashes to, the robots.txt decision, how its text was taken, how it was found,

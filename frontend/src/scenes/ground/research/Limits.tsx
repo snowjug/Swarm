@@ -1,6 +1,6 @@
 import type { ResearchRun } from '../../../../../shared/research';
 import { Disclosure } from '../../../design/ui';
-import { budgetLines } from './model';
+import { budgetLines, modelLine } from './model';
 
 /**
  * What the run may use, and what it has: pages, sites, size, time, an estimated model cost. Each is a limit the server
@@ -21,10 +21,7 @@ export function Limits({ run }: { run: ResearchRun }) {
         ))}
       </dl>
       <p className="sw-caption">
-        The server sets these ceilings, and they cannot be raised from this page.{' '}
-        {run.modelUsed
-          ? 'A model you chose was used in this run.'
-          : 'No model was used in this run.'}
+        The server sets these ceilings, and they cannot be raised from this page. {modelLine(run)}
       </p>
     </Disclosure>
   );

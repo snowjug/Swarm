@@ -556,6 +556,27 @@ describe('what became of each page', () => {
     expect(row('Riders talk').textContent).toContain('Read, and not used as a source.');
   });
 
+  it('says what kind of site a page is on only for a page that was read, never for one that was refused, did not answer, was set aside or repeats another', async () => {
+    await finished();
+    const estimate = /Authority estimate/u;
+    for (const [text, outcome] of [
+      ['private.example.org', 'blocked'],
+      ['slow.example.org', 'failed'],
+      ['members.example.org/login', 'quarantined'],
+      ['(print version)', 'duplicate'],
+    ] as const) {
+      expect(row(text).getAttribute('data-outcome'), text).toBe(outcome);
+      expect(row(text).textContent, text).not.toMatch(estimate);
+    }
+    // A page that was read has one, used or not.
+    expect(row('Council fares review: summary of the evidence').textContent).toMatch(estimate);
+    expect(row('Riders talk').getAttribute('data-outcome')).toBe('read');
+    expect(row('Riders talk').textContent).toMatch(estimate);
+    // Nothing is left of a line that has nothing to say: no empty paragraph for a page that has no estimate and no date.
+    const blocked = row('private.example.org');
+    expect(blocked.querySelector('.sw-research-page__facts')).toBeNull();
+  });
+
   it('shows only the pages that were used, or only those that were not, when asked', async () => {
     const { user } = await finished();
     expect(within(pageList()).getAllByRole('listitem')).toHaveLength(8);
