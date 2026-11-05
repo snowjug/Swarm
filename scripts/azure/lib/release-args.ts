@@ -2,7 +2,16 @@ import { parseArgs } from 'node:util';
 import { UsageError } from './args.js';
 import { isGuid } from './subscription.js';
 
-export const RELEASE_ACTIONS = ['status', 'release', 'promote', 'rollback', 'finalize'] as const;
+export const RELEASE_ACTIONS = [
+  'status',
+  'check',
+  'build',
+  'release',
+  'record',
+  'promote',
+  'rollback',
+  'finalize',
+] as const;
 export type ReleaseAction = (typeof RELEASE_ACTIONS)[number];
 
 export interface ReleaseArgs {
@@ -28,6 +37,13 @@ export interface ReleaseArgs {
   revisionPrecheck: boolean;
   recordDir: string;
   allowProductionName: boolean;
+  /** record: the revision that was made by hand, and the image digest it runs. */
+  revision: string | undefined;
+  digest: string | undefined;
+  /** record: the revision that served before it, which a rollback returns to. Empty: there is none. */
+  previous: string | undefined;
+  /** record: a few words on how the revision came about. */
+  note: string | undefined;
 }
 
 const NAME = /^[A-Za-z0-9][A-Za-z0-9._()-]{0,89}$/u;
@@ -35,6 +51,7 @@ const APP = /^[a-z][a-z0-9-]{1,30}[a-z0-9]$/u;
 const REGISTRY = /^[a-z0-9]{5,50}$/u;
 const REVISION = /^[a-z][a-z0-9-]{1,62}[a-z0-9]$/u;
 const SHA = /^[0-9a-f]{40}$/u;
+const DIGEST = /^sha256:[0-9a-f]{64}$/u;
 
 function whole(value: string | undefined, label: string, min: number, max: number): number {
   const parsed = Number(value);
@@ -72,6 +89,10 @@ export function parseReleaseArgs(argv: readonly string[]): ReleaseArgs {
         'no-revision-precheck': { type: 'boolean', default: false },
         'record-dir': { type: 'string', default: '.azure/releases' },
         'allow-production-name': { type: 'boolean', default: false },
+        revision: { type: 'string' },
+        digest: { type: 'string' },
+        previous: { type: 'string' },
+        note: { type: 'string' },
       },
     });
   } catch (error) {
@@ -95,9 +116,9 @@ export function parseReleaseArgs(argv: readonly string[]): ReleaseArgs {
   if (!app || !APP.test(app))
     throw new UsageError('--app <container app name> is required (lower case, digits, hyphens).');
   const registry = values.registry;
-  if (action === 'release' && (!registry || !REGISTRY.test(registry))) {
+  if (['release', 'build', 'record'].includes(action) && (!registry || !REGISTRY.test(registry))) {
     throw new UsageError(
-      '--registry <registry name> is required to release (5-50 lower-case letters and digits).',
+      `--registry <registry name> is required to ${action} (5-50 lower-case letters and digits).`,
     );
   }
   if (registry !== undefined && !REGISTRY.test(registry))
@@ -109,6 +130,26 @@ export function parseReleaseArgs(argv: readonly string[]): ReleaseArgs {
   }
   if (values.to !== undefined && !REVISION.test(values.to))
     throw new UsageError('--to must be a revision name.');
+  if (action === 'record') {
+    if (!values.revision || !REVISION.test(values.revision))
+      throw new UsageError('--revision <revision name> is required to record a release.');
+    if (!values.digest || !DIGEST.test(values.digest))
+      throw new UsageError(
+        '--digest sha256:<64 hex digits> is required to record a release: the digest of the image the revision runs.',
+      );
+    if (!values.commit)
+      throw new UsageError(
+        '--commit <40-character commit hash> is required to record a release: the commit the image was built from.',
+      );
+  }
+  if (values.revision !== undefined && !REVISION.test(values.revision))
+    throw new UsageError('--revision must be a revision name.');
+  if (values.digest !== undefined && !DIGEST.test(values.digest))
+    throw new UsageError('--digest must be sha256: followed by 64 hex digits.');
+  if (values.previous !== undefined && !REVISION.test(values.previous))
+    throw new UsageError('--previous must be a revision name.');
+  if (values.note !== undefined && (values.note.length > 200 || /[\r\n]/u.test(values.note)))
+    throw new UsageError('--note must be one line of at most 200 characters.');
   const current = values['current-schema-version'];
   return {
     action: action as ReleaseAction,
@@ -133,5 +174,9 @@ export function parseReleaseArgs(argv: readonly string[]): ReleaseArgs {
     revisionPrecheck: !(values['no-revision-precheck'] ?? false),
     recordDir: values['record-dir'] ?? '.azure/releases',
     allowProductionName: values['allow-production-name'] ?? false,
+    revision: values.revision,
+    digest: values.digest,
+    previous: values.previous,
+    note: values.note,
   };
 }

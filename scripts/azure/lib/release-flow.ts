@@ -1,7 +1,10 @@
 import type { AzClient } from './az.js';
 import {
   commands,
+  isFailedState,
+  isHealthyState,
   isPlaceholder,
+  isRunningState,
   readApp,
   reads,
   revisionNamed,
@@ -9,6 +12,7 @@ import {
   type AppState,
   type Scope,
 } from './containerapp.js';
+import { checkContainerConfig, failedChecks, type ConfigCheck } from './deployed-config.js';
 import type { SmokeReport } from './pilot-smoke.js';
 import type { ReleaseArgs } from './release-args.js';
 import {
@@ -23,6 +27,7 @@ import {
   type ReleaseStatus,
   type StepRecord,
 } from './release-record.js';
+import { revisionLogHelp } from './revision-logs.js';
 import { assessSubscription, type SubscriptionInfo } from './subscription.js';
 
 /**
@@ -203,22 +208,15 @@ export async function waitReady(
   for (;;) {
     const state = await readApp(deps.az, scopeOf(args));
     const found = revisionNamed(state, revision);
-    if (
-      found?.running === 'Running' &&
-      (found.health === 'Healthy' || found.health === null || found.health === 'None')
-    )
-      return;
-    if (
-      found &&
-      (found.running === 'Failed' || found.running === 'Degraded' || found.health === 'Unhealthy')
-    ) {
+    if (found && isRunningState(found.running) && isHealthyState(found.health)) return;
+    if (found && (isFailedState(found.running) || found.health === 'Unhealthy')) {
       throw new Refusal(
-        `Revision ${revision} is ${found.running ?? 'unknown'} / ${found.health ?? 'unknown'}: it did not start. Read its console logs.`,
+        `Revision ${revision} is ${found.running ?? 'unknown'} / ${found.health ?? 'unknown'}: it did not start.\n${revisionLogHelp(scopeOf(args), revision, state.environmentId)}`,
       );
     }
     if (deps.now().getTime() >= deadline) {
       throw new Refusal(
-        `Revision ${revision} was not running after ${args.readyTimeoutMinutes} minutes.`,
+        `Revision ${revision} was not running after ${args.readyTimeoutMinutes} minutes (it is ${found?.running ?? 'not listed'}). A revision that stays "Activating" while its health route answers usually listens on another port than the ingress targets: run the "check" action.\n${revisionLogHelp(scopeOf(args), revision, state.environmentId)}`,
       );
     }
     await deps.sleep(POLL_MS);
@@ -237,6 +235,7 @@ function baseRecord(
   return {
     schemaVersion: RECORD_SCHEMA_VERSION,
     releaseId: releaseIdFor(now, fields.commit.sha),
+    origin: 'tool',
     status: args.execute ? 'in-progress' : 'dry-run',
     startedAt: now.toISOString(),
     finishedAt: null,
@@ -253,7 +252,7 @@ function baseRecord(
 const rollbackCommand = (args: ReleaseArgs): string =>
   `npm run azure:release -- rollback --subscription ${args.subscription} --resource-group ${args.resourceGroup} --app ${args.app} --execute --confirm-resource-group ${args.resourceGroup}`;
 
-async function persist(deps: ReleaseDeps, record: ReleaseRecord): Promise<string> {
+export async function persist(deps: ReleaseDeps, record: ReleaseRecord): Promise<string> {
   const problems = validateRecord(record);
   if (problems.length > 0)
     throw new Refusal(
@@ -262,39 +261,132 @@ async function persist(deps: ReleaseDeps, record: ReleaseRecord): Promise<string
   return deps.store.write(record);
 }
 
+/** The image of a commit in the registry: its digest, and whether its tag is locked (cannot be written). */
+export async function readImageState(
+  az: AzClient,
+  subscription: string,
+  registry: string,
+  sha: string,
+): Promise<{ digest: string; locked: boolean } | null> {
+  try {
+    const raw = await az.json<{
+      digest?: unknown;
+      changeableAttributes?: { writeEnabled?: unknown };
+    }>(reads.image(subscription, registry, sha));
+    const digest = typeof raw.digest === 'string' ? raw.digest : '';
+    if (!/^sha256:[0-9a-f]{64}$/u.test(digest)) return null;
+    return { digest, locked: raw.changeableAttributes?.writeEnabled === false };
+  } catch {
+    // No such tag, or no right to read it: either way there is nothing to reuse, and a build says what is wrong.
+    return null;
+  }
+}
+
+/**
+ * The template is where the container's port, probes and settings are defined, so a configuration that is
+ * wrong is corrected there and not with az containerapp update (which has no flag for a probe).
+ */
+export function templateApplyHelp(
+  args: Pick<LiveTarget, 'subscription' | 'resourceGroup'>,
+  app: Pick<AppState, 'environmentId' | 'image'>,
+  image?: { reference: string; suffix: string; sha: string },
+): string {
+  // Naming the image makes the what-if show it: Azure cannot evaluate "keep the image that runs" before it
+  // deploys, so it prints that part as an expression, and a what-if that shows the image unchanged is the
+  // evidence that a re-apply leaves it alone.
+  const settings = [
+    'SERVICE_SWARM_RESOURCE_EXISTS=true',
+    ...(app.environmentId
+      ? [`SWARM_EXISTING_CONTAINER_APPS_ENVIRONMENT_ID=${app.environmentId}`]
+      : []),
+    ...(image
+      ? [
+          `SWARM_CONTAINER_IMAGE=${image.reference}`,
+          `SWARM_REVISION_SUFFIX=${image.suffix}`,
+          `SWARM_BUILD_SHA=${image.sha}`,
+        ]
+      : app.image
+        ? [`SWARM_CONTAINER_IMAGE=${app.image}`]
+        : []),
+  ];
+  return [
+    'Apply it with the template (docs/azure/pilot-plan.md). With the SWARM_* values of the original deployment exported, and:',
+    ...settings.map((setting) => `  export ${setting}`),
+    `  az deployment group what-if --resource-group ${args.resourceGroup} --subscription ${args.subscription} --parameters infra/pilot/main.bicepparam`,
+    'Read the what-if: the image, PORT and the ingress port must be what you expect (unchanged, unless this is a new image). Then run the same command with "create" in place of "what-if".',
+  ].join('\n');
+}
+
+export const describeChecks = (checks: readonly ConfigCheck[]): string =>
+  checks
+    .map(
+      (check) => `  ${check.status === 'pass' ? 'PASS' : 'FAIL'}  ${check.title}: ${check.detail}`,
+    )
+    .join('\n');
+
 export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<ReleaseResult> {
   guardLive(args, deps);
   const scope = scopeOf(args);
   const { log } = deps;
   const state = await loadTarget(args, deps);
 
-  // What serves now. A first release replaces the placeholder and has nothing to go back to.
-  const placeholder = isPlaceholder(state.image);
-  const serving = servingRevisions(state);
-  let lastKnownGood: ReleaseRecord['lastKnownGood'] = null;
-  if (!placeholder) {
-    const only = serving.length === 1 ? serving[0] : undefined;
-    if (!only || only.weight !== 100) {
-      throw new Refusal(
-        `Traffic is split or unset (${serving.map((entry) => `${entry.name}=${entry.weight}`).join(', ') || 'no revision serves'}). Finish or roll back the release in progress first: promote, rollback or finalize.`,
-      );
-    }
-    const running = revisionNamed(state, only.name);
-    if (running?.running !== 'Running') {
-      throw new Refusal(
-        `The revision that serves (${only.name}) is ${running?.running ?? 'not listed'}: fix it before releasing over it.`,
-      );
-    }
-    lastKnownGood = {
-      revision: only.name,
-      image: running.image ?? state.image ?? '',
-      basis: 'it was serving all traffic when this release began',
-    };
-  }
-
-  // The commit and what it carries.
+  // The commit this release is about, which the instructions below also name.
   const head = await deps.git.head();
   const sha = (args.commit ?? head).toLowerCase();
+
+  if (isPlaceholder(state.image)) {
+    throw new Refusal(
+      [
+        'The app still runs the placeholder image, so its ingress targets port 80 and it has no probes. A revision made over it with az containerapp update keeps both (and az containerapp update cannot set a probe): that is how the first real image of the live pilot crashed on PORT and then ran with no probes.',
+        'Put the first real image on it through the template, which sets port 3001, PORT, the three probes and the rest, and then record it:',
+        `  1. npm run azure:release -- build --subscription ${args.subscription} --resource-group ${args.resourceGroup} --app ${args.app} --registry ${args.registry} --commit ${sha} --execute --confirm-resource-group ${args.resourceGroup}`,
+        '     builds the image in the registry, locks its tag, and prints the image reference and the template command for step 2',
+        '  2. the template command that step prints (what-if first)',
+        `  3. npm run azure:release -- record --subscription ${args.subscription} --resource-group ${args.resourceGroup} --app ${args.app} --registry ${args.registry} --commit ${sha} --revision ${args.app}--${revisionSuffixFor(sha)} --digest <the digest step 1 printed> --execute --confirm-resource-group ${args.resourceGroup}`,
+        '     proves the revision (running, on the right image, on port 3001 with probes, answering the smoke test) and writes its release record',
+        'Every later release is made by this tool, because a revision copies the configuration of the one before it.',
+      ].join('\n'),
+    );
+  }
+
+  // What serves now: it stays running as the last known good, so a release always has somewhere to go back to.
+  const serving = servingRevisions(state);
+  const only = serving.length === 1 ? serving[0] : undefined;
+  if (!only || only.weight !== 100) {
+    throw new Refusal(
+      `Traffic is split or unset (${serving.map((entry) => `${entry.name}=${entry.weight}`).join(', ') || 'no revision serves'}). Finish or roll back the release in progress first: promote, rollback or finalize.`,
+    );
+  }
+  const running = revisionNamed(state, only.name);
+  if (!running || !isRunningState(running.running)) {
+    throw new Refusal(
+      `The revision that serves (${only.name}) is ${running?.running ?? 'not listed'}: fix it before releasing over it.`,
+    );
+  }
+  const lastKnownGood: NonNullable<ReleaseRecord['lastKnownGood']> = {
+    revision: only.name,
+    image: running.image ?? state.image ?? '',
+    basis: 'it was serving all traffic when this release began',
+  };
+
+  // A new revision copies the template of the latest one: a port or a missing probe is copied with it.
+  const inherited = checkContainerConfig({
+    image: state.image,
+    targetPort: state.targetPort,
+    env: state.env,
+    probes: state.probes,
+  });
+  if (failedChecks(inherited).length > 0) {
+    throw new Refusal(
+      [
+        'The app is not configured the way the template configures a real image, and a new revision would copy that:',
+        describeChecks(inherited),
+        'Correct it first. az containerapp update cannot set a probe and the ingress port belongs to the app, so the template does it.',
+        templateApplyHelp(args, state),
+      ].join('\n'),
+    );
+  }
+
   if (!args.skipBuild) {
     if (sha !== head)
       throw new Refusal(
@@ -321,9 +413,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
     previous.target.resourceGroup === args.resourceGroup
       ? previous
       : null;
-  const before = placeholder
-    ? 0
-    : (args.currentSchemaVersion ?? sameApp?.migrations.schemaVersionAfter ?? null);
+  const before = args.currentSchemaVersion ?? sameApp?.migrations.schemaVersionAfter ?? null;
   if (before !== null && targetSchema !== null && targetSchema < before) {
     throw new Refusal(
       `This commit's schema (${targetSchema}) is OLDER than the database's (${before}). Schema migrations only go forward and an older build refuses a newer database (STORAGE_VERSION). Release a newer commit, or restore the database.`,
@@ -334,7 +424,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
       ? Array.from({ length: Math.max(0, targetSchema - before) }, (_, index) => before + 1 + index)
       : [];
   const schemaUnknown = before === null || targetSchema === null;
-  if ((applied.length > 0 || schemaUnknown) && !placeholder && !args.acceptSchemaChange) {
+  if ((applied.length > 0 || schemaUnknown) && !args.acceptSchemaChange) {
     throw new Refusal(
       schemaUnknown
         ? 'The database schema version before this release is unknown (no earlier release record, and no --current-schema-version). Whether migrations come with it cannot be told; pass --current-schema-version <n> or --accept-schema-change.'
@@ -368,7 +458,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
       schemaVersionAfter: targetSchema,
       applied,
       acceptedSchemaChange: args.acceptSchemaChange,
-      restorePointUtc: applied.length > 0 && !placeholder ? deps.now().toISOString() : null,
+      restorePointUtc: applied.length > 0 ? deps.now().toISOString() : null,
     },
     config: {
       cpu: state.cpu,
@@ -378,79 +468,112 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
       environment: redactEnvironment(state.env),
     },
   });
-  record.rollback = lastKnownGood ? { command: rollbackCommand(args) } : null;
+  record.rollback = { command: rollbackCommand(args) };
   const runner = createRunner(args, deps, record.steps);
 
   log(
     `${args.execute ? 'LIVE RELEASE' : 'DRY RUN (nothing will be changed; add --execute and --confirm-resource-group to run it)'}: commit ${sha.slice(0, 12)} -> ${args.app} in ${args.resourceGroup}`,
   );
   log(
-    lastKnownGood
-      ? `Serving now: ${lastKnownGood.revision}. It stays running, at 0% after the shift, as the last known good.`
-      : 'First release: the placeholder image is replaced; there is nothing to roll back to.',
+    `Serving now: ${lastKnownGood.revision}. It stays running, at 0% after the shift, as the last known good.`,
   );
-  if (applied.length > 0 && !placeholder)
+  if (applied.length > 0)
     log(
       `Schema change accepted: migration(s) ${applied.join(', ')}. Point-in-time restore target if needed: ${record.migrations.restorePointUtc}.`,
     );
 
-  // 1. The image: built in the registry, identified by digest, its tag locked.
-  if (!args.skipBuild)
-    await runner.mutate(
-      'build',
-      commands.acrBuild(scope, args.registry, sha),
-      `builds swarm:${sha} in ${args.registry} from the working tree at this commit`,
-    );
-  let digest = '<sha256 digest of the image>';
-  if (args.execute || args.skipBuild) {
-    const missing = new Refusal(
-      `The registry has no image swarm:${sha}${args.skipBuild ? ' (--skip-build was given)' : ' after the build'}.`,
-    );
-    try {
-      digest = (await deps.az.text(reads.digest(args.subscription, args.registry, sha))).trim();
-    } catch {
-      throw missing;
-    }
-    if (!/^sha256:[0-9a-f]{64}$/u.test(digest)) throw missing;
-  }
-  const reference = `${loginServer}/swarm@${digest}`;
-  record.image = { reference, tag: `swarm:${sha}`, digest, tagLocked: false };
-  if (args.lockTag) {
-    await runner.mutate(
-      'lock-tag',
-      commands.acrLock(scope, args.registry, sha),
-      'makes the tag read-only and undeletable, so the commit hash keeps meaning one image',
-    );
-    record.image.tagLocked = args.execute;
-  }
-
-  // 2. Pin traffic to the revision that serves, so that creating the new one cannot move any.
-  const explicit =
-    state.traffic.length === 1 &&
-    state.traffic[0]?.revisionName === lastKnownGood?.revision &&
-    !state.traffic[0]?.latestRevision;
-  if (lastKnownGood && !explicit) {
-    await runner.mutate(
-      'pin-traffic',
-      commands.trafficSet(scope, [{ revision: lastKnownGood.revision, weight: 100 }]),
-      'traffic named the newest revision; a new revision would have taken it',
-    );
-  }
-
-  // 3. The new revision, at no traffic.
-  const existing = revisionNamed(state, revisionName);
-  if (existing) {
-    if (!existing.image?.includes(digest) && args.execute)
-      throw new Refusal(
-        `Revision ${revisionName} already exists with a different image (${existing.image ?? 'unknown'}).`,
+  // The record is written BEFORE the first change, and again whenever the release ends, so that a step
+  // that fails (a build, a locked tag, an `az` call that times out) leaves evidence. The live pilot's first
+  // release left none, because the record was written only once the revision existed.
+  let recordPath: string | null = args.execute ? await persist(deps, record) : null;
+  try {
+    // 1. The image: built in the registry, identified by digest, its tag locked. A tag that is locked
+    // cannot be rebuilt, and does not need to be: the commit hash keeps meaning that one image, so a
+    // release of the same commit again (after a fix elsewhere) reuses it.
+    const known = await readImageState(deps.az, args.subscription, args.registry, sha);
+    const reuse = known !== null && (args.skipBuild || known.locked);
+    if (!args.skipBuild && known?.locked) {
+      log(
+        `Image swarm:${sha} is already in ${args.registry} and its tag is locked, so it is reused, not rebuilt.`,
       );
-    log(`Revision ${revisionName} already exists: reusing it.`);
-  } else {
-    await runner.mutate(
-      'create-revision',
-      commands.update(scope, reference, suffix, [`BUILD_SHA=${sha}`]),
-      'creates a revision beside the serving one; with named traffic it takes none',
-    );
+      record.steps.push({
+        step: 'build',
+        status: 'skipped',
+        at: deps.now().toISOString(),
+        detail: `swarm:${sha} exists and its tag is locked: reused`,
+      });
+    } else if (!args.skipBuild) {
+      await runner.mutate(
+        'build',
+        commands.acrBuild(scope, args.registry, sha),
+        `builds swarm:${sha} in ${args.registry} from the working tree at this commit`,
+      );
+    }
+    let digest = '<sha256 digest of the image>';
+    if (reuse) {
+      digest = known.digest;
+    } else if (args.execute || args.skipBuild) {
+      const missing = new Refusal(
+        `The registry has no image swarm:${sha}${args.skipBuild ? ' (--skip-build was given)' : ' after the build'}.`,
+      );
+      try {
+        digest = (await deps.az.text(reads.digest(args.subscription, args.registry, sha))).trim();
+      } catch {
+        throw missing;
+      }
+      if (!/^sha256:[0-9a-f]{64}$/u.test(digest)) throw missing;
+    }
+    const reference = `${loginServer}/swarm@${digest}`;
+    record.image = { reference, tag: `swarm:${sha}`, digest, tagLocked: known?.locked === true };
+    if (args.lockTag && known?.locked !== true) {
+      await runner.mutate(
+        'lock-tag',
+        commands.acrLock(scope, args.registry, sha),
+        'makes the tag read-only and undeletable, so the commit hash keeps meaning one image',
+      );
+      record.image.tagLocked = args.execute;
+    }
+
+    // 2. Pin traffic to the revision that serves, so that creating the new one cannot move any.
+    const explicit =
+      state.traffic.length === 1 &&
+      state.traffic[0]?.revisionName === lastKnownGood.revision &&
+      !state.traffic[0]?.latestRevision;
+    if (!explicit) {
+      await runner.mutate(
+        'pin-traffic',
+        commands.trafficSet(scope, [{ revision: lastKnownGood.revision, weight: 100 }]),
+        'traffic named the newest revision; a new revision would have taken it',
+      );
+    }
+
+    // 3. The new revision, at no traffic.
+    const existing = revisionNamed(state, revisionName);
+    if (existing) {
+      if (!existing.image?.includes(digest) && args.execute)
+        throw new Refusal(
+          `Revision ${revisionName} already exists with a different image (${existing.image ?? 'unknown'}).`,
+        );
+      log(`Revision ${revisionName} already exists: reusing it.`);
+    } else {
+      await runner.mutate(
+        'create-revision',
+        commands.update(scope, reference, suffix, [`BUILD_SHA=${sha}`]),
+        'creates a revision beside the serving one; with named traffic it takes none',
+      );
+    }
+  } catch (error) {
+    if (args.execute) {
+      record.status = 'failed';
+      record.finishedAt = deps.now().toISOString();
+      try {
+        recordPath = await persist(deps, record);
+        log(`The release stopped at a step that failed. The record: ${recordPath}`);
+      } catch {
+        log('The release stopped at a step that failed, and the record could not be written.');
+      }
+    }
+    throw error;
   }
 
   if (!args.execute) {
@@ -462,7 +585,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
         `DRY RUN  revision-health: would GET https://<${revisionName} address>/api/health/ready, which answers for any Host`,
       );
     log(
-      `DRY RUN  shift: would send ${args.canaryPercent > 0 ? `${args.canaryPercent}% (a canary; promote later)` : 'all traffic'} to ${revisionName}${lastKnownGood ? `, ${lastKnownGood.revision} keeping the rest, warm` : ''}`,
+      `DRY RUN  shift: would send ${args.canaryPercent > 0 ? `${args.canaryPercent}% (a canary; promote later)` : 'all traffic'} to ${revisionName}, ${lastKnownGood.revision} keeping the rest, warm`,
     );
     if (args.canaryPercent === 0)
       log(
@@ -474,8 +597,6 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
     return { exitCode: 0, status: 'dry-run', record, recordPath: null };
   }
 
-  // Live from here: write the record first, so that a crash leaves evidence.
-  let recordPath = await persist(deps, record);
   const fail = async (
     status: ReleaseStatus,
     message: string,
@@ -483,14 +604,27 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
   ): Promise<ReleaseResult> => {
     log(message);
     if (deactivateNew) {
-      try {
-        await runner.mutate(
-          'deactivate-new',
-          commands.deactivate(scope, revisionName),
-          'a failed revision is stopped so that it costs nothing',
+      // A revision that does not start is stopped so that it costs nothing, but never when that would leave
+      // the app with no running revision at all: a failed revision must not be the only one it has.
+      const now = await readApp(deps.az, scope).catch(() => null);
+      const others =
+        now?.revisions.filter(
+          (other) => other.name !== revisionName && other.active && isRunningState(other.running),
+        ) ?? [];
+      if (now && others.length === 0) {
+        log(
+          `NOT deactivating ${revisionName}: no other revision is running, so stopping it would leave the app with none, and a failed revision must not be the only one it has. Fix ${revisionName} or release again.`,
         );
-      } catch {
-        log(`Could not deactivate ${revisionName}: do it by hand.`);
+      } else {
+        try {
+          await runner.mutate(
+            'deactivate-new',
+            commands.deactivate(scope, revisionName),
+            'a failed revision is stopped so that it costs nothing',
+          );
+        } catch {
+          log(`Could not deactivate ${revisionName}: do it by hand.`);
+        }
       }
     }
     record.status = status;
@@ -511,7 +645,36 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
 
   // 4. The new revision answers on its own address while it still has no traffic.
   const live = await readApp(deps.az, scope);
-  const fqdn = revisionNamed(live, revisionName)?.fqdn;
+  const created = revisionNamed(live, revisionName);
+  const fqdn = created?.fqdn;
+  // It is also what the template would have made: a revision keeps the configuration it was made from.
+  const configured = checkContainerConfig({
+    image: created?.image ?? null,
+    targetPort: live.targetPort,
+    env: created?.env ?? [],
+    probes: created?.probes ?? [],
+  });
+  const misconfigured = failedChecks(configured);
+  record.steps.push({
+    step: 'config-check',
+    status: misconfigured.length === 0 ? 'done' : 'failed',
+    at: deps.now().toISOString(),
+    detail:
+      misconfigured.length === 0
+        ? 'port 3001, probes set'
+        : misconfigured.map((check) => check.id).join(', '),
+  });
+  if (misconfigured.length > 0) {
+    return fail(
+      'failed',
+      [
+        `Revision ${revisionName} is not configured for a real image, so it takes no traffic:`,
+        describeChecks(configured),
+        templateApplyHelp(args, live),
+      ].join('\n'),
+      true,
+    );
+  }
   if (args.revisionPrecheck) {
     if (!fqdn)
       return fail(
@@ -537,7 +700,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
 
   // 5. The shift. A canary stops here, until `promote`.
   const baseUrl = `https://${live.fqdn ?? state.fqdn ?? ''}`;
-  if (args.canaryPercent > 0 && lastKnownGood) {
+  if (args.canaryPercent > 0) {
     await runner.mutate(
       'shift-canary',
       commands.trafficSet(scope, [
@@ -558,7 +721,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
     'shift',
     commands.trafficSet(scope, [
       { revision: revisionName, weight: 100 },
-      ...(lastKnownGood ? [{ revision: lastKnownGood.revision, weight: 0 }] : []),
+      { revision: lastKnownGood.revision, weight: 0 },
     ]),
   );
   record.revision.trafficWeight = 100;
@@ -567,7 +730,7 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
   const report = await deps.smoke(baseUrl);
   record.smoke = summariseSmoke(report);
   if (!report.passed) {
-    if (lastKnownGood && args.autoRollback) {
+    if (args.autoRollback) {
       await runner.mutate(
         'auto-rollback',
         commands.trafficSet(scope, [
@@ -585,25 +748,22 @@ export async function runRelease(args: ReleaseArgs, deps: ReleaseDeps): Promise<
     }
     return fail(
       'failed',
-      `The smoke test FAILED and no automatic rollback is available${lastKnownGood ? ' (--no-auto-rollback)' : ' (first release)'}. ${lastKnownGood ? `Roll back: ${record.rollback?.command}` : ''}`,
+      `The smoke test FAILED and no automatic rollback is available (--no-auto-rollback). Roll back: ${record.rollback?.command}`,
       false,
     );
   }
 
   record.status = 'promoted';
   record.finishedAt = deps.now().toISOString();
-  record.warmWindow = lastKnownGood
-    ? {
-        hours: args.warmHours,
-        deactivateAfter: new Date(deps.now().getTime() + args.warmHours * 3_600_000).toISOString(),
-      }
-    : null;
+  record.warmWindow = {
+    hours: args.warmHours,
+    deactivateAfter: new Date(deps.now().getTime() + args.warmHours * 3_600_000).toISOString(),
+  };
   recordPath = await persist(deps, record);
   log(`Promoted: ${revisionName} serves all traffic and the smoke test passed.`);
-  if (lastKnownGood)
-    log(
-      `${lastKnownGood.revision} stays warm until ${record.warmWindow?.deactivateAfter}; rollback is one command. After that: finalize.`,
-    );
+  log(
+    `${lastKnownGood.revision} stays warm until ${record.warmWindow.deactivateAfter}; rollback is one command. After that: finalize.`,
+  );
   log(`Record: ${recordPath}`);
   return { exitCode: 0, status: 'promoted', record, recordPath };
 }
@@ -784,6 +944,13 @@ export async function runFinalize(args: ReleaseArgs, deps: ReleaseDeps): Promise
       `${record.revision.name} is not the only revision serving (${serving.map((entry) => `${entry.name}=${entry.weight}`).join(', ')}): not retiring ${previous}.`,
     );
   }
+  // Retiring the previous revision leaves this one alone. It must be running now, not only when it was promoted.
+  const current = revisionNamed(state, record.revision.name);
+  if (!current || !isRunningState(current.running) || !isHealthyState(current.health)) {
+    throw new Refusal(
+      `${record.revision.name} is ${current?.running ?? 'not listed'} / ${current?.health ?? 'unknown'} right now: retiring ${previous} would leave a failed revision as the only one the app has. Fix ${record.revision.name}, or roll back, first.\n${revisionLogHelp(scope, record.revision.name, state.environmentId)}`,
+    );
+  }
   const due = record.warmWindow ? new Date(record.warmWindow.deactivateAfter).getTime() : 0;
   if (deps.now().getTime() < due && !args.force) {
     throw new Refusal(
@@ -804,7 +971,7 @@ export async function runFinalize(args: ReleaseArgs, deps: ReleaseDeps): Promise
   return { exitCode: 0, status: 'finalized', record, recordPath: path };
 }
 
-/** Read-only: the revisions, who serves, and what the latest release record says. */
+/** Read-only: the revisions, who serves, whether the container is configured as the template configures it, and what the latest release record says. */
 export async function runStatus(args: ReleaseArgs, deps: ReleaseDeps): Promise<ReleaseResult> {
   const state = await loadTarget(args, deps, { requireMultiple: false });
   const record = await deps.store.latest();
@@ -814,28 +981,26 @@ export async function runStatus(args: ReleaseArgs, deps: ReleaseDeps): Promise<R
       `  ${revision.name}: ${revision.active ? 'active' : 'inactive'}, ${revision.running ?? '?'}/${revision.health ?? '?'}, ${revision.trafficWeight}% traffic, ${revision.replicas ?? '?'} replica(s)`,
     );
   }
+  if (isPlaceholder(state.image)) {
+    deps.log(
+      'Configuration: the app runs the placeholder image, so port 80 and no probes are expected. Run "check" after the first real image.',
+    );
+  } else {
+    const checks = checkContainerConfig({
+      image: state.image,
+      targetPort: state.targetPort,
+      env: state.env,
+      probes: state.probes,
+    });
+    deps.log(
+      `Configuration of the app (what a new revision copies): ${failedChecks(checks).length === 0 ? 'as the template sets it.' : 'NOT as the template sets it (run "check").'}`,
+    );
+    for (const check of failedChecks(checks)) deps.log(`  FAIL  ${check.title}: ${check.detail}`);
+  }
   deps.log(
     record
       ? `Latest record ${record.releaseId}: ${record.status}, commit ${record.commit.shortSha}, schema ${record.migrations.schemaVersionAfter ?? '?'}, last known good ${record.lastKnownGood?.revision ?? 'none'}.`
       : 'No release record yet.',
   );
   return { exitCode: 0, status: 'inspected', record, recordPath: null };
-}
-
-export async function runReleaseAction(
-  args: ReleaseArgs,
-  deps: ReleaseDeps,
-): Promise<ReleaseResult> {
-  switch (args.action) {
-    case 'release':
-      return runRelease(args, deps);
-    case 'promote':
-      return runPromote(args, deps);
-    case 'rollback':
-      return runRollback(args, deps);
-    case 'finalize':
-      return runFinalize(args, deps);
-    case 'status':
-      return runStatus(args, deps);
-  }
 }

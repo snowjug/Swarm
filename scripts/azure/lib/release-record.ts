@@ -47,6 +47,8 @@ export interface RollbackEntry {
 export interface ReleaseRecord {
   schemaVersion: number;
   releaseId: string;
+  /** Absent in records written before the tool could record a revision made by hand: those came from a release. */
+  origin?: 'tool' | 'by-hand';
   status: ReleaseStatus;
   startedAt: string;
   finishedAt: string | null;
@@ -132,16 +134,24 @@ export function revisionSuffixFor(sha: string): string {
 const SHA = /^[0-9a-f]{40}$/u;
 const DIGEST = /^sha256:[0-9a-f]{64}$/u;
 
+/**
+ * A record that is still being made, or that ended before the image existed (a build that failed), has no
+ * digest yet. Writing it down anyway is the point: the live pilot's first release left no trace because the
+ * record was written only once the revision existed.
+ */
+const MAY_LACK_DIGEST: readonly ReleaseStatus[] = ['dry-run', 'in-progress', 'failed'];
+
 /** A record that does not hold together is a bug in the tool, not something to write down. */
 export function validateRecord(record: ReleaseRecord): string[] {
   const problems: string[] = [];
   if (record.schemaVersion !== RECORD_SCHEMA_VERSION) problems.push('schemaVersion');
   if (!SHA.test(record.commit.sha)) problems.push('commit.sha is not a full commit hash');
-  if (!DIGEST.test(record.image.digest) && record.status !== 'dry-run')
+  const digestless = MAY_LACK_DIGEST.includes(record.status) && record.image.digest === '';
+  if (!DIGEST.test(record.image.digest) && record.status !== 'dry-run' && !digestless)
     problems.push('image.digest is not a sha256 digest');
   if (record.image.tag !== `swarm:${record.commit.sha}`)
     problems.push('image.tag is not the commit hash');
-  if (!record.image.reference.includes('@sha256:') && record.status !== 'dry-run') {
+  if (!record.image.reference.includes('@sha256:') && record.status !== 'dry-run' && !digestless) {
     problems.push('image.reference is not pinned by digest');
   }
   const text = JSON.stringify(record);

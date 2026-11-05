@@ -20,6 +20,19 @@ export interface TrafficEntry {
   label: string | null;
 }
 
+/** One probe of a container as `az` returns it: only the fields the deployed-configuration check reads. */
+export interface ProbeInfo {
+  type: string | null;
+  path: string | null;
+  port: number | null;
+}
+
+export interface EnvVar {
+  name?: unknown;
+  value?: unknown;
+  secretRef?: unknown;
+}
+
 export interface RevisionInfo {
   name: string;
   active: boolean;
@@ -30,6 +43,9 @@ export interface RevisionInfo {
   running: string | null;
   health: string | null;
   replicas: number | null;
+  /** The environment variables this revision runs with (a revision is a snapshot of the template). */
+  env: EnvVar[];
+  probes: ProbeInfo[];
 }
 
 export interface AppState {
@@ -45,7 +61,12 @@ export interface AppState {
   memory: string | null;
   minReplicas: number | null;
   maxReplicas: number | null;
-  env: { name?: unknown; value?: unknown; secretRef?: unknown }[];
+  /** The environment the app runs in (`properties.environmentId`); its workspace holds the logs. */
+  environmentId: string | null;
+  /** The port the ingress sends traffic to. It belongs to the app, not to a revision. */
+  targetPort: number | null;
+  env: EnvVar[];
+  probes: ProbeInfo[];
   revisions: RevisionInfo[];
 }
 
@@ -57,6 +78,14 @@ const text = (value: unknown): string | null =>
   typeof value === 'string' && value.length > 0 ? value : null;
 const num = (value: unknown): number | null =>
   typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+function readProbes(container: Json): ProbeInfo[] {
+  return (Array.isArray(container.probes) ? container.probes : []).map((entry): ProbeInfo => {
+    const probe = obj(entry);
+    const get = obj(probe.httpGet);
+    return { type: text(probe.type), path: text(get.path), port: num(get.port) };
+  });
+}
 
 export const commonArgs = (scope: Scope): string[] => [
   '--name',
@@ -110,6 +139,8 @@ export async function readApp(az: AzClient, scope: Scope): Promise<AppState> {
       running: text(itemProperties.runningState),
       health: text(itemProperties.healthState),
       replicas: num(itemProperties.replicas),
+      env: (Array.isArray(itemContainer.env) ? itemContainer.env : []).map(obj),
+      probes: readProbes(itemContainer),
     };
   });
   return {
@@ -129,10 +160,30 @@ export async function readApp(az: AzClient, scope: Scope): Promise<AppState> {
     memory: text(obj(container.resources).memory),
     minReplicas: num(scale.minReplicas),
     maxReplicas: num(scale.maxReplicas),
+    environmentId: text(properties.environmentId),
+    targetPort: num(ingress.targetPort),
     env: (Array.isArray(container.env) ? container.env : []).map(obj),
+    probes: readProbes(container),
     revisions: revisions.filter((revision) => revision.name),
   };
 }
+
+/**
+ * A revision whose replicas run. Azure reports `RunningAtMaxScale` for a healthy revision that has as many
+ * replicas as it may have, which is every revision of the pilot (minimum and maximum are both 1). The API
+ * returns it although its published enumeration does not list it, so a tool that waited for "Running" would
+ * wait for a state this app never reports (found on the live pilot, which showed it for both of its revisions).
+ */
+export const isRunningState = (state: string | null): boolean =>
+  state === 'Running' || state === 'RunningAtMaxScale';
+
+/** A revision that will not start by itself: it failed, is degraded, or its first replica could not start. */
+export const isFailedState = (state: string | null): boolean =>
+  state === 'Failed' || state === 'Degraded' || state === 'ActivationFailed';
+
+/** Health as `az containerapp revision list` reports it: absent, "None" before the first probe, or "Healthy". */
+export const isHealthyState = (health: string | null): boolean =>
+  health === null || health === 'None' || health === 'Healthy';
 
 /** The revisions that receive traffic now, with `latestRevision` entries resolved to the newest revision. */
 export function servingRevisions(state: AppState): { name: string; weight: number }[] {
@@ -240,6 +291,18 @@ export const reads = {
     registry,
     '--subscription',
     subscription,
+  ],
+  /** The image of a commit as JSON: its digest and whether its tag can still be written (locked when it cannot). */
+  image: (subscription: string, registry: string, sha: string): string[] => [
+    'acr',
+    'repository',
+    'show',
+    '--name',
+    registry,
+    '--subscription',
+    subscription,
+    '--image',
+    `swarm:${sha}`,
   ],
   digest: (subscription: string, registry: string, sha: string): string[] => [
     'acr',

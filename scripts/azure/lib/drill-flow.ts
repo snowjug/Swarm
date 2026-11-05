@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import {
   commands,
   isPlaceholder,
+  isRunningState,
   readApp,
   revisionNamed,
   servingRevisions,
@@ -235,7 +236,7 @@ const isWarm = (state: AppState, name: string): boolean => {
   return (
     revision !== undefined &&
     revision.active &&
-    revision.running === 'Running' &&
+    isRunningState(revision.running) &&
     (revision.replicas ?? 0) >= 1
   );
 };

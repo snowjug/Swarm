@@ -5,7 +5,8 @@ import { UsageError } from './lib/args.js';
 import { AzError, realAz } from './lib/az.js';
 import { fetchSmoke, formatSmokeSummary, runPilotSmoke } from './lib/pilot-smoke.js';
 import { parseReleaseArgs } from './lib/release-args.js';
-import { Refusal, runReleaseAction, type GitPort } from './lib/release-flow.js';
+import { runReleaseAction } from './lib/release-actions.js';
+import { Refusal, type GitPort } from './lib/release-flow.js';
 import { checkReadyOn } from './lib/release-http.js';
 import { fileRecordStore } from './lib/release-record.js';
 
@@ -72,7 +73,7 @@ main().then(
   (error: unknown) => {
     if (error instanceof UsageError) {
       console.error(
-        `${error.message}\nUsage: npm run azure:release -- <status|release|promote|rollback|finalize> --subscription <guid> --resource-group <name> --app <name> [--registry <name>] [--execute --confirm-resource-group <name>]\nSee docs/production/release-process.md.`,
+        `${error.message}\nUsage: npm run azure:release -- <status|check|build|release|record|promote|rollback|finalize> --subscription <guid> --resource-group <name> --app <name> [--registry <name>] [--execute --confirm-resource-group <name>]\nrecord also needs --commit <sha> --revision <name> --digest sha256:<hex> [--previous <revision>]. See docs/production/release-process.md.`,
       );
       process.exitCode = 2;
     } else if (error instanceof Refusal) {

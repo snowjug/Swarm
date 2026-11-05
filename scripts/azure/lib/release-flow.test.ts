@@ -9,13 +9,12 @@ import {
   SHA_B,
   SUB,
   digestOf,
-  fakeAzure,
-  fakeGit,
-  fakeSmoke,
   newWorld,
   type FakeWorld,
 } from './fixtures/fake-containerapp.js';
+import { NEW, OLD, base, dry, harness, kinds, live, run } from './fixtures/release-harness.js';
 import { UsageError } from './args.js';
+import { isFailedState, isHealthyState, isRunningState } from './containerapp.js';
 import { parseReleaseArgs } from './release-args.js';
 import {
   Refusal,
@@ -25,67 +24,8 @@ import {
   runRelease,
   runRollback,
   runStatus,
-  type ReleaseDeps,
 } from './release-flow.js';
-import {
-  memoryRecordStore,
-  redactEnvironment,
-  revisionSuffixFor,
-  validateRecord,
-} from './release-record.js';
-
-const OLD = `${APP}--r${SHA_A.slice(0, 12)}`;
-const NEW = `${APP}--r${SHA_B.slice(0, 12)}`;
-
-const base = [
-  'release',
-  '--subscription',
-  SUB,
-  '--resource-group',
-  GROUP,
-  '--app',
-  APP,
-  '--registry',
-  REGISTRY,
-];
-const dry = [...base, '--current-schema-version', '9'];
-const live = [...dry, '--execute', '--confirm-resource-group', GROUP];
-
-function harness(
-  options: { world?: FakeWorld; schema?: number; clean?: boolean; head?: string; ci?: string } = {},
-) {
-  const fake = fakeAzure(options.world ?? newWorld());
-  const store = memoryRecordStore();
-  const logs: string[] = [];
-  const git = fakeGit({ schema: options.schema, clean: options.clean, head: options.head });
-  const health = { ok: true, detail: 'HTTP 200 and the body is ready' };
-  const deps: ReleaseDeps = {
-    az: fake.az,
-    git,
-    store,
-    smoke: fakeSmoke(fake.world),
-    health: async () => health,
-    now: () => new Date(fake.world.clock.now),
-    sleep: async (milliseconds) => {
-      fake.world.clock.now += milliseconds;
-    },
-    log: (line) => logs.push(line),
-    ci: options.ci,
-  };
-  return { fake, store, logs, deps, git, health };
-}
-
-const kinds = (calls: string[][]): string[] =>
-  calls.map((call) => {
-    if (call[0] === 'acr' && call[1] === 'build') return 'build';
-    if (call[0] === 'acr') return 'lock-tag';
-    if (call[2] === 'traffic') return 'traffic';
-    if (call[1] === 'update') return 'update';
-    return String(call[2]);
-  });
-
-const run = (words: string[], h: ReturnType<typeof harness>) =>
-  runRelease(parseReleaseArgs(words), h.deps);
+import { redactEnvironment, revisionSuffixFor, validateRecord } from './release-record.js';
 
 describe('a dry run is the default', () => {
   it('reads what it needs, changes nothing, writes no record, and prints the exact commands it would run', async () => {
@@ -251,6 +191,7 @@ describe('a release', () => {
       'build',
       'lock-tag',
       'create-revision',
+      'config-check',
       'revision-health',
       'shift',
     ]);
@@ -441,42 +382,41 @@ describe('schema migrations only go forward', () => {
   });
 });
 
-describe('the first release replaces the placeholder', () => {
-  it('has nothing to go back to, needs no schema flag, and does not pretend otherwise', async () => {
+describe('the app still runs the placeholder: the first real image goes on through the template', () => {
+  // The live pilot: a revision made over the placeholder with `az containerapp update` kept the ingress on
+  // port 80 and carried the placeholder's PORT, so the real image stopped at start with "Invalid server
+  // configuration: PORT", and `az containerapp update` cannot set the probes the template defines.
+  const withoutSchemaFlag = live.filter(
+    (word, index) =>
+      word !== '--current-schema-version' && live[index - 1] !== '--current-schema-version',
+  );
+
+  it('refuses to make a revision over it, before anything is built or changed, and names the sequence that works', async () => {
     const h = harness({ world: newWorld({ placeholder: true }) });
-    const result = await runRelease(
-      parseReleaseArgs(
-        [...live].filter(
-          (word, index, all) =>
-            word !== '--current-schema-version' && all[index - 1] !== '--current-schema-version',
-        ),
-      ),
-      h.deps,
+    const refused = runRelease(parseReleaseArgs(withoutSchemaFlag), h.deps);
+    await expect(refused).rejects.toThrow(Refusal);
+    await expect(runRelease(parseReleaseArgs(withoutSchemaFlag), h.deps)).rejects.toThrow(
+      /placeholder/u,
     );
-    expect(result.status).toBe('promoted');
-    const [record] = h.store.records;
-    expect(record?.lastKnownGood).toBeNull();
-    expect(record?.warmWindow).toBeNull();
-    expect(record?.rollback).toBeNull();
-    expect(record?.migrations.schemaVersionBefore).toBe(0);
-    expect(h.logs.join('\n')).toContain('nothing to roll back to');
+    expect(h.fake.mutations()).toEqual([]);
+    expect(h.store.records).toEqual([]);
+    const message = await refused.catch((error: Error) => error.message);
+    expect(message).toContain('azure:release -- build');
+    expect(message).toContain('through the template');
+    expect(message).toContain('azure:release -- record');
+    expect(message).toContain(`--revision ${APP}--r${SHA_B.slice(0, 12)}`);
   });
 
-  it('fails without an automatic rollback when the first smoke test fails', async () => {
-    const world = newWorld({ placeholder: true });
-    world.breakNextApp = true;
-    const h = harness({ world });
-    const result = await runRelease(
-      parseReleaseArgs(
-        live.filter(
-          (word, index) =>
-            word !== '--current-schema-version' && live[index - 1] !== '--current-schema-version',
-        ),
-      ),
-      h.deps,
+  it('refuses a dry run as well: the plan it would print is the one that failed', async () => {
+    const h = harness({ world: newWorld({ placeholder: true }) });
+    const dryWithoutSchemaFlag = dry.filter(
+      (word, index) =>
+        word !== '--current-schema-version' && dry[index - 1] !== '--current-schema-version',
     );
-    expect(result).toMatchObject({ exitCode: 1, status: 'failed' });
-    expect(h.logs.join('\n')).toContain('no automatic rollback is available (first release)');
+    await expect(runRelease(parseReleaseArgs(dryWithoutSchemaFlag), h.deps)).rejects.toThrow(
+      /placeholder/u,
+    );
+    expect(h.fake.mutations()).toEqual([]);
   });
 });
 
@@ -688,6 +628,232 @@ describe('finalize retires the previous revision after the warm window', () => {
     await expect(runFinalize(parseReleaseArgs(finalizeWords), h.deps)).rejects.toThrow(
       /no promoted release/u,
     );
+  });
+
+  it('will not retire the previous revision when the one that serves has failed since: it would be the only one left', async () => {
+    const h = harness();
+    await run(live, h);
+    h.fake.world.revisions.get(NEW)!.running = 'Degraded';
+    h.fake.world.revisions.get(NEW)!.health = 'Unhealthy';
+    await expect(
+      runFinalize(parseReleaseArgs([...finalizeWords, '--force']), h.deps),
+    ).rejects.toThrow(/would leave a failed revision as the only one/u);
+    expect(h.fake.world.revisions.get(OLD)?.active).toBe(true);
+    // It points at the logs.
+    await expect(
+      runFinalize(parseReleaseArgs([...finalizeWords, '--force']), h.deps),
+    ).rejects.toThrow(/ContainerAppConsoleLogs_CL/u);
+  });
+});
+
+describe('what the live pilot exposed in the release tool', () => {
+  describe('a revision that runs at its maximum scale', () => {
+    // The pilot's min and max replicas are both 1, so Azure reports every healthy revision as RunningAtMaxScale,
+    // a state the API returns and its published enumeration does not list. A tool that waits for "Running" waits
+    // for a state this app never reports, and would have timed out on a healthy revision.
+    it('is running: a whole release over RunningAtMaxScale revisions promotes without timing out', async () => {
+      const h = harness({ world: newWorld({ runningState: 'RunningAtMaxScale' }) });
+      const result = await run(live, h);
+      expect(result).toMatchObject({ exitCode: 0, status: 'promoted' });
+      expect(h.fake.world.revisions.get(NEW)?.running).toBe('RunningAtMaxScale');
+      expect(h.logs.join('\n')).not.toContain('was not running after');
+    });
+
+    it('is a serving revision that may be released over, finalized after, and rolled back to', async () => {
+      const h = harness({ world: newWorld({ runningState: 'RunningAtMaxScale' }) });
+      await run(live, h);
+      h.fake.world.clock.now += 4 * 3_600_000 + 1;
+      const finalize = await runFinalize(
+        parseReleaseArgs([
+          'finalize',
+          '--subscription',
+          SUB,
+          '--resource-group',
+          GROUP,
+          '--app',
+          APP,
+          '--execute',
+          '--confirm-resource-group',
+          GROUP,
+        ]),
+        h.deps,
+      );
+      expect(finalize.status).toBe('finalized');
+    });
+
+    it('still stops a revision that is Degraded, Failed or ActivationFailed', () => {
+      expect(isRunningState('RunningAtMaxScale')).toBe(true);
+      expect(isRunningState('Running')).toBe(true);
+      for (const state of ['Failed', 'Degraded', 'ActivationFailed']) {
+        expect(isFailedState(state)).toBe(true);
+        expect(isRunningState(state)).toBe(false);
+      }
+      for (const state of ['Processing', 'Activating', 'Stopped', null]) {
+        expect(isRunningState(state)).toBe(false);
+        expect(isFailedState(state)).toBe(false);
+      }
+      expect(isHealthyState('Healthy')).toBe(true);
+      expect(isHealthyState('None')).toBe(true);
+      expect(isHealthyState(null)).toBe(true);
+      expect(isHealthyState('Unhealthy')).toBe(false);
+    });
+  });
+  it('writes the record before the first change, so that a build that fails leaves evidence', async () => {
+    const world = newWorld();
+    world.failNextBuild = true;
+    const h = harness({ world });
+    await expect(run(live, h)).rejects.toThrow(/build failed/u);
+
+    // The first release of the live pilot left nothing behind: the record was written only once the revision existed.
+    expect(h.store.records).toHaveLength(1);
+    const [written] = h.store.records;
+    expect(written).toMatchObject({ status: 'failed', origin: 'tool', commit: { sha: SHA_B } });
+    expect(written?.finishedAt).not.toBeNull();
+    expect(written?.steps.map((step) => [step.step, step.status])).toEqual([['build', 'failed']]);
+    expect(written && validateRecord(written)).toEqual([]);
+    expect(h.logs.join('\n')).toContain('The release stopped at a step that failed. The record:');
+    // Nothing moved.
+    expect(h.fake.world.traffic).toEqual([{ revisionName: OLD, weight: 100 }]);
+  });
+
+  it('records a failure of the registry check too, not only of an az command', async () => {
+    const h = harness();
+    await expect(run([...live, '--skip-build'], h)).rejects.toThrow(/no image swarm:/u);
+    expect(h.store.records[0]).toMatchObject({ status: 'failed' });
+  });
+
+  it('reuses an image whose tag is locked instead of building it again: a locked tag cannot be rebuilt', async () => {
+    // The live pilot: swarm:<sha> was locked by the first attempt, so the same commit could not be released again.
+    const h = harness();
+    h.fake.world.images.set(`swarm:${SHA_B}`, { digest: digestOf(SHA_B), locked: true });
+    const result = await run(live, h);
+    expect(result.status).toBe('promoted');
+    expect(kinds(h.fake.mutations())).toEqual(['update', 'traffic']);
+    expect(h.logs.join('\n')).toContain('is already in');
+    const [written] = h.store.records;
+    expect(written?.image).toMatchObject({ digest: digestOf(SHA_B), tagLocked: true });
+    expect(written?.steps[0]).toMatchObject({ step: 'build', status: 'skipped' });
+    expect(h.fake.world.revisions.get(NEW)?.image).toBe(`${LOGIN_SERVER}/swarm@${digestOf(SHA_B)}`);
+  });
+
+  it('still builds an image whose tag exists but is not locked, and locks it', async () => {
+    const h = harness();
+    h.fake.world.images.set(`swarm:${SHA_B}`, { digest: digestOf('old build'), locked: false });
+    await run(live, h);
+    expect(kinds(h.fake.mutations())).toEqual(['build', 'lock-tag', 'update', 'traffic']);
+  });
+
+  describe('a configuration that is not the one the template sets', () => {
+    it.each([
+      [
+        'the ingress on the placeholder port',
+        (world: FakeWorld) => {
+          world.targetPort = 80;
+        },
+        /ingress targets port 80/u,
+      ],
+      [
+        'the placeholder PORT, which the application refuses',
+        (world: FakeWorld) => {
+          world.env.find((entry) => entry.name === 'PORT')!.value = '80';
+        },
+        /Invalid server configuration: PORT/u,
+      ],
+      [
+        'no probes, which az containerapp update cannot add',
+        (world: FakeWorld) => {
+          world.probes = [];
+        },
+        /no Startup probe/u,
+      ],
+    ])(
+      'refuses to release over %s, before anything is built, and says what to apply',
+      async (_name, mutate, message) => {
+        const world = newWorld();
+        mutate(world);
+        const h = harness({ world });
+        const refused = run(live, h);
+        await expect(refused).rejects.toThrow(Refusal);
+        await expect(run(live, h)).rejects.toThrow(message);
+        expect(h.fake.mutations()).toEqual([]);
+        expect(h.store.records).toEqual([]);
+        const text = await refused.catch((error: Error) => error.message);
+        expect(text).toContain('export SERVICE_SWARM_RESOURCE_EXISTS=true');
+        expect(text).toContain('az deployment group what-if');
+      },
+    );
+
+    it('stops a new revision that carries the wrong configuration before it can take traffic', async () => {
+      const world = newWorld();
+      world.badConfigNextRevision = true;
+      const h = harness({ world });
+      const result = await run(live, h);
+      expect(result).toMatchObject({ exitCode: 1, status: 'failed' });
+      expect(h.fake.world.traffic).toEqual([{ revisionName: OLD, weight: 100 }]);
+      expect(h.fake.world.revisions.get(NEW)?.active).toBe(false);
+      const text = h.logs.join('\n');
+      expect(text).toContain('is not configured for a real image, so it takes no traffic');
+      expect(text).toContain('PORT=80');
+      expect(h.store.records[0]?.steps.find((step) => step.step === 'config-check')).toMatchObject({
+        status: 'failed',
+      });
+    });
+  });
+
+  describe('a revision that does not start', () => {
+    it('prints where to read why: the console log query, the system log query and the workspace lookup', async () => {
+      const world = newWorld();
+      world.failNextRevision = true;
+      const h = harness({ world });
+      const result = await run(live, h);
+      expect(result.status).toBe('failed');
+      const text = h.logs.join('\n');
+      expect(text).toContain(
+        `ContainerAppConsoleLogs_CL | where ContainerAppName_s == '${APP}' and RevisionName_s == '${NEW}'`,
+      );
+      expect(text).toContain(
+        `ContainerAppSystemLogs_CL | where ContainerAppName_s == '${APP}' and RevisionName_s == '${NEW}'`,
+      );
+      expect(text).toContain('az monitor log-analytics query --workspace "$WS"');
+      expect(text).toContain('az containerapp env show --ids');
+      expect(text).toContain('az containerapp logs show');
+      expect(text).toContain('Invalid server configuration');
+    });
+
+    it('prints them for a revision that never becomes ready, and points at the port as the usual cause', async () => {
+      const world = newWorld();
+      world.hangNextRevision = true;
+      const h = harness({ world });
+      await run([...live, '--ready-timeout-minutes', '1'], h);
+      const text = h.logs.join('\n');
+      expect(text).toContain('ContainerAppConsoleLogs_CL');
+      expect(text).toContain('stays "Activating" while its health route answers');
+    });
+
+    it('is not deactivated when no other revision is running: a failed revision must not be the only one left', async () => {
+      const world = newWorld();
+      world.failNextRevision = true;
+      world.degradeOthersOnUpdate = true;
+      const h = harness({ world });
+      const result = await run(live, h);
+      expect(result.status).toBe('failed');
+      expect(h.logs.join('\n')).toContain(`NOT deactivating ${NEW}`);
+      expect(kinds(h.fake.mutations())).not.toContain('deactivate');
+      expect(h.fake.world.revisions.get(NEW)?.active).toBe(true);
+    });
+  });
+
+  it('shows in status whether the deployed configuration is the one the template sets', async () => {
+    const world = newWorld();
+    world.probes = [];
+    const h = harness({ world });
+    await runStatus(
+      parseReleaseArgs(['status', '--subscription', SUB, '--resource-group', GROUP, '--app', APP]),
+      h.deps,
+    );
+    const text = h.logs.join('\n');
+    expect(text).toContain('NOT as the template sets it');
+    expect(text).toContain('no Startup probe');
   });
 });
 
