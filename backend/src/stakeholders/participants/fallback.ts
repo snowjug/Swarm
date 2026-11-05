@@ -24,6 +24,7 @@ import {
   nameProblem,
   nameTokens,
   normaliseLine,
+  partyProblem,
   wordsIn,
 } from './language.js';
 import { readMentions } from './reader.js';
@@ -193,16 +194,31 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
     ...context.graph,
     nodes: context.graph.nodes.filter((node) => node.kind !== 'person'),
   };
+  // A heading, a menu item or the product under change is no party, and it is left out before the rules join
+  // names that contain one another: "Acme" in the question must not be swallowed by "Acme Rooms".
+  const notParties = new Map<string, string>();
+  const partiesOnly = (passages: Parameters<typeof readMentions>[0]) =>
+    readMentions(passages).filter((mention) => {
+      const problem = partyProblem(mention.surface, context.scenario);
+      if (problem && !notParties.has(mention.surface)) notParties.set(mention.surface, problem);
+      return problem === null;
+    });
   const found = discoverByRules({
     question: context.question,
     scenario: context.scenario,
     graph: safeGraph,
     passages: context.passages,
-    mentions: readMentions,
+    mentions: partiesOnly,
     names: 'specific',
     limit: MAX_CANDIDATES,
   });
   side.notes.push(...found.notices);
+  for (const [surface, problem] of notParties) {
+    side.dropped.push({
+      name: truncate(surface, 120),
+      reason: `Left out of the proposal: ${problem}.`,
+    });
+  }
 
   const used = new Set<string>();
   const ids = new Map<string, string>();
@@ -226,7 +242,7 @@ export function rulesProposal(context: ProposalContext, side: ProposalSide): Pro
       }
       name = qualified;
     }
-    const problem = nameProblem(name, context.personLabels);
+    const problem = nameProblem(name, context.personLabels) ?? partyProblem(name, context.scenario);
     if (problem) {
       side.dropped.push({
         name: truncate(name, 120),

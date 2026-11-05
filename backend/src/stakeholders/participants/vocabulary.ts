@@ -294,6 +294,45 @@ export const THING_MODIFIERS: ReadonlySet<string> = new Set(
   ),
 );
 
+const set = (words: string): ReadonlySet<string> => new Set(words.split(' '));
+
+/**
+ * Nouns that name a body of people only with some words before them, and a thing with others: the word
+ * nearest the noun decides. A "notice board" and a "content delivery network" are things; so is an "admin
+ * center", which is a page or a place that people go to.
+ */
+export const THING_HEADS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['board', THING_MODIFIERS],
+  ['panel', THING_MODIFIERS],
+  [
+    'network',
+    set(
+      'content delivery computer neural wireless cellular virtual private area data sensor mesh storage',
+    ),
+  ],
+  ['center', set('admin data help download notification control update message')],
+  ['centre', set('admin data help download notification control update message')],
+]);
+
+/**
+ * Words that open an instruction, a heading or a menu item in documentation ("Configure widgets", "Manage
+ * users", "Turn off captions"): what a person does with a thing, not who they are. Only verbs that no
+ * group is described by are here: "select" and "set" are left out, since a select committee and set
+ * designers are groups.
+ */
+export const COMMAND_VERBS: ReadonlySet<string> = set(
+  'configure manage create add edit delete remove assign enable disable deploy install uninstall view use ' +
+    'upgrade migrate troubleshoot restore turn learn get try go enter click download connect register reset ' +
+    'invite customize customise integrate automate optimize optimise join apply allow restrict choose',
+);
+
+/**
+ * Words that, standing right before a role noun, say that no person does the job: an "auto attendant" is a
+ * phone menu and a "robotic cleaner" a machine. "Virtual" and "AI" are not here: a virtual team and an AI
+ * researcher are people.
+ */
+export const MACHINE_MODIFIERS: ReadonlySet<string> = set('auto automated automatic robotic');
+
 /** Texts that set rules, and so imply a body that sets or applies them. */
 export const INSTRUMENTS: ReadonlySet<string> = new Set(
   'code standard act policy regulation directive charter guideline framework agreement law legislation statute bylaw'.split(

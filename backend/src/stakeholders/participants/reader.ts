@@ -14,6 +14,7 @@ import {
   ANCHORS,
   CLOSED_CLASS,
   COLLECTIVES,
+  COMMAND_VERBS,
   COMPOUND_AFTER,
   COMPOUND_PLURALS,
   DECISION_FORMS,
@@ -23,12 +24,13 @@ import {
   IRREGULAR_PLURALS,
   KIND_PREPOSITIONS,
   LY_WORDS_THAT_DESCRIBE,
+  MACHINE_MODIFIERS,
   NOT_DESCRIBING,
   OBJECT_STARTERS,
   PAIR_NOUNS,
   PEOPLE_VERBS,
   STANCE_FORMS,
-  THING_MODIFIERS,
+  THING_HEADS,
   THINGS_THAT_SAY,
   TIME_WORDS,
   TITLES,
@@ -205,6 +207,9 @@ interface Modifier {
 function modifierOf(token: Token, opensSentence: boolean): Modifier | null {
   // "The company's reseller" is the reseller of the company: the possessor is another party, not a description.
   if (token.possessive === 'single') return null;
+  // "Configure widgets" and "Manage users" are what a person does with a thing, in a heading or a menu: the verb
+  // describes nobody, and the words after it are left to stand on their own.
+  if (COMMAND_VERBS.has(token.lower)) return null;
   const folded = foldSingular(token.raw);
   const listed = MODIFIERS.has(token.lower) ? token.lower : MODIFIERS.has(folded) ? folded : null;
   if (listed !== null) {
@@ -360,6 +365,8 @@ function phrasesIn(
   listed: ReadonlySet<number>,
 ): Found[] {
   const found: Found[] = [];
+  // Where a thing's name stood ("admin center"): a noun inside it only describes the thing and is no group.
+  const things: { first: number; headLast: number }[] = [];
   for (let index = 0; index < tokens.length; index += 1) {
     const head = headAt(sentence, tokens, index);
     const headToken = head ? tokens[head.last] : undefined;
@@ -416,13 +423,14 @@ function phrasesIn(
       mods.splice(personal);
       first = head.first - mods.length;
     }
-    // A "notice board" is a thing, not a body of people.
-    if (
-      ['board', 'panel'].includes(head.lemma) &&
-      mods[0] &&
-      THING_MODIFIERS.has(mods[0].token.lower)
-    )
+    // A "notice board" is a thing, not a body of people; so are a "content delivery network" and an "admin
+    // center". And a role noun that a machine word stands before ("auto attendants") names a system.
+    const nearest = mods[0]?.token.lower;
+    if (nearest !== undefined && THING_HEADS.get(head.lemma)?.has(nearest)) {
+      things.push({ first: head.first - mods.length, headLast: head.last });
       continue;
+    }
+    if (nearest !== undefined && MACHINE_MODIFIERS.has(nearest) && head.kind !== 'proper') continue;
 
     const firstToken = tokens[first];
     if (!firstToken) continue;
@@ -481,6 +489,7 @@ function phrasesIn(
   // words that say which group is meant ("carers of patients with dementia"), is not a group of its own.
   return found.filter(
     (phrase) =>
+      !things.some((thing) => thing.first <= phrase.headLast && thing.headLast > phrase.headLast) &&
       !found.some(
         (other) =>
           other !== phrase &&

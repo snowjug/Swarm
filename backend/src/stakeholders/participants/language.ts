@@ -1,6 +1,9 @@
+import type { ScenarioFrame } from '../../../../shared/scenario.js';
 import { lintText, ownWords } from '../../brief/lint.js';
 import { singular } from '../lexicon.js';
 import { truncate } from '../names.js';
+import { shortSystem } from './topic.js';
+import { COMMAND_VERBS, MACHINE_MODIFIERS, THING_HEADS } from './vocabulary.js';
 
 /**
  * The language rules behind the participant checks: what a name may not be, what generated text may
@@ -241,6 +244,64 @@ export function nameProblem(name: string, personLabels: readonly string[] = []):
   if (findPersonalDetail(name)) return 'it holds a personal detail';
   if (findStereotype(name)) return 'it generalises about people';
   if (findUnsupportedMotive(name, personLabels)) return 'it claims to know a hidden reason';
+  return null;
+}
+
+/** Whether a text begins with a name's own words, in order: "City council" begins "The city council approves". */
+function leadsWith(text: string, name: string): boolean {
+  const tokens = nameTokens(name);
+  const lead = nameTokens(
+    wordsIn(text)
+      .slice(0, tokens.length + 6)
+      .join(' '),
+  );
+  return tokens.length > 0 && tokens.every((token, at) => lead[at] === token);
+}
+
+const lastWord = (text: string): string => text.trim().split(/\s+/u).filter(Boolean).at(-1) ?? '';
+
+/**
+ * Whether a name is written as the very thing the decision changes: every word has a capital, and it ends
+ * with the system's own last word, as "Acme Rooms" does in a question about Rooms.
+ */
+function namesTheSystem(name: string, scenario: ScenarioFrame | null): boolean {
+  const system = shortSystem(scenario);
+  if (!system) return false;
+  const words = name.trim().split(/\s+/u).filter(Boolean);
+  return (
+    words.length > 0 &&
+    words.every((word) => /^\p{Lu}/u.test(word)) &&
+    /^\p{Lu}/u.test(lastWord(system)) &&
+    singular(lastWord(name).toLowerCase()) === singular(lastWord(system).toLowerCase())
+  );
+}
+
+/**
+ * What stops a name from being a party at all, whoever proposed it: it opens like an instruction or a
+ * menu item ("Configure widgets", "Manage users"), which is what a person does, not who; it names a thing
+ * ("Content Delivery Network", "Rooms admin center") or a machine ("auto attendants"); or it is the
+ * thing the decision changes ("Acme Rooms" in a question about Rooms), unless the decision is worded
+ * as that name doing something ("Harbour Library closes on Sundays"). A group is named for who it is, and
+ * a page of documentation is full of all of these.
+ */
+export function partyProblem(name: string, scenario: ScenarioFrame | null): string | null {
+  const words = wordsIn(name);
+  if (words.length >= 2 && COMMAND_VERBS.has(words[0] ?? '')) {
+    return 'it begins with an instruction word, so it reads as a heading or a menu item and not a party';
+  }
+  const last = words.at(-1);
+  const before = words.at(-2);
+  if (last && before) {
+    if (THING_HEADS.get(singular(last))?.has(before)) {
+      return 'it names a thing, such as a page, a service or a network, and not a group of people';
+    }
+    if (MACHINE_MODIFIERS.has(before)) {
+      return 'it names a machine or a feature, and not a group of people';
+    }
+  }
+  if (namesTheSystem(name, scenario) && !leadsWith(scenario?.decision ?? '', name)) {
+    return 'it names the thing the decision changes, which is not a party to it';
+  }
   return null;
 }
 

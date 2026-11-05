@@ -56,7 +56,9 @@ export function subjectOf(scenario: ScenarioFrame | null, question: string): str
   if (!system) return 'this change';
   const first = system.split(/\s+/u)[0] ?? '';
   const text = [question, scenario?.decision, scenario?.baseline].filter(Boolean).join(' ');
-  return /^\p{Lu}/u.test(first) && writtenAsName(first, text)
-    ? `the ${system}`
-    : `the ${system.charAt(0).toLowerCase()}${system.slice(1)}`;
+  if (!(/^\p{Lu}/u.test(first) && writtenAsName(first, text))) {
+    return `the ${system.charAt(0).toLowerCase()}${system.slice(1)}`;
+  }
+  // A name made only of capitalised words ("Rooms", "Eastgate Library") is a name by itself, and takes no article.
+  return system.split(/\s+/u).every((word) => /^\p{Lu}/u.test(word)) ? system : `the ${system}`;
 }

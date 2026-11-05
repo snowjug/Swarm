@@ -18,6 +18,7 @@ import {
   isGenericName,
   namesPerson,
   normaliseLine,
+  partyProblem,
   wordingProblem,
   wordsIn,
 } from './language.js';
@@ -96,6 +97,14 @@ export function proposalChecker(
       if (isGenericName(participant.name) && !options.ownNames?.has(participant.name)) {
         problem(
           `${label}: the name is too generic. Name the specific role it stands for in this scenario, never staff, users, public, employee, management, stakeholder or team alone.`,
+        );
+      }
+      const notParty = options.ownNames?.has(participant.name)
+        ? null
+        : partyProblem(participant.name, context.scenario);
+      if (notParty) {
+        problem(
+          `${label}: ${notParty}. Name the people or bodies who decide or are affected, never a heading, a menu item, a feature or the product being changed.`,
         );
       }
       if (
