@@ -119,14 +119,21 @@ describe('routing and accounting', () => {
     await runner.run(task());
     await runner.run(task({ role: 'critic', name: 'critique.v1', requiresReasoning: true }));
     const [plain, deep] = fake.requests.map((request) => request.body!);
-    expect(plain).toMatchObject({ model: 'general-dep', temperature: 0 });
-    expect(plain?.reasoning_effort).toBeUndefined();
+    // The router chose a temperature for a deployment it does not know to reason. The client still asks
+    // such a deployment to think little about a structured answer, and makes room for it, until it says it takes no effort.
+    expect(plain).toMatchObject({
+      model: 'general-dep',
+      temperature: 0,
+      reasoning_effort: 'low',
+      max_completion_tokens: 300 + 1_000,
+    });
     expect(deep).toMatchObject({ model: 'critic-dep', reasoning_effort: 'high' });
     expect(deep?.temperature).toBeUndefined();
     expect(deep?.response_format).toMatchObject({
       type: 'json_schema',
       json_schema: { name: 'critique_v1', strict: true },
     });
+    // The room the router made for a deployment it knows reasons is not made twice.
     expect(deep?.max_completion_tokens).toBe(300 + 4_000);
     expect(fake.problems).toEqual([]);
   });
@@ -272,7 +279,9 @@ describe('validate, correct once, then rules', () => {
 describe('the allowances that hold a model back', () => {
   it('stops at the operation’s token allowance: no call is made that could pass it', async () => {
     const { config, factory } = world();
-    const budget = new OperationBudget({ tokens: 2_500 });
+    // A call holds back its input and the most it may write, thinking room included: about 1,800 here.
+    // Two calls use 2,400 between them, and a third that could use 1,800 more does not fit in 3,500.
+    const budget = new OperationBudget({ tokens: 3_500 });
     const runner = taskRunnerFor(config, factory, { onUsage: sink(), budget });
     fake.respond(() => ({ kind: 'reply', value: model, usage: used(900, 300) }));
     const outcomes = [];
@@ -294,8 +303,9 @@ describe('the allowances that hold a model back', () => {
 
   it('cannot be passed by tasks that run at the same moment', async () => {
     const { config, factory } = world();
-    // One call holds back about 800 tokens (its input and the answer it may write): two fit, three do not.
-    const budget = new OperationBudget({ tokens: 2_000 });
+    // One call holds back about 1,800 tokens (its input and the answer it may write, with room to think):
+    // two fit, three do not.
+    const budget = new OperationBudget({ tokens: 4_000 });
     const runner = taskRunnerFor(config, factory, { onUsage: sink(), budget });
     fake.respond(() => ({
       kind: 'slow',
@@ -315,8 +325,9 @@ describe('the allowances that hold a model back', () => {
 
   it('stops at the operation’s dollar allowance, and refuses a deployment that has no price', async () => {
     const { config, factory } = world({ MODEL_PRICES: PRICES });
-    // One call costs about $0.0018 here, and holds back up to about $0.0019; the allowance is for two.
-    const budget = new OperationBudget({ usd: 0.004, prices: config.routing.prices });
+    // One call costs about $0.0018 here, and holds back up to about $0.0057 (the room to think included);
+    // the allowance is for two.
+    const budget = new OperationBudget({ usd: 0.008, prices: config.routing.prices });
     const runner = taskRunnerFor(config, factory, { onUsage: sink(), budget });
     fake.respond(() => ({ kind: 'reply', value: model, usage: used(1_000, 200) }));
     const codes = [];

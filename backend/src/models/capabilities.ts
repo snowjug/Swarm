@@ -3,6 +3,8 @@ export interface DeploymentCapabilities {
   jsonSchema?: boolean;
   temperature?: boolean;
   reasoningEffort?: boolean;
+  /** False for a deployment that takes an effort but not `minimal` (the o-series): its lowest is `low`. */
+  minimalEffort?: boolean;
 }
 
 export interface CapabilityMemoryOptions {

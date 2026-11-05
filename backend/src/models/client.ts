@@ -3,11 +3,19 @@ import { z } from 'zod';
 import type { ProviderName } from '../../../shared/types.js';
 import type { ProviderConfig } from '../config.js';
 import { AppError, throwIfAborted } from '../errors.js';
-import type { CallGate, CallReport, CallTicket, ModelCallRoute } from './call.js';
+import type { CallGate, CallReport, CallTicket, ModelCallRoute, ReasoningEffort } from './call.js';
 import { CapabilityMemory } from './capabilities.js';
 import { estimateTokens } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
 import { echoesInjection, findInjectionPayloads, INJECTION_ECHO_PROBLEM } from './injection.js';
+import {
+  answerTokensFor,
+  budgetFor,
+  MINIMAL_EFFORT,
+  retryAfterLength,
+  roomFor,
+  STRUCTURED_EFFORT,
+} from './output-policy.js';
 import {
   fromBlockedRequest,
   ModelRefusedError,
@@ -16,7 +24,7 @@ import {
   type SafetyFinding,
 } from './safety.js';
 import { toStrictSchema, type StrictSchema } from './strict-schema.js';
-import type { ModelCallEvent, ModelObserver, ModelRejectEvent } from './telemetry.js';
+import type { FinishReason, ModelCallEvent, ModelObserver, ModelRejectEvent } from './telemetry.js';
 import type { ModelRole } from './task.js';
 
 export interface ModelUsage {
@@ -81,8 +89,6 @@ interface ChatMessage {
   content: string;
 }
 
-/** Upper bound for the output budget after a truncated reply; keeps a retry from running away. */
-const MAX_TRUNCATION_RETRY_TOKENS = 16_000;
 /** Retries after a network error, timeout-class status (408) or 5xx: three attempts in all. */
 const MAX_TRANSIENT_RETRIES = 2;
 /** Retries after HTTP 429: six attempts in all, each honoring a bounded Retry-After. */
@@ -104,6 +110,8 @@ interface Completion {
   answer: string;
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number | null;
+  finishReason: FinishReason | null;
   tokensReported: boolean;
   safety: readonly SafetyFinding[];
 }
@@ -112,6 +120,8 @@ interface Completion {
 interface Meter {
   inputTokens: number;
   outputTokens: number;
+  reasoningTokens: number | null;
+  finishReason: FinishReason | null;
   reported: boolean;
   safety: readonly SafetyFinding[];
 }
@@ -129,12 +139,29 @@ interface CallPlan extends RequestPlan {
   mode: 'json_schema' | 'json_object';
   strict: StrictSchema | null;
   temperature: number | null;
-  reasoningEffort: string | null;
+  reasoningEffort: ReasoningEffort | null;
+  /** The most the reply may be, in tokens, thinking included: it grows when a reply is cut off at it. */
+  maxTokens: number;
+  /** Whether this client made the room for thinking that `maxTokens` holds, and so must change it with the effort. */
+  madeRoom: boolean;
+  /** The effort this client chose, where the route named none: it is the first thing an ambiguous refusal is blamed on. */
+  chosenEffort: ReasoningEffort | null;
+  /**
+   * Where an ambiguous refusal (one that names no parameter) has got to. `open`: the effort this client
+   * chose has not been blamed. `effort`: it has, and was left out. `cleared`: it was not the cause, or the
+   * call has been answered, and it is not blamed again.
+   */
+  blame: 'open' | 'effort' | 'cleared';
+  /** The effort that was left out on a blame, to be put back if it turns out not to have been the cause. */
+  blamedEffort: ReasoningEffort | null;
+  /** The lowest effort the deployment takes: `low` once it has refused `minimal`. */
+  effortFloor: ReasoningEffort;
   /** Refusals seen on this call. They are remembered only once a reply shows the call went through without them. */
   refused: {
     schema: 'deployment' | 'schema' | null;
     temperature: boolean;
     reasoningEffort: boolean;
+    minimalEffort: boolean;
   };
 }
 
@@ -170,6 +197,10 @@ const openAiResponse = z.object({
     .object({
       prompt_tokens: z.number().int().nonnegative().optional(),
       completion_tokens: z.number().int().nonnegative().optional(),
+      // The hidden thinking tokens are part of `completion_tokens`; only a reasoning deployment says them.
+      completion_tokens_details: z
+        .object({ reasoning_tokens: z.number().int().nonnegative().nullish() })
+        .nullish(),
     })
     .optional(),
 });
@@ -180,6 +211,22 @@ const ollamaResponse = z.object({
   prompt_eval_count: z.number().int().nonnegative().optional(),
   eval_count: z.number().int().nonnegative().optional(),
 });
+
+/** What a provider said ended a reply, as one of a closed set: its own words are never carried on. */
+function finishReasonOf(value: string | null | undefined): FinishReason | null {
+  if (value === undefined || value === null) return null;
+  switch (value) {
+    case 'stop':
+    case 'length':
+    case 'content_filter':
+    case 'tool_calls':
+      return value;
+    case 'function_call':
+      return 'tool_calls';
+    default:
+      return 'other';
+  }
+}
 
 function parseJson(value: string): unknown {
   try {
@@ -359,7 +406,7 @@ export class ModelClient implements ModelGateway {
     instructions: string,
     data: unknown,
     signal: AbortSignal,
-    maxTokens = 5_000,
+    maxTokens?: number,
     options: JsonOptions<T> = {},
   ): Promise<T> {
     throwIfAborted(signal);
@@ -378,16 +425,17 @@ export class ModelClient implements ModelGateway {
       { role: 'user', content },
     ];
     const repairs = Math.min(3, Math.max(0, options.repairs ?? this.deps.maxRepairs ?? 2));
-    const plan = this.plan(schema, options);
+    const plan = this.plan(schema, options, answerTokensFor(maxTokens));
     if (options.report) options.report.deployment = plan.deployment;
     let problem = '';
-    let tokenBudget = maxTokens;
     let adjustments = 0;
+    let retriedLength = false;
     for (let attempt = 0; attempt <= repairs; attempt += 1) {
       let completion: Completion | null = null;
-      // One attempt is one reply to judge. A parameter the deployment refuses is left out and the
-      // call is made again: that round trip is admitted and counted like any other, but it does not
-      // use up a repair.
+      // One attempt is one reply to judge. A parameter the deployment refuses is left out, and a reply
+      // that was cut off at its limit is asked for again with more room and less thinking: each is a round
+      // trip that is admitted and counted like any other, but none of them uses up a repair, because a
+      // repair is for a reply that was read and found wrong, and these never were.
       while (completion === null) {
         throwIfAborted(signal);
         this.onUsage.admit?.();
@@ -402,14 +450,22 @@ export class ModelClient implements ModelGateway {
         const ticket: CallTicket | undefined = options.gate?.begin({
           deployment: plan.deployment ?? '',
           inputChars,
-          maxOutputTokens: tokenBudget,
+          maxOutputTokens: plan.maxTokens,
         });
-        const meter: Meter = { inputTokens: 0, outputTokens: 0, reported: false, safety: [] };
+        const meter: Meter = {
+          inputTokens: 0,
+          outputTokens: 0,
+          reasoningTokens: null,
+          finishReason: null,
+          reported: false,
+          safety: [],
+        };
         const structured = this.config.name === 'ollama' ? null : plan.mode;
         const started = performance.now();
+        const asked = { effort: plan.reasoningEffort, maxOutputTokens: plan.maxTokens };
         let reply: Completion;
         try {
-          reply = await this.complete(messages, tokenBudget, signal, plan, meter);
+          reply = await this.complete(messages, signal, plan, meter);
         } catch (error) {
           const event: ModelCallEvent = {
             ok: false,
@@ -423,6 +479,9 @@ export class ModelClient implements ModelGateway {
             role: plan.role,
             structured,
             safety: error instanceof ModelRefusedError ? error.findings : meter.safety,
+            finishReason: meter.finishReason,
+            reasoningTokens: meter.reasoningTokens,
+            ...asked,
           };
           if (!signal.aborted) this.observe(event);
           ticket?.end(event, { inputTokens: estimateTokens(inputChars), outputTokens: 0 });
@@ -430,16 +489,20 @@ export class ModelClient implements ModelGateway {
             adjustments += 1;
             continue;
           }
-          // A reasoning model can spend its whole output budget thinking and write no JSON. One
-          // bounded, counted retry with a larger budget is cheaper than failing the stage.
-          if (
-            error instanceof AppError &&
-            error.code === 'MODEL_TRUNCATED' &&
-            attempt < repairs &&
-            tokenBudget < MAX_TRUNCATION_RETRY_TOKENS
-          ) {
-            tokenBudget = Math.min(MAX_TRUNCATION_RETRY_TOKENS, tokenBudget * 2);
-            break;
+          // A reasoning model can spend its whole output budget thinking and write no JSON. A reply that
+          // ended at its limit is never read, even if it parses; it is asked for once more, with twice the
+          // room and less thinking, and if that one is cut off too the call fails as truncated.
+          if (error instanceof AppError && error.code === 'MODEL_TRUNCATED' && !retriedLength) {
+            const next = retryAfterLength(
+              { maxTokens: plan.maxTokens, effort: plan.reasoningEffort },
+              plan.effortFloor,
+            );
+            if (next) {
+              retriedLength = true;
+              plan.maxTokens = next.maxTokens;
+              plan.reasoningEffort = next.effort;
+              continue;
+            }
           }
           throw error;
         }
@@ -456,6 +519,9 @@ export class ModelClient implements ModelGateway {
           role: plan.role,
           structured,
           safety: reply.safety,
+          finishReason: reply.finishReason,
+          reasoningTokens: reply.reasoningTokens,
+          ...asked,
         };
         this.observe(event);
         ticket?.end(event, {
@@ -464,8 +530,6 @@ export class ModelClient implements ModelGateway {
         });
         this.remember(plan);
       }
-      // Only a truncated reply leaves nothing to judge: the next attempt asks again with more room.
-      if (completion === null) continue;
       throwIfAborted(signal);
       const checked = checkReply(schema, completion.answer, options.validate, injected, {
         normalize: plan.mode === 'json_schema' ? plan.strict?.normalize : undefined,
@@ -509,7 +573,7 @@ export class ModelClient implements ModelGateway {
   }
 
   /** What this call will ask for: where it goes, in what form, and with which optional parameters. */
-  private plan<T>(schema: z.ZodType<T>, options: JsonOptions<T>): CallPlan {
+  private plan<T>(schema: z.ZodType<T>, options: JsonOptions<T>, answerTokens: number): CallPlan {
     const route = options.route;
     const deployment = route?.deployment ?? this.config.model;
     const foundry = this.config.name === 'foundry';
@@ -524,17 +588,34 @@ export class ModelClient implements ModelGateway {
         strict = converted.strict;
       }
     }
+    // A structured answer is a form to be filled in, so a deployment is asked to think little about it
+    // unless a route says otherwise. A deployment that takes no effort says so once, and is not asked again.
+    const effortFloor: ReasoningEffort = known.minimalEffort === false ? 'low' : MINIMAL_EFFORT;
+    const named = route?.reasoningEffort ?? null;
+    const takesEffort = foundry && known.reasoningEffort !== false;
+    const chosenEffort = takesEffort && named === null ? STRUCTURED_EFFORT : null;
+    const wanted = takesEffort ? (named ?? chosenEffort) : null;
+    const reasoningEffort =
+      wanted === MINIMAL_EFFORT && effortFloor !== MINIMAL_EFFORT ? effortFloor : wanted;
     return {
       deployment,
       role: route?.role ?? null,
       mode: strict ? 'json_schema' : 'json_object',
       strict,
       temperature: foundry && known.temperature !== false ? (route?.temperature ?? null) : null,
-      reasoningEffort:
-        foundry && known.reasoningEffort !== false ? (route?.reasoningEffort ?? null) : null,
+      reasoningEffort,
+      // Thinking is counted against the limit, so an effort is never sent with a budget that has no
+      // room for it, unless a router has already made that room.
+      maxTokens:
+        route?.roomForReasoning === true ? answerTokens : budgetFor(answerTokens, reasoningEffort),
+      madeRoom: route?.roomForReasoning !== true,
+      chosenEffort,
+      blame: 'open',
+      blamedEffort: null,
+      effortFloor,
       timeoutMs: route?.timeoutMs ?? this.config.timeoutMs,
       retry: route?.retry ?? { transient: MAX_TRANSIENT_RETRIES, throttle: MAX_THROTTLE_RETRIES },
-      refused: { schema: null, temperature: false, reasoningEffort: false },
+      refused: { schema: null, temperature: false, reasoningEffort: false, minimalEffort: false },
     };
   }
 
@@ -557,9 +638,36 @@ export class ModelClient implements ModelGateway {
       return true;
     }
     if (parameter?.startsWith('reasoning') && plan.reasoningEffort !== null) {
-      plan.reasoningEffort = null;
+      // A deployment that takes an effort but not `minimal` (the o-series) is asked at `low` instead.
+      // One that refuses the parameter itself is asked without it.
+      if (plan.reasoningEffort === MINIMAL_EFFORT && code !== 'unsupported_parameter') {
+        withEffort(plan, 'low');
+        plan.effortFloor = 'low';
+        plan.refused.minimalEffort = true;
+        return true;
+      }
+      withEffort(plan, null);
       plan.refused.reasoningEffort = true;
       return true;
+    }
+    if (parameter === null) {
+      // A refusal that names no parameter is blamed first on what this client added to the request: an
+      // effort it chose. A deployment that takes none says only that the argument is not recognised. If
+      // the next refusal is as vague with the effort left out, the effort was not the cause: it is put
+      // back, and the structured output is blamed instead.
+      if (plan.blame === 'open' && plan.reasoningEffort !== null && plan.chosenEffort !== null) {
+        plan.blame = 'effort';
+        plan.blamedEffort = plan.reasoningEffort;
+        withEffort(plan, null);
+        plan.refused.reasoningEffort = true;
+        return true;
+      }
+      if (plan.blame === 'effort') {
+        plan.blame = 'cleared';
+        withEffort(plan, plan.blamedEffort);
+        plan.blamedEffort = null;
+        plan.refused.reasoningEffort = false;
+      }
     }
     if (
       plan.mode === 'json_schema' &&
@@ -590,17 +698,25 @@ export class ModelClient implements ModelGateway {
     }
     if (refused.temperature) this.capabilities.refused(deployment, { temperature: false });
     if (refused.reasoningEffort) this.capabilities.refused(deployment, { reasoningEffort: false });
-    plan.refused = { schema: null, temperature: false, reasoningEffort: false };
+    if (refused.minimalEffort) this.capabilities.refused(deployment, { minimalEffort: false });
+    plan.blame = 'cleared';
+    plan.blamedEffort = null;
+    plan.refused = {
+      schema: null,
+      temperature: false,
+      reasoningEffort: false,
+      minimalEffort: false,
+    };
   }
 
   /** One real provider round trip: sends the conversation and returns the model's raw reply. */
   private async complete(
     messages: ChatMessage[],
-    maxTokens: number,
     signal: AbortSignal,
     plan: CallPlan,
     meter: Meter,
   ): Promise<Completion> {
+    const maxTokens = plan.maxTokens;
     const raw = await this.request(
       this.config.name === 'ollama'
         ? {
@@ -634,6 +750,8 @@ export class ModelClient implements ModelGateway {
     let answer: string;
     let inputTokens = 0;
     let outputTokens = 0;
+    let reasoningTokens: number | null = null;
+    let finishReason: FinishReason | null = null;
     let tokensReported = false;
     let safety: readonly SafetyFinding[] = [];
     if (this.config.name === 'ollama') {
@@ -646,11 +764,12 @@ export class ModelClient implements ModelGateway {
         );
       inputTokens = parsed.data.prompt_eval_count || 0;
       outputTokens = parsed.data.eval_count || 0;
+      finishReason = finishReasonOf(parsed.data.done_reason);
       tokensReported =
         parsed.data.prompt_eval_count !== undefined || parsed.data.eval_count !== undefined;
-      Object.assign(meter, { inputTokens, outputTokens, reported: tokensReported });
+      Object.assign(meter, { inputTokens, outputTokens, finishReason, reported: tokensReported });
       this.onUsage({ inputTokens, outputTokens });
-      if (parsed.data.done_reason === 'length')
+      if (finishReason === 'length')
         throw new AppError(
           502,
           'MODEL_TRUNCATED',
@@ -672,18 +791,27 @@ export class ModelClient implements ModelGateway {
       }
       inputTokens = parsed.data.usage?.prompt_tokens || 0;
       outputTokens = parsed.data.usage?.completion_tokens || 0;
+      reasoningTokens = parsed.data.usage?.completion_tokens_details?.reasoning_tokens ?? null;
       tokensReported = parsed.data.usage !== undefined;
-      Object.assign(meter, { inputTokens, outputTokens, reported: tokensReported });
-      this.onUsage({ inputTokens, outputTokens });
       const choice = parsed.data.choices[0];
       if (!choice) throw new Error('A validated provider response has no choice.');
+      finishReason = finishReasonOf(choice.finish_reason);
+      Object.assign(meter, {
+        inputTokens,
+        outputTokens,
+        reasoningTokens,
+        finishReason,
+        reported: tokensReported,
+      });
+      this.onUsage({ inputTokens, outputTokens });
       // A refusal or a block is the provider's answer and is never read in part: whatever content
       // came with it is dropped, and the call fails as refused.
       const reading = readSafety(raw);
       meter.safety = reading.findings;
       safety = reading.findings;
       if (reading.blocked) throw refusalFor(reading.findings);
-      if (choice.finish_reason === 'length')
+      // Whatever ended at the limit is not an answer, however much of one it looks like.
+      if (finishReason === 'length')
         throw new AppError(
           502,
           'MODEL_TRUNCATED',
@@ -691,7 +819,15 @@ export class ModelClient implements ModelGateway {
         );
       answer = choice.message.content || '';
     }
-    return { answer, inputTokens, outputTokens, tokensReported, safety };
+    return {
+      answer,
+      inputTokens,
+      outputTokens,
+      reasoningTokens,
+      finishReason,
+      tokensReported,
+      safety,
+    };
   }
 }
 
@@ -700,6 +836,14 @@ type Checked<T> =
 
 /** What a deployment's refusal of one schema is remembered under: the name alone could be shared. */
 const schemaKey = (strict: StrictSchema): string => `${strict.name}.${strict.fingerprint}`;
+
+/** Changes the effort a call asks at, and with it the room for thinking that this client made for it. */
+function withEffort(plan: CallPlan, effort: ReasoningEffort | null): void {
+  if (plan.madeRoom) {
+    plan.maxTokens = Math.max(1, plan.maxTokens + roomFor(effort) - roomFor(plan.reasoningEffort));
+  }
+  plan.reasoningEffort = effort;
+}
 
 function checkReply<T>(
   schema: z.ZodType<T>,

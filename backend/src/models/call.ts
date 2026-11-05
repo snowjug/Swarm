@@ -14,8 +14,14 @@ export interface ModelCallRoute {
   deployment?: string;
   /** Sampling temperature. Null or absent: the provider's default. */
   temperature?: number | null;
-  /** For a reasoning deployment. Null or absent: the provider's default. */
+  /** For a reasoning deployment. Null or absent: the client asks at the structured-task effort unless the deployment has refused one. */
   reasoningEffort?: ReasoningEffort | null;
+  /**
+   * True when the budget this route came with already has room for the effort it names, as a router's
+   * has for a deployment that reasons. Otherwise the client adds that room itself: an effort is never
+   * sent with a budget that thinking could use up.
+   */
+  roomForReasoning?: boolean;
   /** The time limit of one request, in place of the provider's. */
   timeoutMs?: number;
   /** Retries after a network error or 5xx (`transient`) and after HTTP 429 (`throttle`). */

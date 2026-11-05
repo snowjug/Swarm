@@ -1,6 +1,7 @@
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 import { AppError } from '../src/errors.js';
+import type { CallReport } from '../src/models/call.js';
 import { CapabilityMemory } from '../src/models/capabilities.js';
 import { ModelClient, type ModelUsageSink } from '../src/models/client.js';
 import { createModelFactory } from '../src/models/factory.js';
@@ -29,6 +30,16 @@ beforeAll(async () => {
       'deep-dep': { temperature: false, reasoningEffort: true },
       'picky-dep': { jsonSchema: false, temperature: false },
       'tiny-dep': { maxContextChars: 2_000 },
+      // A chat model that is not a reasoning one: it refuses an effort by name, or as Azure says it.
+      'classic-dep': { reasoningEffort: false },
+      'vague-dep': { reasoningEffort: 'unrecognized' },
+      // An o-series deployment: it takes an effort, but not the lowest.
+      'o-dep': { temperature: false, minimalEffort: false },
+      // What gpt-5-mini does: thinking is counted against the limit, and more of it the higher the effort.
+      'think-dep': {
+        temperature: false,
+        thinks: { default: 3_000, medium: 3_000, low: 600, minimal: 80 },
+      },
     },
     fallbackReply: () => ({ answer: 'ok' }),
   });
@@ -136,7 +147,12 @@ describe('strict structured output', () => {
         route: { task: 'actor-proposal.v1', deployment: 'fast-dep' },
       }),
     ).resolves.toEqual({ answer: 'fine', confidence: 0.5, tags: ['a'] });
-    expect(body()).toMatchObject({ model: 'fast-dep', max_completion_tokens: 900 });
+    // The room for thinking is part of what is asked for, and a structured answer is asked at a low effort.
+    expect(body()).toMatchObject({
+      model: 'fast-dep',
+      max_completion_tokens: 900 + 1_000,
+      reasoning_effort: 'low',
+    });
     expect(format()).toMatchObject({
       type: 'json_schema',
       json_schema: { name: 'actor-proposal_v1', strict: true },
@@ -373,39 +389,43 @@ describe('a deployment that refuses a parameter', () => {
     const capabilities = new CapabilityMemory();
     const { client } = made({ capabilities });
     const other = z.object({ answer: z.string().min(1).max(40), note: z.string().optional() });
+    // The route names the effort, as a router does for a deployment it knows takes one, so that the 400
+    // that names no parameter can only be about the structured output.
+    const route = { task: 'one.v1', reasoningEffort: 'low' } as const;
     fake.script(
       { kind: 'status', status: 400, code: 'BadRequest' },
       { kind: 'reply', value: { answer: 'plain' } },
     );
-    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
+    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route });
     expect(capabilities.get('fast-dep')).toEqual({});
     // The same schema goes straight to plain JSON; the deployment still takes strict output for others,
     // even one with the same name, because the refusal is of that schema and not of its name.
     fake.reset();
-    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
+    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route });
     expect(fake.requests.map((request) => request.body?.response_format?.type)).toEqual([
       'json_object',
     ]);
     fake.reset();
     fake.script({ kind: 'reply', value: { answer: 'strict', note: null } });
-    await client.json(other, 'Return JSON.', {}, signal(), 500, { route: { task: 'one.v1' } });
+    await client.json(other, 'Return JSON.', {}, signal(), 500, { route });
     expect(format().type).toBe('json_schema');
   });
 
   it('is not remembered when the plain request fails too: the 400 was about something else', async () => {
     const capabilities = new CapabilityMemory();
     const { client } = made({ capabilities });
+    const route = { reasoningEffort: 'low' } as const;
     fake.script(
       { kind: 'status', status: 400, code: 'BadRequest' },
       { kind: 'status', status: 400, code: 'BadRequest' },
     );
-    await expect(client.json(answer, 'Return JSON.', {}, signal())).rejects.toMatchObject({
-      code: 'MODEL_HTTP_ERROR',
-    });
+    await expect(
+      client.json(answer, 'Return JSON.', {}, signal(), 500, { route }),
+    ).rejects.toMatchObject({ code: 'MODEL_HTTP_ERROR' });
     expect(fake.requests).toHaveLength(2);
     expect(capabilities.snapshot()).toEqual({});
     fake.reset();
-    await client.json(answer, 'Return JSON.', {}, signal());
+    await client.json(answer, 'Return JSON.', {}, signal(), 500, { route });
     expect(format().type).toBe('json_schema');
   });
 
@@ -424,7 +444,7 @@ describe('a deployment that refuses a parameter', () => {
   });
 
   it('leaves out a reasoning effort it does not take', async () => {
-    const { client } = made({ model: 'fast-dep' });
+    const { client } = made({ model: 'classic-dep' });
     fake.script({ kind: 'reply', value: { answer: 'ok' } });
     await client.json(answer, 'Return JSON.', {}, signal(), 800, {
       route: { reasoningEffort: 'high' },
@@ -460,7 +480,7 @@ describe('a deployment that refuses a parameter', () => {
   });
 
   it('gives up when a refusal is for something else, and says which parameter, without echoing the provider', async () => {
-    const { client } = made({ model: 'fast-dep' });
+    const { client } = made({ model: 'classic-dep' });
     fake.script(
       { kind: 'status', status: 400, code: 'unsupported_value', param: 'temperature' },
       {
@@ -480,6 +500,247 @@ describe('a deployment that refuses a parameter', () => {
     expect((failure as Error).message).not.toContain('PROVIDER_FREE_TEXT');
     // The effort was refused by the deployment, the temperature by the script, the last was not ours to leave out.
     expect(fake.requests).toHaveLength(3);
+  });
+});
+
+describe('output that thinking can use up', () => {
+  // A reasoning deployment spends hidden tokens thinking before it writes, and counts them against the
+  // limit of the reply. `think-dep` does what gpt-5-mini does: 3,000 at its default effort, 600 at `low`.
+  const sizes = () => fake.requests.map((request) => request.body?.max_completion_tokens);
+  const efforts = () => fake.requests.map((request) => request.body?.reasoning_effort);
+  const long = z.object({ items: z.array(z.string().min(1).max(100)).min(1) });
+
+  it('does not let a tiny request be cut off: it is given room to think, and asked to think little', async () => {
+    // The connection check asked for 50 tokens. At its default effort a reasoning deployment spends far more
+    // than that thinking about it, so the reply ended at the limit with no JSON in it, and so did the retry.
+    const { client, seen } = made({ model: 'think-dep' });
+    fake.script({ kind: 'reply', value: { answer: 'ok' } });
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 50)).resolves.toEqual({
+      answer: 'ok',
+    });
+    expect(fake.requests).toHaveLength(1);
+    expect(body()).toMatchObject({ max_completion_tokens: 50 + 1_000, reasoning_effort: 'low' });
+    expect(seen.calls[0]).toMatchObject({
+      ok: true,
+      finishReason: 'stop',
+      effort: 'low',
+      maxOutputTokens: 1_050,
+      reasoningTokens: 600,
+    });
+  });
+
+  it('gives a task that writes a good deal room for what it writes as well as for its thinking', async () => {
+    // About 1,500 tokens of answer in a budget of 1,800, as the research planner's: the 600 tokens spent
+    // thinking at `low` do not fit under 1,800 with it, and do under 1,800 and the room made for them.
+    const { client } = made({ model: 'think-dep' });
+    const items = Array.from({ length: 60 }, (_, index) => `item ${index} ${'x'.repeat(88)}`);
+    fake.script({ kind: 'reply', value: { items } });
+    await expect(client.json(long, 'Return JSON.', {}, signal(), 1_800)).resolves.toEqual({
+      items,
+    });
+    expect(fake.requests).toHaveLength(1);
+    expect(sizes()).toEqual([2_800]);
+  });
+
+  it('asks again, once, with twice the room and less thinking, when a reply ends at its limit', async () => {
+    const { client, seen } = made({ model: 'think-dep' });
+    const report: CallReport = {};
+    // The route names a medium effort, which thinks 3,000 tokens: more than the room made for it.
+    fake.script(
+      { kind: 'reply', value: { answer: 'ok' } },
+      { kind: 'reply', value: { answer: 'ok' } },
+    );
+    await expect(
+      client.json(answer, 'Return JSON.', {}, signal(), 500, {
+        route: { reasoningEffort: 'medium' },
+        report,
+      }),
+    ).resolves.toEqual({ answer: 'ok' });
+    expect(sizes()).toEqual([500 + 2_000, (500 + 2_000) * 2]);
+    expect(efforts()).toEqual(['medium', 'low']);
+    expect(seen.calls.map((event) => [event.ok, event.repair, event.finishReason])).toEqual([
+      [false, false, 'length'],
+      [true, false, 'stop'],
+    ]);
+    // What the cut-off reply cost is on record: all of its tokens went on thinking, and none was an answer.
+    expect(seen.calls[0]).toMatchObject({
+      errorCode: 'MODEL_TRUNCATED',
+      outputTokens: 2_500,
+      reasoningTokens: 2_500,
+      effort: 'medium',
+      maxOutputTokens: 2_500,
+    });
+    expect(seen.calls[1]).toMatchObject({ effort: 'low', maxOutputTokens: 5_000 });
+    // A cut-off reply was never read, so it is not a correction round.
+    expect(report.repairs).toBe(0);
+  });
+
+  it('does not use up the correction on a reply that was cut off: the reply that is read is still corrected', async () => {
+    // What the live pilot did: the first reply was cut off, the second was whole but was refused by the
+    // server's own check, and there was no correction left for it, so the step ended in rules.
+    const { client, seen } = made({ model: 'fast-dep' });
+    fake.script(
+      { kind: 'truncated' },
+      { kind: 'reply', value: { answer: 'wrong' } },
+      { kind: 'reply', value: { answer: 'right' } },
+    );
+    const validate = (value: { answer: string }): void => {
+      if (value.answer === 'wrong')
+        throw new AppError(502, 'MODEL_OUTPUT_INVALID', 'The answer must be right.');
+    };
+    await expect(
+      client.json(answer, 'Return JSON.', {}, signal(), 500, { repairs: 1, validate }),
+    ).resolves.toEqual({ answer: 'right' });
+    expect(fake.requests).toHaveLength(3);
+    expect(seen.calls.map((event) => [event.ok, event.repair])).toEqual([
+      [false, false],
+      [true, false],
+      [true, true],
+    ]);
+    expect(fake.requests[2]?.body?.messages?.at(-1)?.content).toContain(
+      'The answer must be right.',
+    );
+  });
+
+  it('fails as truncated when the second reply is cut off too, and has counted the tokens of both', async () => {
+    const usage = vi.fn();
+    const { client } = made({ usage });
+    fake.script(
+      { kind: 'truncated', usage: { prompt: 40, completion: 1_500, reasoning: 1_500 } },
+      { kind: 'truncated', usage: { prompt: 40, completion: 3_000, reasoning: 2_900 } },
+    );
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'MODEL_TRUNCATED',
+    });
+    expect(fake.requests).toHaveLength(2);
+    expect(usage.mock.calls).toEqual([
+      [{ inputTokens: 40, outputTokens: 1_500 }],
+      [{ inputTokens: 40, outputTokens: 3_000 }],
+    ]);
+  });
+
+  it('never accepts a reply that ended at its limit, even one that parses as the answer', async () => {
+    const { client } = made();
+    fake.respond(() => ({ kind: 'truncated', partial: '{"answer":"looks whole"}' }));
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'MODEL_TRUNCATED',
+    });
+    expect(fake.requests).toHaveLength(2);
+  });
+
+  it('asks the project before the retry, so a project that has used its budget does not get it', async () => {
+    let asked = 0;
+    const usage = Object.assign(vi.fn(), {
+      admit: () => {
+        asked += 1;
+        if (asked > 1) throw new AppError(429, 'PROJECT_BUDGET', 'The budget is used.');
+      },
+    }) as ModelUsageSink;
+    const { client } = made({ usage });
+    fake.script({ kind: 'truncated' }, { kind: 'reply', value: { answer: 'ok' } });
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'PROJECT_BUDGET',
+    });
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it('counts the retry against the call cap of the operation', async () => {
+    const { client } = made({ maxCalls: 1 });
+    fake.script({ kind: 'truncated' }, { kind: 'reply', value: { answer: 'ok' } });
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'MODEL_CALL_BUDGET',
+    });
+    expect(fake.requests).toHaveLength(1);
+  });
+
+  it('makes the room for an effort a route names, unless the route says it has made it', async () => {
+    const { client } = made({ model: 'deep-dep' });
+    await client.json(answer, 'Return JSON.', {}, signal(), 800, {
+      route: { reasoningEffort: 'high' },
+    });
+    await client.json(answer, 'Return JSON.', {}, signal(), 800, {
+      route: { reasoningEffort: 'high', roomForReasoning: true },
+    });
+    expect(sizes()).toEqual([800 + 4_000, 800]);
+  });
+
+  it('asks a deployment that takes no effort without one, once, and gives it no room it has no use for', async () => {
+    const capabilities = new CapabilityMemory();
+    const { client } = made({ model: 'classic-dep', capabilities });
+    await client.json(answer, 'Return JSON.', {}, signal(), 800);
+    expect(efforts()).toEqual(['low', undefined]);
+    expect(capabilities.get('classic-dep')).toEqual({ reasoningEffort: false });
+    fake.reset();
+    await client.json(answer, 'Return JSON.', {}, signal(), 800);
+    expect(fake.requests).toHaveLength(1);
+    expect(body().reasoning_effort).toBeUndefined();
+    expect(sizes()).toEqual([800]);
+  });
+
+  it('blames a refusal that names no parameter on the effort it added, and keeps the strict output', async () => {
+    // Azure says only that it does not recognise the argument. Blaming the structured output for it,
+    // as an ambiguous refusal was, would give up strict JSON for a deployment that takes it.
+    const capabilities = new CapabilityMemory();
+    const { client } = made({ model: 'vague-dep', capabilities });
+    await client.json(answer, 'Return JSON.', {}, signal(), 800);
+    expect(
+      fake.requests.map((request) => [
+        request.status,
+        request.body?.response_format?.type,
+        request.body?.reasoning_effort,
+      ]),
+    ).toEqual([
+      [400, 'json_schema', 'low'],
+      [200, 'json_schema', undefined],
+    ]);
+    expect(capabilities.get('vague-dep')).toEqual({ reasoningEffort: false });
+    expect(capabilities.isSchemaRefused('vague-dep', 'anything')).toBe(false);
+  });
+
+  it('puts the effort back when a second vague refusal shows it was not the cause, and remembers no error', async () => {
+    const capabilities = new CapabilityMemory();
+    const { client } = made({ model: 'fast-dep', capabilities });
+    fake.script(
+      { kind: 'status', status: 400, code: 'BadRequest' },
+      { kind: 'status', status: 400, code: 'BadRequest' },
+      { kind: 'reply', value: { answer: 'plain' } },
+    );
+    await client.json(answer, 'Return JSON.', {}, signal(), 500);
+    expect(
+      fake.requests.map((request) => [
+        request.body?.response_format?.type,
+        request.body?.reasoning_effort,
+      ]),
+    ).toEqual([
+      ['json_schema', 'low'],
+      ['json_schema', undefined],
+      ['json_object', 'low'],
+    ]);
+    expect(capabilities.get('fast-dep')).toEqual({});
+  });
+
+  it('is not led in circles by refusals that keep naming nothing: it stops after the adjustments it allows', async () => {
+    const { client } = made({ model: 'fast-dep' });
+    fake.respond(() => ({ kind: 'status', status: 400, code: 'BadRequest' }));
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'MODEL_HTTP_ERROR',
+    });
+    expect(fake.requests).toHaveLength(3);
+  });
+
+  it('asks a deployment that does not take the lowest effort at the next one up, and remembers it', async () => {
+    const capabilities = new CapabilityMemory();
+    const { client } = made({ model: 'o-dep', capabilities });
+    const route = { reasoningEffort: 'minimal' } as const;
+    await client.json(answer, 'Return JSON.', {}, signal(), 800, { route });
+    expect(efforts()).toEqual(['minimal', 'low']);
+    expect(capabilities.get('o-dep')).toEqual({ minimalEffort: false });
+    // It is asked at `low` from then on, and a cut-off reply cannot be asked again at less than that.
+    fake.reset();
+    fake.script({ kind: 'truncated' }, { kind: 'reply', value: { answer: 'ok' } });
+    await client.json(answer, 'Return JSON.', {}, signal(), 800, { route });
+    expect(efforts()).toEqual(['low', 'low']);
+    expect(sizes()).toEqual([1_800, 3_600]);
   });
 });
 
@@ -726,12 +987,13 @@ describe('the gate that an operation’s own allowance is held by', () => {
       { kind: 'reply', value: { answer: 'ok' }, usage: used },
     );
     await client.json(answer, 'Return JSON.', {}, signal(), 700, { gate: gateFor(log) });
+    // 700 to write, and the 1,000 tokens of room to think that the low effort it is asked at is given.
     expect(log).toEqual([
-      'begin plain-dep 700',
+      'begin plain-dep 1700',
       'end false ~true',
-      'begin plain-dep 700',
+      'begin plain-dep 1700',
       'end true 30',
-      'begin plain-dep 700',
+      'begin plain-dep 1700',
       'end true 30',
     ]);
   });
@@ -751,8 +1013,9 @@ describe('the gate that an operation’s own allowance is held by', () => {
     const { client } = made();
     fake.script({ kind: 'truncated' }, { kind: 'reply', value: { answer: 'ok' } });
     await client.json(answer, 'Return JSON.', {}, signal(), 500, { gate: gateFor(log) });
-    expect(log[0]).toBe('begin fast-dep 500');
-    expect(log[2]).toBe('begin fast-dep 1000');
+    // A reply that ended at its limit is asked for again with twice the room, thinking included.
+    expect(log[0]).toBe('begin fast-dep 1500');
+    expect(log[2]).toBe('begin fast-dep 3000');
     expect(log[1]).toMatch(/^end false \d+$/u);
   });
 });

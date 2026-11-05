@@ -103,6 +103,34 @@ what is sent, that room included. A task may ask for another answer budget (`max
 anything that is not a number of one or more gets the role's own. These are defaults in
 `backend/src/models/router.ts`; no model name is built into the code.
 
+### Thinking is counted against the output limit
+
+A reasoning deployment (the gpt-5 and o-series) spends hidden **reasoning tokens** before it writes the first
+word of the answer, and they count against `max_completion_tokens`. A limit sized for the answer alone can be
+used up by thinking: the reply then ends with `finish_reason: length` and no JSON in it, even for a request
+that asks for one word. This is what a live pilot showed: the connection check asked for 50 tokens and was
+cut off, and so were the research plan and the participants. So every call on a Foundry deployment, routed
+or not (`backend/src/models/output-policy.ts`, applied in `ModelClient`):
+
+- **Is asked at a low effort.** A structured answer is a form to be filled in; the schema constrains it, and
+  thinking costs time, money and room for the answer. The effort is `low` unless a router names another for
+  a deployment it knows reasons. A deployment that refuses the effort is asked again without it, and the
+  refusal is remembered like any other (an hour, per deployment). A refusal that names no parameter, which
+  is how Azure answers an argument a model does not know, is blamed first on the effort the client added,
+  and not on strict output; if a second one follows, the effort is put back and the structured output is
+  blamed instead. A deployment that takes an effort but not `minimal` is asked at `low`.
+- **Is given room to think** on top of the answer the task wants: 500, 1,000, 2,000 or 4,000 tokens for
+  `minimal`, `low`, `medium` and `high`, never more than 16,000 in all. A router that has made that room
+  already (a deployment declared as reasoning) says so, and it is not made twice. The room is part of what
+  an operation's allowance holds back for the call.
+- **Never accepts a reply that ended at its limit,** even one that parses. It is asked for **once** more with
+  twice the budget (up to 16,000) and one step less thinking (down to `minimal`), and if that is cut off too
+  the call fails as `MODEL_TRUNCATED`. The retry is admitted by the project's budget, counted against the
+  operation's call cap and held to its allowance, like any call; it **does not use up the correction round**,
+  which is for a reply that was read and found wrong.
+- **Keeps the strict schema** wherever the deployment takes it (`response_format: json_schema`). Only
+  `key-actor-refinement.v1` still asks for plain JSON, because its `traits` object has free keys.
+
 ## How a deployment is chosen
 
 `createRouter(config.routing).route(request)` is configuration and arithmetic: no network, no randomness,
@@ -275,7 +303,9 @@ outcome; `ModelRefusedError.findings` says what a refusal was.
 
 `startFakeFoundry()` in `backend/test/support/fake-foundry.ts` is an HTTP server on a loopback port that
 speaks the v1 chat-completions endpoint. It checks the credential, the deployment and what it accepts
-(`jsonSchema`, `temperature`, `reasoningEffort`, `maxContextChars`), enforces the strict-schema rules on what
+(`jsonSchema`, `temperature`, `reasoningEffort`, `minimalEffort`, `maxContextChars`), spends hidden thinking
+tokens against `max_completion_tokens` when a deployment is given `thinks` (so a reply that does not fit ends
+with `finish_reason: length`), enforces the strict-schema rules on what
 it is sent, can be scripted to reply, return invalid output, refuse, filter, truncate, throttle, fail, be
 slow or hang, and records every request:
 

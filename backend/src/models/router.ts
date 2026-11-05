@@ -1,6 +1,7 @@
 import { AppError } from '../errors.js';
 import type { ReasoningEffort } from './call.js';
 import { estimateTokens, worstCaseCostUsd } from './cost.js';
+import { EFFORTS, MAX_OUTPUT_TOKENS, REASONING_HEADROOM } from './output-policy.js';
 import { profileOf, type DeploymentProfile, type RoutingConfig } from './routing-config.js';
 import { MODEL_ROLES, type ModelRole } from './task.js';
 
@@ -87,16 +88,7 @@ const ROLE_PARAMETERS: Record<
   synthesis: { temperature: 0.3, effort: 'medium', maxTokens: 4_000 },
 };
 
-const EFFORTS: readonly ReasoningEffort[] = ['minimal', 'low', 'medium', 'high'];
-/** Tokens a reasoning deployment may spend thinking before it writes the answer, by effort. */
-const REASONING_HEADROOM: Record<ReasoningEffort, number> = {
-  minimal: 500,
-  low: 1_000,
-  medium: 2_000,
-  high: 4_000,
-};
-/** The most an output budget may be: what the client also stops a truncation retry at. */
-export const MAX_OUTPUT_TOKENS = 16_000;
+export { MAX_OUTPUT_TOKENS };
 const TIGHT_LATENCY_MS = 20_000;
 const MODERATE_LATENCY_MS = 60_000;
 const MIN_TIMEOUT_MS = 1_000;

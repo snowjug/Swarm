@@ -314,13 +314,41 @@ describe('real model transport contract (mock HTTP, not live inference)', () => 
     await expect(client.json(answer, 'Return JSON.', {}, signal(), 6_000)).rejects.toMatchObject({
       code: 'MODEL_TRUNCATED',
     });
-    // The first reply plus at most two bounded retries, each doubling up to a hard ceiling.
+    // The first reply and one retry with twice the room. A reply that is cut off twice is not asked
+    // for a third time, however much room there is left under the ceiling.
     const budgets = fetcher.mock.calls.map(
       ([, options]) =>
         (JSON.parse(String(options!.body)) as { max_completion_tokens: number })
           .max_completion_tokens,
     );
-    expect(budgets).toEqual([6_000, 12_000, 16_000]);
+    expect(budgets).toEqual([6_000, 12_000]);
+  });
+
+  it('does not ask again when there is no more room to give: a reply cut off at the ceiling is the failure', async () => {
+    const fetcher = vi
+      .fn<typeof fetch>()
+      .mockImplementation(
+        async () =>
+          new Response(
+            JSON.stringify({ choices: [{ message: { content: '' }, finish_reason: 'length' }] }),
+          ),
+      );
+    const client = new ModelClient(provider(), () => {}, fetcher, 10);
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 16_000)).rejects.toMatchObject({
+      code: 'MODEL_TRUNCATED',
+    });
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+
+  it('never accepts a reply that ended at its limit, even one that parses as the answer', async () => {
+    const complete = JSON.stringify({
+      choices: [{ message: { content: '{"answer":"looks whole"}' }, finish_reason: 'length' }],
+    });
+    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => new Response(complete));
+    const client = new ModelClient(provider(), () => {}, fetcher, 10);
+    await expect(client.json(answer, 'Return JSON.', {}, signal(), 500)).rejects.toMatchObject({
+      code: 'MODEL_TRUNCATED',
+    });
   });
 
   it('counts a truncation retry against the call budget', async () => {

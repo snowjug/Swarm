@@ -2,8 +2,12 @@ import type { ProviderConfig } from '../config.js';
 import { signals } from '../telemetry/signals.js';
 import type { ProviderConnectivity, ProviderStatus } from '../../../shared/types.js';
 import { estimateCostUsd, type PriceTable } from './cost.js';
+import type { ReasoningEffort } from './call.js';
 import type { SafetyFinding } from './safety.js';
 import type { ModelRole } from './task.js';
+
+/** What a provider said ended a reply, reduced to a closed set so that nothing it wrote is ever stored. */
+export type FinishReason = 'stop' | 'length' | 'content_filter' | 'tool_calls' | 'other';
 
 export interface ModelCallEvent {
   ok: boolean;
@@ -18,6 +22,13 @@ export interface ModelCallEvent {
   role?: ModelRole | null;
   structured?: 'json_schema' | 'json_object' | null;
   safety?: readonly SafetyFinding[];
+  /** Why the provider ended its reply. Null when the call ended before there was one. */
+  finishReason?: FinishReason | null;
+  /** Hidden thinking tokens the provider says it spent, part of `outputTokens`. Null when it does not say. */
+  reasoningTokens?: number | null;
+  /** The effort the request asked for (null: none was sent) and the most it allowed the reply to be. */
+  effort?: ReasoningEffort | null;
+  maxOutputTokens?: number | null;
 }
 
 /** A reply the schema or the server's checks refused: a class of problem, never the reply. */

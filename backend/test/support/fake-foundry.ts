@@ -13,7 +13,9 @@
  * What it checks, as the real service does: the credential (a bearer token that equals `token`, or an
  * `api-key` that equals `apiKey`, else 401), the route (`POST /openai/v1/chat/completions`), the
  * deployment in `model` (404 for one that is not in `deployments`, when that is given), what a
- * deployment takes (`jsonSchema`, `temperature`, `reasoningEffort`, `maxContextChars`), and, for
+ * deployment takes (`jsonSchema`, `temperature`, `reasoningEffort`, `minimalEffort`, `maxContextChars`),
+ * what it spends thinking (`thinks`, counted against `max_completion_tokens` as hidden reasoning
+ * tokens are, so that a reply that does not fit ends with `finish_reason: length`), and, for
  * `response_format: json_schema`, that the schema obeys the documented strict-mode rules
  * (`strictSchemaProblems`: closed objects, every property required, no lengths or ranges, `anyOf` only).
  * A reply it is scripted to give under a strict schema must also conform to that schema, as a real
@@ -52,8 +54,21 @@ export interface FakeDeployment {
   jsonSchema?: boolean;
   /** Takes `temperature`. Default true; a reasoning deployment takes only its default. */
   temperature?: boolean;
-  /** Takes `reasoning_effort`. Default false. */
-  reasoningEffort?: boolean;
+  /**
+   * Takes `reasoning_effort`. Default true, as the reasoning deployment this product runs on does.
+   * `false` refuses it by name (400 `unsupported_parameter`). `'unrecognized'` refuses it as Azure
+   * refuses an argument a model does not know: a 400 that names neither a parameter nor a code.
+   */
+  reasoningEffort?: boolean | 'unrecognized';
+  /** Takes the effort `minimal`. Default true; false is a 400 `unsupported_value` naming the parameter, as the o-series says. */
+  minimalEffort?: boolean;
+  /**
+   * What the deployment spends thinking before it writes, in tokens, by the effort the request asks for
+   * (`default` when it sends none). Hidden reasoning tokens are counted against `max_completion_tokens`:
+   * a reply that does not fit ends with `finish_reason: length`, with no content at all when the thinking
+   * alone does not fit. Absent: the deployment does not think.
+   */
+  thinks?: Partial<Record<'default' | 'minimal' | 'low' | 'medium' | 'high', number>>;
   /** The most characters of messages it takes; a longer request is a 400 `context_length_exceeded`. */
   maxContextChars?: number;
 }
@@ -61,6 +76,8 @@ export interface FakeDeployment {
 export interface Usage {
   prompt: number;
   completion: number;
+  /** Of `completion`, the hidden thinking tokens: reported as `completion_tokens_details.reasoning_tokens`. */
+  reasoning?: number;
 }
 
 export type FakeStep =
@@ -70,7 +87,7 @@ export type FakeStep =
   | { kind: 'filter-prompt'; categories?: string[] }
   | { kind: 'filter-output'; categories?: string[]; partial?: string | null }
   | { kind: 'detected'; category: 'jailbreak' | 'indirect_attack'; value: unknown }
-  | { kind: 'truncated'; partial?: string }
+  | { kind: 'truncated'; partial?: string; usage?: Usage }
   | { kind: 'status'; status: number; retryAfterSeconds?: number; code?: string; param?: string }
   | { kind: 'slow'; ms: number; then: FakeStep }
   | { kind: 'hang' };
@@ -385,6 +402,24 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
     queues.get('*')?.shift() ??
     handler?.(request);
 
+  /** The tokens a deployment that thinks spends on it for this request, or null when it does not think. */
+  function thinking(request: RecordedRequest): number | null {
+    const table = options.deployments?.[request.deployment ?? '']?.thinks;
+    if (!table) return null;
+    const asked = request.body?.reasoning_effort;
+    const key =
+      typeof asked === 'string' && asked in table ? (asked as keyof typeof table) : 'default';
+    return table[key] ?? table.default ?? 0;
+  }
+
+  const promptTokens = (request: RecordedRequest): number =>
+    tokensOf(
+      (request.body?.messages ?? []).reduce(
+        (total, message) => total + String(message.content).length,
+        0,
+      ),
+    );
+
   function send(response: ServerResponse, status: number, body: unknown, headers = {}): void {
     response.writeHead(status, { 'content-type': 'application/json', ...headers });
     response.end(JSON.stringify(body));
@@ -415,6 +450,9 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
         : {
             prompt_tokens: extra.usage?.prompt ?? tokensOf(promptChars),
             completion_tokens: extra.usage?.completion ?? tokensOf((content ?? '').length),
+            ...(extra.usage?.reasoning === undefined
+              ? {}
+              : { completion_tokens_details: { reasoning_tokens: extra.usage.reasoning } }),
           };
     return {
       id: `chatcmpl-fake-${request.index}`,
@@ -470,19 +508,43 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
       request.status = status;
       send(response, status, body, headers);
     };
-    // Not a status a client retries, so that a mistake in a test's script shows at once.
+    // Nothing here is a status a client retries, so that a mistake in a test's script shows at once.
     const nonconforming = failure(
       'fake_nonconforming_reply',
       'The scripted reply does not conform to the strict schema; see the problems of the fake.',
     );
+    // What a deployment that thinks makes of a reply: the thinking comes first and counts against the
+    // limit, so the reply is cut off where the limit is, and is empty when the thinking alone passes it.
+    const fitted = (content: string, given: Usage | null | undefined) => {
+      const spent = thinking(request);
+      if (spent === null) return completion(content, { usage: given }, request);
+      const limit = request.body?.max_completion_tokens ?? Number.POSITIVE_INFINITY;
+      const prompt = given?.prompt ?? promptTokens(request);
+      const visible = given?.completion ?? tokensOf(content.length);
+      if (spent + visible > limit) {
+        return completion(
+          content.slice(0, Math.max(0, limit - spent) * 4),
+          {
+            finish: 'length',
+            usage: { prompt, completion: limit, reasoning: Math.min(spent, limit) },
+          },
+          request,
+        );
+      }
+      return completion(
+        content,
+        { usage: { prompt, completion: spent + visible, reasoning: spent } },
+        request,
+      );
+    };
     switch (step.kind) {
       case 'reply': {
         const content = render(step.value);
         if (content === null) return respond(501, nonconforming);
-        return respond(200, completion(content, { usage: step.usage }, request));
+        return respond(200, fitted(content, step.usage));
       }
       case 'text':
-        return respond(200, completion(step.text, { usage: step.usage }, request));
+        return respond(200, fitted(step.text, step.usage));
       case 'refusal':
         return respond(
           200,
@@ -532,7 +594,11 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
       case 'truncated':
         return respond(
           200,
-          completion(step.partial ?? '{"answer":"cut off', { finish: 'length' }, request),
+          completion(
+            step.partial ?? '{"answer":"cut off',
+            { finish: 'length', usage: step.usage },
+            request,
+          ),
         );
       case 'status':
         return respond(
@@ -671,11 +737,38 @@ export async function startFakeFoundry(options: FakeFoundryOptions = {}): Promis
         failure('unsupported_value', 'temperature does not support this value.', 'temperature'),
       );
     }
-    if (body.reasoning_effort !== undefined && capabilities.reasoningEffort !== true) {
-      return reject(
-        400,
-        failure('unsupported_parameter', 'reasoning_effort is not supported.', 'reasoning_effort'),
-      );
+    if (body.reasoning_effort !== undefined) {
+      if (capabilities.reasoningEffort === false) {
+        return reject(
+          400,
+          failure(
+            'unsupported_parameter',
+            'reasoning_effort is not supported.',
+            'reasoning_effort',
+          ),
+        );
+      }
+      if (capabilities.reasoningEffort === 'unrecognized') {
+        // How Azure refuses an argument a model does not know: it says nothing a client can act on.
+        return reject(400, {
+          error: {
+            message: 'Unrecognized request argument supplied: reasoning_effort',
+            type: 'invalid_request_error',
+            param: null,
+            code: null,
+          },
+        });
+      }
+      if (body.reasoning_effort === 'minimal' && capabilities.minimalEffort === false) {
+        return reject(
+          400,
+          failure(
+            'unsupported_value',
+            'reasoning_effort does not support this value.',
+            'reasoning_effort',
+          ),
+        );
+      }
     }
     const chars = messages.reduce((total, message) => total + String(message.content).length, 0);
     if (capabilities.maxContextChars !== undefined && chars > capabilities.maxContextChars) {

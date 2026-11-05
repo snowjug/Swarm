@@ -151,6 +151,7 @@ function callRoute(
     deployment: route.deployment,
     temperature: route.temperature,
     reasoningEffort: route.reasoningEffort,
+    roomForReasoning: route.reasoningEffort !== null,
     timeoutMs: route.timeoutMs,
     retry: route.retry,
     strictSchema: route.strictSchema,

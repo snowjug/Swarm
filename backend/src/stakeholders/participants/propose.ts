@@ -24,9 +24,17 @@ import { PROPOSAL_INSTRUCTIONS, REGENERATE_INSTRUCTIONS } from './instructions.j
 import { compareNames, normaliseLine } from './language.js';
 import { ROLE_DEFAULTS } from './taxonomy.js';
 
-/** A proposal asks once and may be corrected once, so it is never more than two calls. */
-export const MAX_PROPOSAL_CALLS = 2;
-const MAX_OUTPUT_TOKENS = 7_000;
+/**
+ * A proposal asks once and may be corrected once; the model may also be asked again once if its reply
+ * was cut off at its limit, and once more if the deployment refuses a setting it is being found out
+ * about. That is never more than four calls.
+ */
+export const MAX_PROPOSAL_CALLS = 4;
+/**
+ * The most a proposal may write, thinking left out: the live deployment wrote about 9,200 tokens in all
+ * for a typical question at its default effort. The room to think is made on top of this.
+ */
+const MAX_OUTPUT_TOKENS = 9_000;
 const MAX_REGENERATE_TOKENS = 2_500;
 
 export interface ProposeInput {
