@@ -303,15 +303,21 @@ describe('the first viewport of the decision canvas', () => {
                   : canvas.actors.origin;
       });
 
-    it('says in words, beside the roles, that a list the rules made after the model failed is the rules fallback, and not the model’s', () => {
+    it('says at the top of the page, in words, that a list the rules made after the model failed is the rules fallback, and not the model’s', () => {
       const markup = render(handleOf(viewFixture(originOf('rules-fallback'))));
+      const page = text(markup);
+      expect(page).toContain('Participants from the rules fallback');
+      expect(page).toContain('no model proposed these participants');
+      expect(page).toContain('Open the Map');
+      // It is above the picture, and not among the roles: a note there would push the ten off the first screen.
+      expect(markup.indexOf('Participants from the rules fallback')).toBeLessThan(
+        markup.indexOf('data-canvas-item="question"'),
+      );
       const who = markup.slice(
         markup.indexOf('data-canvas-item="who"'),
         markup.indexOf('data-canvas-item="constraints"'),
       );
-      expect(who).toContain('data-origin="rules-fallback"');
-      expect(text(who)).toContain('Participants from the rules fallback.');
-      expect(text(who)).toContain('no model proposed these participants');
+      expect(who).not.toContain('data-origin=');
       expect(text(who)).not.toMatch(/proposed by a model/iu);
     });
 
@@ -329,19 +335,37 @@ describe('the first viewport of the decision canvas', () => {
       expect(text(actors)).toContain('Participants from the rules fallback.');
     });
 
-    it('says that a model proposed them, that rules did, or that a person did, as it was; and nothing where it was not recorded', () => {
-      expect(text(render(handleOf(viewFixture(originOf('model')))))).toContain(
-        'Participants proposed by a model.',
+    const detailOf = (canvas: ReturnType<typeof originOf>): string => {
+      const markup = renderToStaticMarkup(
+        <TooltipProvider>
+          <Detail canvas={canvas} open={new Set(['actors'])} onOpenChange={noop} />
+        </TooltipProvider>,
       );
-      expect(text(render(handleOf(viewFixture(originOf('rules')))))).toContain(
+      const start = markup.indexOf('data-detail="actors"');
+      return markup.slice(start, markup.indexOf('</section>', start));
+    };
+
+    it('says that a model proposed them, that rules did, or that a person did, as it was, where the roles are given in full; and nothing where it was not recorded', () => {
+      expect(text(detailOf(originOf('model')))).toContain('Participants proposed by a model.');
+      expect(text(detailOf(originOf('rules')))).toContain(
         'Participants read from the text by rules.',
       );
-      expect(text(render(handleOf(viewFixture(originOf('user')))))).toContain(
-        'Participants added by a person.',
+      expect(text(detailOf(originOf('user')))).toContain('Participants added by a person.');
+      expect(detailOf(originOf('unknown'))).not.toContain('data-origin=');
+      expect(text(render(handleOf(viewFixture(originOf('unknown')))))).not.toContain(
+        'Participants: not recorded',
       );
-      const unknown = render(handleOf(viewFixture(originOf('unknown'))));
-      expect(unknown).not.toContain('data-origin=');
-      expect(text(unknown)).not.toContain('Participants: not recorded');
+    });
+
+    it('keeps the first screen to what is the same for every project: no note among the roles, whoever made them', () => {
+      for (const source of ['model', 'rules', 'user', 'unknown'] as const) {
+        const markup = render(handleOf(viewFixture(originOf(source))));
+        const who = markup.slice(
+          markup.indexOf('data-canvas-item="who"'),
+          markup.indexOf('data-canvas-item="constraints"'),
+        );
+        expect(who, source).not.toContain('data-origin=');
+      }
     });
 
     it('does not call any other list the rules fallback', () => {
@@ -350,6 +374,94 @@ describe('the first viewport of the decision canvas', () => {
           'rules fallback',
         );
       }
+    });
+  });
+
+  describe('how the constraints were made, and why there are none', () => {
+    const constraintsOf = (
+      source: 'model' | 'rules' | 'rules-fallback' | 'user' | 'none',
+      detail = 'Said as the server says it.',
+    ) =>
+      canvasFixture((canvas) => {
+        // Constraints that were proposed are in a set the gate reads: it is never "none" for them.
+        canvas.constraints.gate = source === 'none' ? 'none' : 'provisional';
+        canvas.constraints.origin = {
+          source,
+          label:
+            source === 'rules-fallback'
+              ? 'Constraints from the rules fallback'
+              : source === 'none'
+                ? 'No constraints were proposed'
+                : 'Constraints proposed by a model',
+          detail,
+        };
+      });
+    const slotOf = (markup: string): string =>
+      markup.slice(
+        markup.indexOf('data-canvas-item="constraints"'),
+        markup.indexOf('data-canvas-item="assumptions"'),
+      );
+
+    it('says why there are none, in words, instead of leaving a bare “Not read yet”', () => {
+      const canvas = canvasFixture((raw) => {
+        raw.constraints.gate = 'none';
+        raw.constraints.origin = {
+          source: 'none',
+          label: 'No constraints were proposed',
+          detail:
+            'The constraints step was not run, so the model was never asked to propose any. Open the Map, choose Constraints, and ask the model to read them.',
+        };
+      });
+      const slot = slotOf(render(handleOf(viewFixture(canvas))));
+      expect(slot).toContain('data-origin="none"');
+      expect(text(slot)).toContain('Not read yet');
+      expect(text(slot)).toContain('No constraints were proposed.');
+      expect(text(slot)).toContain('the model was never asked');
+      expect(text(slot)).not.toContain('Not reviewed');
+    });
+
+    it('does not say that the constraints were not reviewed once a model proposed them, and gives who proposed them where they are given in full', () => {
+      const canvas = constraintsOf('model');
+      const slot = slotOf(render(handleOf(viewFixture(canvas))));
+      // The first screen is the same for every project: no note among the constraints.
+      expect(slot).not.toContain('data-origin=');
+      expect(text(slot)).not.toContain('Not reviewed');
+      expect(text(slot)).not.toContain('Not read yet');
+      const markup = renderToStaticMarkup(
+        <TooltipProvider>
+          <Detail canvas={canvas} open={new Set(['constraints'])} onOpenChange={noop} />
+        </TooltipProvider>,
+      );
+      const start = markup.indexOf('data-detail="constraints"');
+      const given = markup.slice(start, markup.indexOf('</section>', start));
+      expect(given).toContain('data-origin="model"');
+      expect(text(given)).toContain('Constraints proposed by a model.');
+    });
+
+    it('calls constraints the rules made after the model failed the rules fallback, at the top of the page and where they are given in full', () => {
+      const canvas = constraintsOf(
+        'rules-fallback',
+        'The model’s answer was cut short. Rules read the constraints instead, so no model proposed them.',
+      );
+      const markup = render(handleOf(viewFixture(canvas)));
+      const page = text(markup);
+      expect(page).toContain('Constraints from the rules fallback');
+      expect(page).toContain('no model proposed them');
+      expect(page).toContain('Open the Map');
+      expect(markup.indexOf('Constraints from the rules fallback')).toBeLessThan(
+        markup.indexOf('data-canvas-item="question"'),
+      );
+      expect(slotOf(markup)).not.toContain('data-origin=');
+      const detail = renderToStaticMarkup(
+        <TooltipProvider>
+          <Detail canvas={canvas} open={new Set(['constraints'])} onOpenChange={noop} />
+        </TooltipProvider>,
+      );
+      const start = detail.indexOf('data-detail="constraints"');
+      expect(start).toBeGreaterThan(0);
+      const given = detail.slice(start, detail.indexOf('</section>', start));
+      expect(given).toContain('data-origin="rules-fallback"');
+      expect(text(given)).toContain('no model proposed them');
     });
   });
 });
@@ -649,7 +761,7 @@ describe('what the page works out from the view', () => {
       );
     expect(gate('blocked', 'none')).toEqual({ label: 'Blocked', tone: 'critical' });
     expect(gate('provisional', 'provisional')).toEqual({ label: 'Provisional', tone: 'caution' });
-    expect(gate('none', 'none')).toEqual({ label: 'Not reviewed', tone: 'caution' });
+    expect(gate('none', 'none')).toEqual({ label: 'Not read yet', tone: 'caution' });
     expect(gate('clear', 'clear')).toEqual({ label: 'Clear', tone: 'favor' });
     expect(gate('clear', 'provisional').tone).toBe('caution');
   });

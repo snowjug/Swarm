@@ -299,7 +299,8 @@ what you meet, in order:
    takes the model's place unannounced. You choose **Retry with the model**, **Edit participants** (the
    list as it stands, or the first one by hand), or **Continue with rules**. A list made by choosing rules
    after a failure is called **Participants from the rules fallback** everywhere it is shown: on the Map, in
-   the review, on Decide under **Who moves**, and in what you export.
+   the review, on Decide (a notice above the picture, and under **Who moves** in full), and in what you
+   export.
 2. **After finding**, the stakeholders are drawn as a map, in clusters by kind: Decide, Use & benefit, Bear
    cost & risk, Influence & reach, Rivals, Partners & operations, Regulators and Others. A key party is drawn
    larger, with its name in bold (**How to read this map** says so). Under the heading, counts say how many
@@ -337,8 +338,11 @@ what you meet, in order:
    Approving accepts the ones you did not look at and makes the actors: a key actor for each key stakeholder
    and a cohort of simulated members for each of the others. When a model is available, pressing the button
    opens a small panel with the switch **Let the model read the key actors** (it sends your source text to
-   the model, whatever it sets is labelled as the model's, and if it fails the category priors stand) and a
-   confirming button. Changing the list afterwards takes the approval away until you approve again, and
+   the model, whatever it sets is labelled as the model's, and if it fails the category priors stand), the
+   switch **Let the model read the constraints** (on unless you turn it off: once the actors are made the
+   model proposes what limits the decision, you review each one under **Constraints** before a simulation
+   uses it, and if it fails rules read them and the page says so) and a confirming button. Changing the list
+   afterwards takes the approval away until you approve again, and
    **Find stakeholders again…** (under **More** in the toolbar) replaces a list you have reviewed only after
    you confirm ("Replace the list?").
 5. **The actors.** Once they are made the pill says "N actors ready", "Synthetic stand-ins", and offers

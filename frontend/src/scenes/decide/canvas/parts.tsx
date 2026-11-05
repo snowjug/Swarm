@@ -91,11 +91,17 @@ export function Fig({ children }: { children: ReactNode }) {
 }
 
 /**
- * How the participants behind the roles were made. A list the rules made after the model was asked and could
- * not be used says so, in its own words, and is never read as one the model proposed. Nothing is said where no
- * list was recorded.
+ * How the participants behind the roles, or the constraints beside them, were made, in the server’s words. The
+ * first screen has room for it only where nobody read any constraints, so that the section says why; a list the
+ * rules made after the model was asked and could not be used is a notice at the top of the page (`noticesOf`),
+ * and every origin is given in full where its details are opened. It is never read as the model’s when it was not.
+ * Nothing is said where no list of participants was recorded.
  */
-export function ParticipantOrigin({ origin }: { origin: DecisionCanvas['actors']['origin'] }) {
+export function Origin({
+  origin,
+}: {
+  origin: DecisionCanvas['actors']['origin'] | DecisionCanvas['constraints']['origin'];
+}) {
   if (origin.source === 'unknown') return null;
   return (
     <p className="sw-canvas-origin" data-origin={origin.source}>

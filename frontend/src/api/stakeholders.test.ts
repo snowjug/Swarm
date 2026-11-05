@@ -7,7 +7,7 @@ import {
 } from '../../../shared/lab-fixtures';
 import type { ActorsView, StakeholdersView } from '../../../shared/stakeholders';
 import { ApiError } from '../api';
-import { approveFlow, discoverFlow, saveFlow } from './stakeholderFlows';
+import { approveFlow, discoverFlow, readConstraintsFlow, saveFlow } from './stakeholderFlows';
 import { stakeholdersApi } from './stakeholders';
 
 afterEach(() => vi.unstubAllGlobals());
@@ -241,5 +241,63 @@ describe('what the page does for each change', () => {
       approveFlow('p', viewOf(null), null, { model: false }, () => undefined),
     ).rejects.toThrow('There are no stakeholders to approve.');
     expect(calls).toEqual([]);
+  });
+});
+
+describe('asking the model for the constraints once the actors are made', () => {
+  const held = (constraints: number, modelFailure?: { code: string; detail: string }) => ({
+    constraints: {
+      constraints: Array.from({ length: constraints }, (_, at) => ({ id: `c-${at}` })),
+      ...(modelFailure ? { modelFailure } : {}),
+    },
+  });
+  const none = { constraints: null };
+
+  it('asks the model when there are none, and says that it proposed them when its reply stood', async () => {
+    const calls = server({
+      'GET /api/projects/p/constraints': { body: none },
+      'POST /api/projects/p/constraints/propose': { status: 201, body: held(4) },
+    });
+    expect(await readConstraintsFlow('p')).toEqual({ outcome: 'model', count: 4, failure: null });
+    expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
+      'GET /api/projects/p/constraints',
+      'POST /api/projects/p/constraints/propose',
+    ]);
+    expect(calls[1]?.body).toEqual({ mode: 'model' });
+  });
+
+  it('says that rules read them, and why, when the model could not be used', async () => {
+    server({
+      'GET /api/projects/p/constraints': { body: none },
+      'POST /api/projects/p/constraints/propose': {
+        status: 201,
+        body: held(3, {
+          code: 'MODEL_TRUNCATED',
+          detail: 'The model’s answer was cut short, so rules were used.',
+        }),
+      },
+    });
+    expect(await readConstraintsFlow('p')).toEqual({
+      outcome: 'fallback',
+      count: 3,
+      failure: 'The model’s answer was cut short.',
+    });
+  });
+
+  it('leaves constraints that are already there as they are, and asks the model nothing', async () => {
+    const calls = server({ 'GET /api/projects/p/constraints': { body: held(6) } });
+    expect(await readConstraintsFlow('p')).toEqual({ outcome: 'skipped', count: 6, failure: null });
+    expect(calls.map((call) => call.method)).toEqual(['GET']);
+  });
+
+  it('lets a refusal of the server through, for the page to say', async () => {
+    server({
+      'GET /api/projects/p/constraints': { body: none },
+      'POST /api/projects/p/constraints/propose': {
+        status: 409,
+        body: { error: { code: 'MODEL_NOT_AVAILABLE', message: 'No model is available.' } },
+      },
+    });
+    await expect(readConstraintsFlow('p')).rejects.toMatchObject({ code: 'MODEL_NOT_AVAILABLE' });
   });
 });

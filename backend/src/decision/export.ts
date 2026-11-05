@@ -164,6 +164,11 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
   const rows = [...canvas.constraints.hard, ...canvas.constraints.soft];
   blocks.push(
     { kind: 'heading', level: 3, text: '5. Material constraints' },
+    {
+      kind: 'paragraph',
+      text: `${canvas.constraints.origin.label}. ${canvas.constraints.origin.detail}`,
+      tone: canvas.constraints.origin.source === 'rules-fallback' ? 'alert' : 'note',
+    },
     { kind: 'paragraph', text: canvas.constraints.gateSummary, tone: 'note' },
   );
   if (canvas.constraints.provisionalLabel) {

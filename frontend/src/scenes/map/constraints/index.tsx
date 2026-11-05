@@ -15,6 +15,7 @@ import {
   SkeletonText,
 } from '../../../design/ui';
 import type { ReviewAction } from '../../../api/constraints';
+import { CONSTRAINTS_FALLBACK_LABEL, withoutRulesUsed } from '../../../../../shared/model-failure';
 import { ConstraintRow, type Names } from './ConstraintRow';
 import { Editor } from './Editor';
 import { Gate } from './Gate';
@@ -280,6 +281,28 @@ export function ConstraintsPage({ state, onView, onSimulate }: ConstraintsPagePr
     const waiting = set.constraints.filter((item) => item.review === 'proposed');
     return (
       <>
+        {set.modelFailure && (
+          <Notice
+            tone="caution"
+            title={CONSTRAINTS_FALLBACK_LABEL}
+            action={
+              view.may.run && view.model.available ? (
+                <Button
+                  size="sm"
+                  variant="glass"
+                  icon={<Bot size={14} aria-hidden="true" />}
+                  disabled={busy}
+                  onClick={() => void state.propose('model')}
+                >
+                  Ask the model again
+                </Button>
+              ) : undefined
+            }
+          >
+            {withoutRulesUsed(set.modelFailure.detail)} Rules read these constraints instead, so no
+            model proposed them.
+          </Notice>
+        )}{' '}
         {view.gate && (
           <Gate
             gate={view.gate}

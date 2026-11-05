@@ -173,10 +173,56 @@ describe('a model-assisted project’s constraints', () => {
     expect(proposed.every((row) => row.label === 'source-claim')).toBe(true);
   });
 
-  it('shows "not reviewed" on the decision only where nobody has read for constraints at all', () => {
-    const empty = readConstraints(null, {});
+  it('shows "not read yet" on the decision only where nobody has read for constraints at all, and says why', () => {
+    const empty = readConstraints(null, {}, 'llm');
     expect(empty.gate).toBe('none');
     expect(empty.section.note).toContain('open the Map, choose Constraints');
+    expect(empty.section.origin).toMatchObject({
+      source: 'none',
+      label: 'No constraints were proposed',
+    });
+    expect(empty.section.origin.detail).toContain('the model was never asked');
+    expect(readConstraints(null, {}, 'local').section.origin.detail).toContain(
+      'this project runs without a model',
+    );
+  });
+
+  it('says on the decision how the constraints were made: by a model, by rules, by the rules fallback, or by a person', async () => {
+    const proposed = await world(scripted(REPLY));
+    await proposed.propose('model');
+    const byModel = readConstraints(
+      proposed.repository.artifacts.get(proposed.project.id, 'constraints')!.data,
+      {},
+      'llm',
+    ).section.origin;
+    expect(byModel).toMatchObject({ source: 'model', label: 'Constraints proposed by a model' });
+    expect(byModel.detail).toContain('fixture-model');
+    expect(byModel.detail).toContain('A person has not reviewed them yet.');
+
+    const failed = await world(scripted(new AppError(502, 'MODEL_TRUNCATED', 'cut')));
+    await failed.propose('model');
+    const fallback = readConstraints(
+      failed.repository.artifacts.get(failed.project.id, 'constraints')!.data,
+      {},
+      'llm',
+    ).section.origin;
+    expect(fallback).toMatchObject({
+      source: 'rules-fallback',
+      label: 'Constraints from the rules fallback',
+    });
+    expect(fallback.detail).toContain('The model’s answer was cut short.');
+    expect(fallback.detail).toContain('no model proposed them');
+    expect(fallback.detail).not.toContain('so rules were used');
+
+    const plain = await world(scripted(REPLY));
+    await plain.propose('rules');
+    expect(
+      readConstraints(
+        plain.repository.artifacts.get(plain.project.id, 'constraints')!.data,
+        {},
+        'llm',
+      ).section.origin,
+    ).toMatchObject({ source: 'rules', label: 'Constraints read by rules' });
   });
 
   it('runs the counterfactual views under them once the actors and the proposed change are there', async () => {
@@ -189,14 +235,50 @@ describe('a model-assisted project’s constraints', () => {
     expect(after.current).toBe(true);
   });
 
-  it('falls back to reading the text by rules, and says it did, when the model fails', async () => {
+  it('falls back to reading the text by rules, and says it did and why, when the model fails', async () => {
     const instance = await world(scripted(new AppError(502, 'MODEL_TIMEOUT', 'slow')));
     const response = await instance.propose('model');
     expect(response.statusCode).toBe(201);
     const set = (response.json() as ConstraintsView).constraints!;
     expect(set.mode).toBe('rules');
-    expect(set.note).toContain('rules were used');
+    expect(set.note).toContain('The model did not answer in time.');
+    expect(set.note).toContain('Rules read the constraints instead, so no model proposed them.');
+    expect(set.modelFailure).toEqual({
+      code: 'MODEL_TIMEOUT',
+      detail: 'The model did not answer in time, so rules were used.',
+    });
     expect(set.constraints.some((item) => item.confidenceBasis.kind === 'model-quote')).toBe(false);
+  });
+
+  it('records no failure when the model’s reply was used, and forgets one once it is', async () => {
+    const calls = { count: 0 };
+    const factory = (() => {
+      let attempt = 0;
+      return ((onUsage) => {
+        attempt += 1;
+        return scripted(
+          attempt === 1 ? new AppError(502, 'MODEL_TIMEOUT', 'slow') : REPLY,
+          calls,
+        )(onUsage);
+      }) satisfies ModelFactory;
+    })();
+    const instance = await world(factory);
+    const failed = (await instance.propose('model')).json() as ConstraintsView;
+    expect(failed.constraints?.modelFailure?.code).toBe('MODEL_TIMEOUT');
+    // Asking only the rules asks nothing of the model, so what the last ask came to is kept.
+    const rules = (await instance.propose('rules')).json() as ConstraintsView;
+    expect(rules.constraints?.modelFailure?.code).toBe('MODEL_TIMEOUT');
+    const used = (await instance.propose('model')).json() as ConstraintsView;
+    expect(used.constraints?.mode).toBe('model');
+    expect(used.constraints?.modelFailure).toBeNull();
+  });
+
+  it('never keeps the provider’s own words in what it records of the failure', async () => {
+    const instance = await world(
+      scripted(new AppError(502, 'MODEL_TIMEOUT', 'provider said zq-body')),
+    );
+    const set = ((await instance.propose('model')).json() as ConstraintsView).constraints!;
+    expect(JSON.stringify(set)).not.toContain('zq-body');
   });
 
   it('will not ask a model for a project that was made to run without one', async () => {

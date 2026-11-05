@@ -13,6 +13,7 @@ import {
   type ConstraintRow,
   type DecisionCanvas,
 } from '../../../shared/decision.js';
+import { CONSTRAINTS_FALLBACK_LABEL, withoutRulesUsed } from '../../../shared/model-failure.js';
 import { clip, listed } from './words.js';
 
 /**
@@ -37,6 +38,71 @@ export interface ConstraintReading {
 }
 
 const isHard = (constraint: Constraint): boolean => constraint.hardness === 'hard';
+
+/** What the canvas says of how the constraints were made: see `constraintOrigin`. */
+export type ConstraintOrigin = DecisionCanvas['constraints']['origin'];
+
+/**
+ * How the constraints were made, or why there are none, for the canvas to say beside them. A set that rules made
+ * after a model was asked and could not be used is `rules-fallback`, with the failure in the server’s own words, and
+ * is never read as the model’s. Where nobody read any constraints it says whether a model could have been asked:
+ * "Not reviewed" with no reason would leave a person to guess whether the step failed or was never run.
+ */
+export function constraintOrigin(
+  set: ConstraintSet | null,
+  projectMode?: 'llm' | 'local',
+): ConstraintOrigin {
+  if (!set) {
+    return {
+      source: 'none',
+      label: 'No constraints were proposed',
+      detail:
+        projectMode === 'llm'
+          ? 'The constraints step was not run, so the model was never asked to propose any. Open the Map, choose Constraints, and ask the model to read them.'
+          : projectMode === 'local'
+            ? 'The constraints step was not run, and this project runs without a model. Open the Map, choose Constraints, and read your sources.'
+            : 'The constraints step was not run. Open the Map, choose Constraints, and read your sources, or ask the model when the project is model-assisted.',
+    };
+  }
+  const reviewed = set.reviewedAt
+    ? 'A person has been through them.'
+    : 'A person has not reviewed them yet.';
+  if (set.mode === 'user') {
+    return {
+      source: 'user',
+      label: 'Constraints added by a person',
+      detail: 'A person wrote these. Swarm did not propose them.',
+    };
+  }
+  if (set.modelFailure) {
+    return {
+      source: 'rules-fallback',
+      label: CONSTRAINTS_FALLBACK_LABEL,
+      detail: clip(
+        `${withoutRulesUsed(set.modelFailure.detail)} Rules read the constraints instead, so no model proposed them. ${reviewed}`,
+        400,
+      ),
+    };
+  }
+  if (set.mode === 'model') {
+    return {
+      source: 'model',
+      label: 'Constraints proposed by a model',
+      detail: clip(
+        `${set.model ? `The model ${set.model}` : 'A model'} read your sources, and so did the rules. ${reviewed}`,
+        400,
+      ),
+    };
+  }
+  return {
+    source: 'rules',
+    label: 'Constraints read by rules',
+    detail: clip(
+      `No model was used: rules read your words, your sources and who is involved. ${reviewed}`,
+      400,
+    ),
+  };
+}
 
 function rowOf(
   constraint: Constraint,
@@ -69,6 +135,7 @@ function rowOf(
 export function readConstraints(
   set: ConstraintSet | null,
   analysis: Pick<Analysis, 'constraints'>,
+  projectMode?: 'llm' | 'local',
 ): ConstraintReading {
   const comparison = analysis.constraints ?? null;
   const coverage = set?.coverage ?? null;
@@ -165,6 +232,7 @@ export function readConstraints(
           : [],
       notModelled,
       note: clip(note, 500),
+      origin: constraintOrigin(set, projectMode),
     },
   };
 }

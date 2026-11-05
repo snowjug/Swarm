@@ -66,7 +66,7 @@ import { Guard, clip, embed, listed, oneLine, plural, signed } from './words.js'
  */
 
 export interface DecisionInputs {
-  project: { id: string; name: string; question: string };
+  project: { id: string; name: string; question: string; mode?: 'llm' | 'local' };
   scenario: ScenarioFrame | null;
   stakeholders: StakeholderSet | null;
   /** The newest finished comparison. */
@@ -156,7 +156,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
   };
 
   // ---- Constraints, lenses, evidence ----------------------------------------------------------
-  const constraints = readConstraints(inputs.constraints, analysis);
+  const constraints = readConstraints(inputs.constraints, analysis, project.mode);
   const blocked = new Set(constraints.confirmedViolations.keys());
   const lenses = computeLenses({ measures, actors: analysis.actors, positions, blocked });
   const evidence = readEvidence(

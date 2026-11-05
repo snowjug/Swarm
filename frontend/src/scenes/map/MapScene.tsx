@@ -24,6 +24,7 @@ import { useElementSize } from '../../hooks/useElementSize';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { useParticipants } from '../../hooks/useParticipants';
 import { useStakeholders, type StakeholderWork } from '../../hooks/useStakeholders';
+import type { ConstraintsRead } from '../../api/stakeholderFlows';
 import {
   MAX_MERGED,
   MAX_STAKEHOLDERS,
@@ -82,6 +83,7 @@ const WORKING_WORDS: Record<StakeholderWork, string> = {
   reviewing: 'Saving…',
   approving: 'Approving…',
   'making-actors': 'Making the actors…',
+  'reading-constraints': 'The model is reading the constraints…',
   saving: 'Saving…',
   'saving-actors': 'Saving…',
 };
@@ -337,8 +339,43 @@ export function MapScene() {
     if (set && isReviewed(set)) setReplacing(mode);
     else void find(mode);
   };
-  const approve = async (options: { model: boolean }): Promise<void> => {
-    if (await state.approve(options)) {
+  /**
+   * What the person is told when the model was asked for the constraints, once the actors were made: that it
+   * proposed them and they wait for review, or, if it could not be used, why, and that rules read them instead.
+   * A failure here never undoes the approval, and is said where it can be seen and kept.
+   */
+  const constraintsTold = (read: ConstraintsRead): void => {
+    const count = `${read.count} ${read.count === 1 ? 'constraint' : 'constraints'}`;
+    const open = { label: 'Open Constraints', onPress: () => ws.setView('constraints') };
+    if (read.outcome === 'model') {
+      say(`The model proposed ${count}. They wait for your review under Constraints.`);
+      toast({
+        title: 'Constraints proposed',
+        description: `${count} proposed by the model, waiting for your review. A simulation does not use them until you have reviewed them.`,
+        tone: 'success',
+        action: open,
+      });
+    } else if (read.outcome === 'fallback') {
+      say(`The model could not read the constraints. Rules read ${count} instead.`);
+      toast({
+        title: 'The model could not read the constraints',
+        description:
+          `${read.failure ?? ''} Rules read ${count} instead, so no model proposed them. They wait for your review under Constraints.`.trim(),
+        tone: 'error',
+        action: open,
+      });
+    } else if (read.outcome === 'failed') {
+      say('The constraints could not be read. Nothing was proposed.');
+      toast({
+        title: 'The constraints could not be read',
+        description: `${read.failure ?? 'Something went wrong.'} Nothing was proposed. You can read them under Constraints.`,
+        tone: 'error',
+        action: open,
+      });
+    }
+  };
+  const approve = async (options: { model: boolean; constraints: boolean }): Promise<void> => {
+    if (await state.approve(options, constraintsTold)) {
       setSubjectChoice('actors');
       setSelectedId(null);
       focus(['continue']);
@@ -355,8 +392,8 @@ export function MapScene() {
       });
     }
   };
-  const makeActors = async (options: { model: boolean }): Promise<void> => {
-    if (await state.makeActors({ ...options, confirm: false })) {
+  const makeActors = async (options: { model: boolean; constraints: boolean }): Promise<void> => {
+    if (await state.makeActors({ ...options, confirm: false }, constraintsTold)) {
       setSubjectChoice('actors');
       focus(['continue']);
       say('The actors were made from the approved stakeholders.');

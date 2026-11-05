@@ -198,7 +198,12 @@ export class DecisionService {
         DEFAULT_ARTIFACT_KEY,
       );
       const canvas = buildCanvas({
-        project: { id: project.id, name: project.name, question: project.question },
+        project: {
+          id: project.id,
+          name: project.name,
+          question: project.question,
+          mode: project.mode,
+        },
         scenario: scenario?.data ?? null,
         stakeholders: artifacts.get(projectId, 'stakeholders')?.data ?? null,
         analysis: latest.data,

@@ -235,7 +235,10 @@ export async function settleConstraints(page: Page): Promise<void> {
     .getByRole('radiogroup', { name: 'Show as' })
     .getByRole('radio', { name: 'Constraints' })
     .click();
-  await page.getByRole('button', { name: 'Read my sources for constraints' }).click();
+  // Where the model already read them (it is asked with the actors), the gate is there; otherwise the person asks.
+  const read = page.getByRole('button', { name: 'Read my sources for constraints' });
+  await expect(read.or(gateRegion(page))).toBeVisible({ timeout: 60_000 });
+  if (await read.isVisible()) await read.click();
   await expect(gateRegion(page)).toBeVisible({ timeout: 60_000 });
   const confirmations = page.getByRole('button', { name: /^Confirm: / });
   for (let guard = 0; guard < 12 && (await confirmations.count()) > 0; guard += 1) {

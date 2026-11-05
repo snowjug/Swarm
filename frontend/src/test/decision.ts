@@ -334,6 +334,12 @@ const base = (): Raw => ({
     missing: [],
     notModelled: [],
     note: 'No constraints were reviewed for this decision, so the picture does not say what limits it.',
+    origin: {
+      source: 'none',
+      label: 'No constraints were proposed',
+      detail:
+        'The constraints step was not run, so the model was never asked to propose any. Open the Map, choose Constraints, and ask the model to read them.',
+    },
   },
   actors: {
     focusAlternativeId: 'proposed-change',
@@ -715,6 +721,12 @@ export function richFixture(): DecisionCanvas {
       missing: ['Whether the staffing limit applies to contractors is not stated.'],
       notModelled: ['The regulator’s approval was read by the simulation, not run.'],
       note: 'Five constraints, one of them not confirmed.',
+      origin: {
+        source: 'model',
+        label: 'Constraints proposed by a model',
+        detail:
+          'The model gpt-5-mini read your sources, and so did the rules. A person has not reviewed them yet.',
+      },
     };
     raw.actors.items = [
       actor(
@@ -905,6 +917,12 @@ export function statusFixture(status: DecisionStatus): DecisionCanvas {
           missing: [],
           notModelled: [],
           note: 'One constraint, confirmed.',
+          origin: {
+            source: 'rules',
+            label: 'Constraints read by rules',
+            detail:
+              'No model was used: rules read your words, your sources and who is involved. A person has been through them.',
+          },
         };
         canvas.answer.recommendation.constraints = {
           items: [

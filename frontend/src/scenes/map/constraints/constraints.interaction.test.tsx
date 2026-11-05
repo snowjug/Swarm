@@ -608,6 +608,40 @@ describe('what Swarm still has to ask', () => {
   });
 });
 
+describe('constraints the rules read because the model could not be used', () => {
+  const failed = {
+    modelFailure: {
+      code: 'MODEL_TRUNCATED',
+      detail: 'The model’s answer was cut short, so rules were used.',
+    },
+  };
+
+  it('says so at the top, with what failed and that no model proposed them, and offers the model again', async () => {
+    const set = setOf([hardLegal, guess], failed);
+    const { calls, user } = mount(
+      viewOf(set, gate(), { model: { available: true, reason: null } }),
+    );
+    const notice = screen
+      .getByText('Constraints from the rules fallback')
+      .closest('[role="status"]') as HTMLElement;
+    expect(notice.textContent).toContain('Constraints from the rules fallback');
+    expect(notice.textContent).toContain('The model’s answer was cut short.');
+    expect(notice.textContent).toContain('so no model proposed them');
+    expect(notice.textContent).not.toContain('so rules were used');
+    await user.click(within(notice).getByRole('button', { name: 'Ask the model again' }));
+    expect(calls.propose).toHaveBeenCalledWith('model');
+  });
+
+  it('offers no model where there is none, and says nothing of a failure where there was none', () => {
+    const withFailure = mount(viewOf(setOf([hardLegal, guess], failed), gate()));
+    expect(screen.queryByRole('button', { name: 'Ask the model again' })).toBeNull();
+    expect(screen.getByText(/Constraints from the rules fallback/u)).toBeTruthy();
+    withFailure.unmount();
+    mount(viewOf(setOf([hardLegal, guess]), gate()));
+    expect(screen.queryByText(/Constraints from the rules fallback/u)).toBeNull();
+  });
+});
+
 describe('the views of the proposed change', () => {
   const views: CounterfactualsView = {
     current: true,

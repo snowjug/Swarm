@@ -135,9 +135,9 @@ export function DecisionCanvasView({ handle, go, below, onDetailed }: Props) {
               className="sw-canvas-notice"
               title={notice.title}
               action={
-                notice.tone === 'caution' && handle.view?.may.run ? (
-                  <Button size="sm" variant="glass" onClick={go.simulate}>
-                    Open Simulate
+                notice.action && handle.view?.may.run ? (
+                  <Button size="sm" variant="glass" onClick={go[notice.action]}>
+                    {notice.action === 'simulate' ? 'Open Simulate' : 'Open the Map'}
                   </Button>
                 ) : null
               }

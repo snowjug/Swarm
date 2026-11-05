@@ -12,7 +12,14 @@ import type {
   StakeholdersView,
 } from '../../../shared/stakeholders';
 import { errorMessage } from '../api';
-import { approveFlow, discoverFlow, saveFlow, type Shown } from '../api/stakeholderFlows';
+import {
+  approveFlow,
+  discoverFlow,
+  readConstraintsFlow,
+  saveFlow,
+  type ConstraintsRead,
+  type Shown,
+} from '../api/stakeholderFlows';
 import { participantsApi, thenActors } from '../api/participants';
 import { stakeholdersApi } from '../api/stakeholders';
 
@@ -23,6 +30,7 @@ export type StakeholderWork =
   | 'saving'
   | 'approving'
   | 'making-actors'
+  | 'reading-constraints'
   | 'saving-actors';
 
 /**
@@ -73,14 +81,24 @@ export interface StakeholderState {
    */
   exec: (kind: StakeholderWork, work: () => Promise<Outcome>) => Promise<boolean>;
   save: (stakeholders: Stakeholder[], relations: StakeholderRelation[]) => Promise<boolean>;
-  /** Approves the list, then makes the actors from it. */
-  approve: (options: { model: boolean }) => Promise<boolean>;
-  makeActors: (options: {
-    model: boolean;
-    confirm: boolean;
-    /** The list changed after it was approved: approve it as it is now, then make the actors from it. */
-    approveFirst?: boolean;
-  }) => Promise<boolean>;
+  /**
+   * Approves the list, then makes the actors from it, then, when `constraints` is set, asks the model for the
+   * constraints (told to `onRead` when it is done). The last step cannot undo the first two.
+   */
+  approve: (
+    options: { model: boolean; constraints?: boolean },
+    onRead?: (read: ConstraintsRead) => void,
+  ) => Promise<boolean>;
+  makeActors: (
+    options: {
+      model: boolean;
+      confirm: boolean;
+      /** The list changed after it was approved: approve it as it is now, then make the actors from it. */
+      approveFirst?: boolean;
+      constraints?: boolean;
+    },
+    onRead?: (read: ConstraintsRead) => void,
+  ) => Promise<boolean>;
   saveActors: (actors: Actor[]) => Promise<boolean>;
 }
 
@@ -229,8 +247,30 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
     [projectId, run, view],
   );
 
+  /**
+   * Once the actors exist, asks the model for the constraints when the person said to. It is a step of its own,
+   * told to the page by `onRead`: what goes wrong in it is said there and never undoes the approval or the actors.
+   */
+  const readConstraints = useCallback(
+    async (onRead?: (read: ConstraintsRead) => void): Promise<void> => {
+      if (!mounted.current) return;
+      setWorking('reading-constraints');
+      let read: ConstraintsRead;
+      try {
+        read = await readConstraintsFlow(projectId);
+      } catch (failure) {
+        read = { outcome: 'failed', count: 0, failure: errorMessage(failure) };
+      }
+      if (mounted.current) onRead?.(read);
+    },
+    [projectId],
+  );
+
   const approve = useCallback(
-    (options: { model: boolean }) =>
+    (
+      options: { model: boolean; constraints?: boolean },
+      onRead?: (read: ConstraintsRead) => void,
+    ) =>
       run('approving', async () => {
         if (!view) throw new Error('There are no stakeholders to approve.');
         const shown = await approveFlow(projectId, view, actors, options, (approved, making) => {
@@ -242,12 +282,21 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
         setView(shown.view);
         setActors(shown.actors);
         changed.current();
+        if (options.constraints) await readConstraints(onRead);
       }),
-    [actors, projectId, run, view],
+    [actors, projectId, readConstraints, run, view],
   );
 
   const makeActors = useCallback(
-    (options: { model: boolean; confirm: boolean; approveFirst?: boolean }) =>
+    (
+      options: {
+        model: boolean;
+        confirm: boolean;
+        approveFirst?: boolean;
+        constraints?: boolean;
+      },
+      onRead?: (read: ConstraintsRead) => void,
+    ) =>
       run('making-actors', async () => {
         if (options.approveFirst) {
           if (!view || view.revision === null)
@@ -263,8 +312,9 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
         if (!mounted.current) return;
         setActors(made);
         changed.current();
+        if (options.constraints) await readConstraints(onRead);
       }),
-    [projectId, run, view],
+    [projectId, readConstraints, run, view],
   );
 
   const saveActors = useCallback(

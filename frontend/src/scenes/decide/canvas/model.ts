@@ -144,7 +144,7 @@ export function gateWords(constraints: DecisionCanvas['constraints']): Words {
     case 'provisional':
       return { label: 'Provisional', tone: 'caution' };
     case 'none':
-      return { label: 'Not reviewed', tone: 'caution' };
+      return { label: 'Not read yet', tone: 'caution' };
     case 'clear':
       return constraints.comparisonStatus === 'clear'
         ? { label: 'Clear', tone: 'favor' }
@@ -478,11 +478,21 @@ export interface Notice {
   tone: 'caution' | 'info';
   title: string;
   text: string;
+  /** What the notice offers to open: the simulation, to run it again, or the Map, where the model can be asked again. */
+  action?: 'simulate' | 'map';
 }
 
 /** What to say at the top of a canvas that describes the project as it was, or that a newer comparison is on its way. */
 export function noticesOf(canvas: DecisionCanvas): Notice[] {
   const notices: Notice[] = [];
+  // A list the rules made after the model was asked and could not be used is the rules’, never the model’s, and
+  // the page says so here, where nobody can miss it. A note among the roles would push the ten things off the
+  // first screen, which is kept for what is the same for every project.
+  for (const origin of [canvas.actors.origin, canvas.constraints.origin]) {
+    if (origin.source === 'rules-fallback') {
+      notices.push({ tone: 'caution', title: origin.label, text: origin.detail, action: 'map' });
+    }
+  }
   if (canvas.freshness.stale) {
     const known = staleComparisonInputs(canvas.freshness.changedSince);
     notices.push({
@@ -492,6 +502,7 @@ export function noticesOf(canvas: DecisionCanvas): Notice[] {
         known.length > 0
           ? `The comparison it rests on was run before ${inputsInWords(known)} changed. Run it again to bring this up to date.`
           : `${UNRECORDED_INPUTS_ADVICE} Run it again to be sure.`,
+      action: 'simulate',
     });
   }
   if (canvas.freshness.newerRunning) {

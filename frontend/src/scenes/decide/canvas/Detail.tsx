@@ -17,7 +17,7 @@ import {
 } from '../../../../../shared/decision';
 import { Disclosure } from '../../../design/ui';
 import { perHundred, plural, signedPerHundred } from '../model/format';
-import { LabelChip, ParticipantOrigin } from './parts';
+import { LabelChip, Origin } from './parts';
 import {
   COPY,
   FIGURE_UNIT,
@@ -318,6 +318,7 @@ function Constraints({ canvas }: { canvas: DecisionCanvas }) {
   const rows = [...constraints.hard, ...constraints.soft];
   return (
     <>
+      <Origin origin={constraints.origin} />
       <p>{constraints.gateSummary}</p>
       {constraints.provisionalLabel ? (
         <p className="sw-canvas-flagline">{constraints.provisionalLabel}</p>
@@ -410,7 +411,7 @@ function Actors({ canvas }: { canvas: DecisionCanvas }) {
   const { actors } = canvas;
   return (
     <>
-      <ParticipantOrigin origin={actors.origin} />
+      <Origin origin={actors.origin} />
       <p className="sw-canvas-quiet">
         {actors.note} {SYNTHETIC_ACTORS_NOTE}
       </p>

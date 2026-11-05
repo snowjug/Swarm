@@ -12,6 +12,9 @@ export const withoutRulesUsed = (detail: string): string => detail.replace(RULES
 /** What a list that rules made after the model failed is called wherever it is shown: never as the model's. */
 export const RULES_FALLBACK_LABEL = 'Participants from the rules fallback';
 
+/** The same for the constraints. */
+export const CONSTRAINTS_FALLBACK_LABEL = 'Constraints from the rules fallback';
+
 /**
  * The classes of failure that stop a step a model was asked to do. Each has fixed wording on the server; a
  * failure of any other kind is recorded and shown as `MODEL_UNEXPECTED`, so that nothing a caller sends or a

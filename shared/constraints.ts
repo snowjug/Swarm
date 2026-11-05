@@ -391,6 +391,16 @@ export const constraintSetSchema = z.object({
   model: line(120).nullable().default(null),
   /** How the set was made and what that could not do, in a sentence a person can read. */
   note: line(500).default(''),
+  /**
+   * Why a model that was asked for constraints did not propose any, when the last time it was asked it could
+   * not be used: the class of failure with fixed wording (see `models/task.ts`), and none of the model's words.
+   * Null once a model's reply was used. Rules read the constraints whether or not a model is asked, so a set
+   * with this still holds constraints, and says that rules made them. Absent from a set made before it existed.
+   */
+  modelFailure: z
+    .object({ code: line(60), detail: line(300) })
+    .nullable()
+    .optional(),
   /** The revisions of the scenario and the actors the constraints were read against (0 when there was none). */
   scenarioRevision: z.int().min(0),
   actorsRevision: z.int().min(0),

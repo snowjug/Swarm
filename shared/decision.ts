@@ -646,6 +646,10 @@ export const POSITION_WORDS: Record<DecisionPosition, string> = {
 export const PARTICIPANT_SOURCES = ['model', 'rules', 'rules-fallback', 'user', 'unknown'] as const;
 export type ParticipantSource = (typeof PARTICIPANT_SOURCES)[number];
 
+/** Where the constraints came from; `none` is a decision that nobody read any constraints for, and says why. */
+export const CONSTRAINT_ORIGINS = ['model', 'rules', 'rules-fallback', 'user', 'none'] as const;
+export type ConstraintOriginSource = (typeof CONSTRAINT_ORIGINS)[number];
+
 const actorReadingSchema = z.object({
   actorId: idSchema,
   name: text(120),
@@ -956,6 +960,15 @@ export const decisionCanvasSchema = z.object({
     missing: lines(300, 6),
     notModelled: lines(200, 8),
     note: text(500),
+    /**
+     * How the constraints were made, or why there are none: the model proposed them, rules read them (as asked, or
+     * because the model could not be used, which says so), a person wrote them, or nobody asked for any.
+     */
+    origin: z.object({
+      source: z.enum(CONSTRAINT_ORIGINS),
+      label: text(80),
+      detail: text(400),
+    }),
   }),
   /** 6. Who moves. */
   actors: z.object({

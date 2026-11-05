@@ -524,14 +524,26 @@ for (const variant of VARIANTS) {
         await expect(
           page.getByRole('heading', { level: 1, name: 'What limits the decision' }),
         ).toBeVisible();
-        await expect(
-          page.getByRole('heading', { level: 2, name: 'No constraints have been read yet' }),
-        ).toBeVisible();
-        const read = page.getByRole('button', {
-          name: model ? 'Ask the model to read them' : 'Read my sources for constraints',
+        const unread = page.getByRole('heading', {
+          level: 2,
+          name: 'No constraints have been read yet',
         });
-        await read.click();
-        await expect(gateRegion(page)).toBeVisible({ timeout: 60_000 });
+        if (model) {
+          // With a model on offer the person was asked, in the same press as the actors, and the model read the
+          // constraints then: they are waiting here. If the model could not be used, the page says why, and so
+          // does this step: that is the finding to report.
+          await expect(unread).toHaveCount(0);
+          await expect(gateRegion(page)).toBeVisible({ timeout: 60_000 });
+          const held = (await constraintsOf(page.request, project)).constraints!;
+          expect(
+            held.modelFailure ?? null,
+            `The model could not read the constraints: ${held.modelFailure?.detail ?? ''}`,
+          ).toBeNull();
+        } else {
+          await expect(unread).toBeVisible();
+          await page.getByRole('button', { name: 'Read my sources for constraints' }).click();
+          await expect(gateRegion(page)).toBeVisible({ timeout: 60_000 });
+        }
 
         const view = await constraintsOf(page.request, project);
         const set = view.constraints!.constraints;

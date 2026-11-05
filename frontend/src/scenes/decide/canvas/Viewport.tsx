@@ -6,7 +6,7 @@ import { Disclosure } from '../../../design/ui';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { plural } from '../model/format';
 import type { DetailId } from './details';
-import { LabelChip, LabelsOf, ParticipantOrigin, ShareBar, StatusIcon } from './parts';
+import { LabelChip, LabelsOf, Origin, ShareBar, StatusIcon } from './parts';
 import {
   COPY,
   FIGURE_UNIT,
@@ -237,7 +237,12 @@ function Constraints({ canvas, openDetail }: Props) {
         </span>
       </p>
       {glance.rows.length === 0 ? (
-        <Quiet>{canvas.constraints.note}</Quiet>
+        // Where nobody read any, the section says why and what to do, in place of the note it would otherwise have.
+        canvas.constraints.origin.source === 'none' ? (
+          <Origin origin={canvas.constraints.origin} />
+        ) : (
+          <Quiet>{canvas.constraints.note}</Quiet>
+        )
       ) : (
         <ul className="sw-canvas-list sw-canvas-constraints" role="list">
           {glance.rows.map((row) => (
@@ -280,7 +285,6 @@ function Who({ canvas, openDetail }: Props) {
   if (items.length === 0) return <Quiet>No role was simulated.</Quiet>;
   return (
     <>
-      <ParticipantOrigin origin={canvas.actors.origin} />
       <ul className="sw-canvas-list sw-canvas-who" role="list">
         {items.map((actor) => {
           const Arrow =

@@ -1,5 +1,7 @@
 import type { Clarification, Constraint, ConstraintSet } from '../../../shared/constraints.js';
+import { withoutRulesUsed } from '../../../shared/model-failure.js';
 import type { TaskObserver } from '../models/task.js';
+import { modelFailureCode } from '../models/task.js';
 import type { ModelGateway } from '../models/client.js';
 import { plural, truncate } from '../stakeholders/names.js';
 import {
@@ -58,7 +60,9 @@ function noteOf(input: {
       `Read by a model${input.modelName ? ` (${input.modelName})` : ''} and by rules: it saw ${plural(input.shown?.passages ?? 0, 'passage')} of ${input.shown?.of ?? 0}.`,
     );
   } else if (input.failure) {
-    parts.push(`${input.failure.detail} The constraints were read by rules.`);
+    parts.push(
+      `${withoutRulesUsed(input.failure.detail)} Rules read the constraints instead, so no model proposed them.`,
+    );
   } else {
     parts.push(
       'Read by rules from your words, your sources and who is involved; no model was used.',
@@ -132,6 +136,13 @@ export async function proposeConstraints(input: ProposeInput): Promise<ProposeRe
     generatedAt: input.now.toISOString(),
     mode: modelUsed ? 'model' : 'rules',
     model: modelUsed ? input.modelName : null,
+    // What the last ask of the model came to: its failure, or nothing once its reply was used; a rules run asks nothing.
+    modelFailure:
+      input.mode === 'model'
+        ? failure
+          ? { code: modelFailureCode(failure.code), detail: failure.detail }
+          : null
+        : (existing.modelFailure ?? null),
     note: noteOf({
       mode: input.mode,
       modelName: input.modelName,

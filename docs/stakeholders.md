@@ -292,10 +292,11 @@ credentials, an exhausted budget):
   wording stored for it is the server's own, never the caller's). The set then carries `proposal.failure`
   and a `discovery.note` that begins **"Participants from the rules fallback."** The Map's source chip says
   _Rules fallback_ and a notice carries the same words; the review says that no model proposed the list;
-  the Decide page's **Who moves** says **"Participants from the rules fallback"**, with what failed, and so
-  do the exports and the brief. A list the rules made because rules were chosen from the start says only
-  that, and a list a model proposed says which model. The label stays on the list when it is edited: it is
-  how the list began.
+  the Decide page says **"Participants from the rules fallback"**, with what failed, in a notice above the
+  picture (a note among the roles would push the ten things off the first screen) and again where **Who
+  moves** is given in full, and so do the exports and the brief. A list the rules made because rules were
+  chosen from the start says only that, where the roles are given in full, and a list a model proposed says
+  which model. The label stays on the list when it is edited: it is how the list began.
 - **Find stakeholders again** on a list made by the rules fallback asks the model again, since that is the
   way the person did not get.
 - Telemetry counts a stop as `swarm.actors.proposals` with `swarm.proposal.origin = stopped`, and the rules

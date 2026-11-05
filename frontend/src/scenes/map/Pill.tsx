@@ -20,7 +20,11 @@ export interface ApproveModel {
   blocked?: string;
   /** What the button says, when the screen it is on has its own word for the one thing to do. */
   label?: string;
-  onConfirm: (options: { model: boolean }) => void;
+  /**
+   * What the person chose: whether the model may read the key actors, and whether it may propose the constraints
+   * of the decision (which is on unless they turn it off, since the answer rests on them).
+   */
+  onConfirm: (options: { model: boolean; constraints: boolean }) => void;
 }
 
 export type PillModel =
@@ -41,15 +45,16 @@ export type PillModel =
 
 function ApproveButton({ approve }: { approve: ApproveModel }) {
   const [useModel, setUseModel] = useState(false);
+  const [readConstraints, setReadConstraints] = useState(true);
   const [open, setOpen] = useState(false);
   const making = approve.mode === 'make';
   // The one thing to do is said in two words; what it also does (it accepts the list) is in the name a reader hears.
   const label = approve.label ?? (approve.keepsEdited > 0 && !making ? 'Approve' : 'Create actors');
   const name =
     !approve.label && !making && approve.keepsEdited === 0 ? 'Approve & create actors' : undefined;
-  const press = (model: boolean) => {
+  const press = (model: boolean, constraints: boolean) => {
     setOpen(false);
-    approve.onConfirm({ model });
+    approve.onConfirm({ model, constraints });
   };
   const button = (
     <Button
@@ -59,7 +64,7 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
       disabled={approve.disabled}
       aria-label={name}
       data-stk-focus="approve"
-      onClick={approve.modelAvailable ? undefined : () => press(false)}
+      onClick={approve.modelAvailable ? undefined : () => press(false, false)}
     >
       {label}
     </Button>
@@ -93,11 +98,17 @@ function ApproveButton({ approve }: { approve: ApproveModel }) {
             description="Sends your source text to the model. Whatever it sets is labelled as the model’s, and if it fails the category priors stand."
           />
         )}
+        <Switch
+          checked={readConstraints}
+          onChange={(event) => setReadConstraints(event.target.checked)}
+          label="Let the model read the constraints"
+          description="Sends your source text to the model, which proposes what limits this decision. Nothing it proposes is used by a simulation until you review it. Skipped when constraints have already been read; if the model fails, rules read them and say so."
+        />
         <div className="sw-pill__pop-actions">
           <Button
             variant="primary"
             icon={<Check size={16} aria-hidden="true" />}
-            onClick={() => press(useModel && approve.keepsEdited === 0)}
+            onClick={() => press(useModel && approve.keepsEdited === 0, readConstraints)}
           >
             {label}
           </Button>

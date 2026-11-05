@@ -16,7 +16,10 @@ Code: [`shared/constraints.ts`](../../shared/constraints.ts) and
 
 Artifact `constraints` (key `default`, revisioned) holds a `ConstraintSet`: the constraints, the latest
 gate result (`coverage`), the open and answered `clarifications`, how it was made (`mode` rules, model or
-user, and a `note` that says so in words), and the scenario and actors revisions it was read against.
+user, and a `note` that says so in words), why a model that was asked did not propose any when it could not
+be used (`modelFailure`: a code of `MODEL_FAILURE_CODES` and fixed wording, null once a model's reply was
+used; rules read the constraints whether or not a model is asked, so a set with one still holds constraints
+and says that rules made them), and the scenario and actors revisions it was read against.
 Artifact `constraint-counterfactuals` holds the last run of the seven views.
 
 A constraint has: `id`, `category` (one of 28), `statement`, `source`, `evidenceRefs`, `hardness` and
@@ -117,6 +120,34 @@ evidence); `remove` and `exclude` set one aside; `restore` puts it back; `mark-u
 An unknown stays unknown: it is not applied and not treated as true. A person who answers a question
 writes a constraint of their own. An assumption is written down as a constraint (`Assumed for now: …`)
 labelled assumed, so that it shows wherever the constraints do.
+
+### Reading them with the model, on the way through the Map
+
+A pilot decision reached Decide with "Material constraints: Not reviewed, 0 hard 0 soft": the constraints
+step is its own page, nothing led there, and the model was never asked. On a model-assisted project the Map's
+**Use these actors** now offers **Let the model read the constraints**, on unless the person turns it off:
+once the list is approved and the actors are made, the page asks the model for the constraints (it asks
+nothing where some already exist). What comes back waits for review like any other proposal, and a
+simulation does not use it until a person has been through it. The step is told as it happens ("The model is
+reading the constraints…") and as it ends, in a notice that stays when something went wrong:
+
+- the model's reading stood: "Constraints proposed", with how many, waiting under **Constraints**;
+- the model could not be used: "The model could not read the constraints", with what failed, and that rules
+  read N instead, so no model proposed them. Rules always read the sources, so the constraints exist; the
+  set keeps `modelFailure`, the page under **Constraints** says **Constraints from the rules fallback** with
+  **Ask the model again**, and Decide says it too;
+- nothing could be asked at all: "The constraints could not be read". Neither of the last two undoes the
+  approval or the actors.
+
+On Decide, **Material constraints** says how they were made, or why there are none. Where nobody read any it
+says **No constraints were proposed** in the section itself, with the reason (the model was never asked, or the
+project runs without one) and what to do. A set the rules made after the model failed is a notice above the
+picture, **Constraints from the rules fallback**, with what failed and **Open the Map**; and where the
+constraints are given in full each set says how it was made: _Constraints proposed by a model_, _Constraints
+read by rules_, _Constraints from the rules fallback_ or _Constraints added by a person_ (the first screen is
+the same for every project, so these are not repeated among the ten things). The word beside the gate for a
+decision with no constraints is **Not read yet**: it is not "Not reviewed", which is for constraints a person
+has not been through, and a set the model proposed never reads as that. The same sentence is in the exports.
 
 ## The Constraint Coverage Gate
 

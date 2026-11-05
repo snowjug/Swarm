@@ -872,3 +872,78 @@ describe('the canvas says how the participants were made, and never reads rules 
     }
   });
 });
+
+describe('the canvas says how the constraints were made, and why there are none', () => {
+  const inputsWith = (constraintSet: Record<string, unknown>) =>
+    controlledInputs(WINNER, { sensitivity: CALM, constraintSet: constraintSet as never });
+
+  it('says that nobody proposed any, and that the model was never asked, where the step was not run', () => {
+    const inputs = { ...controlledInputs(WINNER, { sensitivity: CALM, constraints: null }) };
+    const asked = buildCanvas({ ...inputs, project: { ...inputs.project, mode: 'llm' } });
+    expect(asked.constraints.gate).toBe('none');
+    expect(asked.constraints.origin).toMatchObject({
+      source: 'none',
+      label: 'No constraints were proposed',
+    });
+    expect(asked.constraints.origin.detail).toContain('the model was never asked');
+    expect(asked.constraints.origin.detail).toContain('ask the model to read them');
+    const plain = buildCanvas({ ...inputs, project: { ...inputs.project, mode: 'local' } });
+    expect(plain.constraints.origin.detail).toContain('this project runs without a model');
+    expect(decisionCanvasSchema.safeParse(asked).success).toBe(true);
+  });
+
+  it('says that a model proposed them, and that a person has not yet reviewed them, when it did', () => {
+    const canvas = buildCanvas(inputsWith({ mode: 'model', model: 'gpt-5-mini' }));
+    expect(canvas.constraints.origin).toMatchObject({
+      source: 'model',
+      label: 'Constraints proposed by a model',
+    });
+    expect(canvas.constraints.origin.detail).toContain('gpt-5-mini');
+    // The gate reads the constraints that are there: it does not say that nothing was read.
+    expect(canvas.constraints.gate).not.toBe('none');
+  });
+
+  it('calls constraints that rules made after the model failed the rules fallback, with what failed', () => {
+    const canvas = buildCanvas(
+      inputsWith({
+        mode: 'rules',
+        modelFailure: {
+          code: 'MODEL_TRUNCATED',
+          detail: 'The model’s answer was cut short, so rules were used.',
+        },
+      }),
+    );
+    expect(canvas.constraints.origin).toMatchObject({
+      source: 'rules-fallback',
+      label: 'Constraints from the rules fallback',
+    });
+    expect(canvas.constraints.origin.detail).toContain('The model’s answer was cut short.');
+    expect(canvas.constraints.origin.detail).toContain('no model proposed them');
+    expect(canvas.constraints.origin.detail).not.toMatch(/proposed by a model/iu);
+  });
+
+  it('is a sentence of ours that passes the guard, in every one of its states, and is never withheld', () => {
+    for (const set of [
+      { mode: 'rules' },
+      { mode: 'model', model: 'gpt-5-mini' },
+      { mode: 'user' },
+      {
+        mode: 'rules',
+        modelFailure: {
+          code: 'MODEL_TIMEOUT',
+          detail: 'The model did not answer in time, so rules were used.',
+        },
+      },
+    ]) {
+      const canvas = buildCanvas(inputsWith(set));
+      expect(canvas.withheld).toBe(0);
+      for (const text of [canvas.constraints.origin.label, canvas.constraints.origin.detail]) {
+        expect(
+          lintText(text).map((issue) => issue.rule),
+          text,
+        ).toEqual([]);
+        expect(claimsAgainst(text), text).toEqual([]);
+      }
+    }
+  });
+});

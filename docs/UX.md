@@ -497,7 +497,8 @@ model was asked and could not be used, the page stops and says what failed, with
   the person changed are kept, which approving then leaves as they are. It waits, with the hint "Keep or add
   two or more", until at least two stakeholders are kept, and, with the hint "Fix N things first", while a
   blocking check stands against the list. With a model on offer it first asks whether the
-  model may read the key actors. Then "N actors ready" with **Simulate**. A change to an actor is held until it
+  model may read the key actors and whether it may read the constraints (the second on unless turned off).
+  Then "N actors ready" with **Simulate**. A change to an actor is held until it
   is saved, and the pill says so in place of the next step: "N actors changed", "Not saved yet", with **Discard**
   and **Save** (**Save** waits while a cohort's simulated members outnumber its size). Below 64rem the pill gives
   way to the strip of a party while one is open, and the same words, **Discard** and **Save** are in a bar of
@@ -921,8 +922,9 @@ review beside the brief and in its place.
 - **Its states** are loading (the shape of the page), "The decision view could not be read" (with **Try
   again**, and what had been read kept), "Nothing to decide from yet" (what is missing, the step that supplies
   it, and the detailed report where there is one) or "Not ready yet" while a comparison runs, "This picture
-  describes the project as it was" and a newer comparison on its way, and each of the six statuses, provisional
-  or not.
+  describes the project as it was" and a newer comparison on its way, a caution notice above the picture where
+  participants or constraints are the rules' after the model could not be used ("Participants from the rules
+  fallback", "Constraints from the rules fallback"), and each of the six statuses, provisional or not.
 - **The brief's answer comes first in the brief.** Its first screen says what happened, why, what matters and what to consider
   next, in that order, with a line under the verdict that the figures are counts from a simulation under
   stated assumptions, not a forecast. **What happened** is the verdict written from the numbers and the

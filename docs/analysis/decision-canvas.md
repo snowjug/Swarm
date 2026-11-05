@@ -436,8 +436,11 @@ since a tooltip holds the only copy of nothing. Server, model and source text is
 **States:** loading (the shape of the page); could not be read, with a retry and what had been read kept; no comparison
 (“Nothing to decide from yet”: what is missing, the step that supplies it, the detailed report where there is one); a
 comparison running (“Not ready yet”); the last one failed; a picture that describes the project as it was (what
-changed, or that it cannot be told, and a way to run it again); a newer comparison running; and each of the six
-statuses, provisional or not.
+changed, or that it cannot be told, and a way to run it again); a newer comparison running; participants or
+constraints that the rules made after the model could not be used (a caution notice above the picture, in the
+words “Participants from the rules fallback” or “Constraints from the rules fallback”, with what failed and a way to
+the Map, so that they are never taken for the model’s; the first screen has no room for a note among the ten); and
+each of the six statuses, provisional or not.
 
 **What Swarm does not decide** has its place in every one of those states. Beside the title, in the free space of the
 line and on a line of its own when narrow, is the scope notice (a note, not a refusal) with the matters matched; it is
