@@ -200,6 +200,43 @@ describe('detectContradictions', () => {
     expect(found[0]?.leftValue).toBeNull();
   });
 
+  it('does not flag one source affirming a thing while another denies something else about the same subject', () => {
+    // "Who may create a channel" and "what owners may see of one" share a subject and not a claim.
+    const a = passage('S1', 'Only team owners can create a shared channel.');
+    const b = passage(
+      'S2',
+      "Team owners can't see the files, the conversations or the member list of a shared channel unless they are members of that shared channel.",
+    );
+    expect(detectContradictions([a, b], NOW)).toEqual([]);
+  });
+
+  it('does not read the "No" of a table cell as a source denying what a sentence says', () => {
+    const table = passage(
+      'S1',
+      [
+        '| Action | Team owner | Team member | Shared channel owner |',
+        '| --- | --- | --- | --- |',
+        '| Create shared channel | Admin controlled | Admin and team owner controlled | N/A |',
+        '| Delete shared channel | Yes | No | Yes |',
+        '| Add members to a shared channel | No | N/A | Yes |',
+      ].join('\n'),
+    );
+    const prose = passage(
+      'S2',
+      'A shared channel owner can add members to a shared channel and delete the shared channel.',
+    );
+    expect(detectContradictions([table, prose], NOW)).toEqual([]);
+  });
+
+  it('still reads a figure in a table row against a figure in a sentence', () => {
+    const table = passage(
+      'S1',
+      '| Plan | Price |\n| --- | --- |\n| Premium licence monthly price | $12 |\n',
+    );
+    const prose = passage('S2', 'The Premium licence monthly price is $7 for education customers.');
+    expect(detectContradictions([table, prose], NOW)).toHaveLength(1);
+  });
+
   it('does not flag two sources that agree', () => {
     const a = passage(
       'S1',

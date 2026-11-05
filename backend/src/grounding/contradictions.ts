@@ -22,6 +22,13 @@ export const MIN_TOPIC_OVERLAP = 0.6;
 /** What a statement and its denial must share, over and above what two statements giving different figures must. */
 const MIN_POLARITY_OVERLAP = 0.75;
 const MIN_POLARITY_SHARED_WORDS = MIN_SHARED_WORDS + 1;
+/**
+ * A statement and its denial say the same thing but for the denial, so what the two do not share is a word or two. A
+ * long sentence that holds all the words of a short one, and goes on about something else ("Only owners can create a
+ * channel" and "Owners can't see the files of a channel unless they are members of it"), is another statement and not
+ * its denial. Shared words over all the words of both must reach this.
+ */
+const MIN_POLARITY_SIMILARITY = 0.5;
 /** Two values closer than this (relative) are the same figure written differently. */
 export const RELATIVE_TOLERANCE = 0.02;
 export const MAX_CONTRADICTIONS = 20;
@@ -229,6 +236,11 @@ export function hasNegation(sentence: string): boolean {
   return words.some((word) => NEGATIONS.has(word) || /n['’]t$/u.test(word));
 }
 
+/** Whether the text is a markdown table: rows of cells between pipes, four pipes at the least. */
+export function isTable(text: string): boolean {
+  return (text.match(/\|/gu)?.length ?? 0) >= 4 && /^[ \t]*\|.*\|[ \t]*$/mu.test(text);
+}
+
 function differs(left: Measurement, right: Measurement): boolean {
   if (left.unit !== right.unit) return false;
   if (left.unit === 'percent') return Math.abs(left.value - right.value) >= 1;
@@ -248,6 +260,12 @@ interface Indexed extends SourceSentence {
   times: Set<string>;
   /** Whether a sentence without figures denies something. It is read for no other, so not worked out for one. */
   negated: boolean;
+  /**
+   * Whether the "sentence" is a markdown table, which has no stops: its cells are values of a matrix ("No" under a
+   * plan, "N/A" under a role), and a value is neither an assertion nor the denial of one. A table is read for the
+   * figures it holds and for no polarity.
+   */
+  table: boolean;
   /** The one figure of each unit (percent, currency, count) the sentence holds; null where it holds none or several. */
   singles: readonly [Measurement | null, Measurement | null, Measurement | null];
 }
@@ -357,7 +375,7 @@ function profileOf(sentences: readonly Indexed[]) {
     figuresOf[position] = figures;
     if (figures !== 0) kindOf[position] = FIGURES;
     else if (sentence.measurements.length === 0)
-      kindOf[position] = sentence.negated ? DENIES : AFFIRMS;
+      kindOf[position] = sentence.table ? 0 : sentence.negated ? DENIES : AFFIRMS;
     wordCount[position] = sentence.words.size;
     if (kindOf[position] !== 0) used += sentence.words.size;
     passageOf[position] = idOf(passageIds, sentence.passageId, 0);
@@ -570,7 +588,10 @@ function searchPairs(sentences: readonly Indexed[], stats: ContradictionScanStat
         if (!standard && !(count >= MIN_SHARED_WORDS_SAME_QUANTITY && samePeriod)) continue;
       } else {
         standard =
-          count >= MIN_POLARITY_SHARED_WORDS && overlap >= MIN_POLARITY_OVERLAP && sharesAPeriod;
+          count >= MIN_POLARITY_SHARED_WORDS &&
+          overlap >= MIN_POLARITY_OVERLAP &&
+          sharesAPeriod &&
+          count / (size + wordCount[other]! - count) >= MIN_POLARITY_SIMILARITY;
         if (!standard) continue;
       }
       partners[gated] = other;
@@ -712,6 +733,7 @@ export function detectContradictions(
         measurements,
         times,
         negated: measurements.length === 0 && hasNegation(text),
+        table: isTable(text),
         singles: singlesOf(measurements),
       });
     }
