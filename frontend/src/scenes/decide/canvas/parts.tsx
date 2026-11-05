@@ -4,6 +4,7 @@ import {
   EPISTEMIC_LABEL_INFO,
   RESPONSE_GROUPS,
   RESPONSE_GROUP_WORDS,
+  type DecisionCanvas,
   type DecisionStatus,
   type EpistemicLabel,
   type GroupShares,
@@ -87,4 +88,18 @@ export function ShareBar({ shares }: { shares: GroupShares }) {
 /** A figure with the words it needs beside it, kept on one line. */
 export function Fig({ children }: { children: ReactNode }) {
   return <span className="sw-canvas-fig num">{children}</span>;
+}
+
+/**
+ * How the participants behind the roles were made. A list the rules made after the model was asked and could
+ * not be used says so, in its own words, and is never read as one the model proposed. Nothing is said where no
+ * list was recorded.
+ */
+export function ParticipantOrigin({ origin }: { origin: DecisionCanvas['actors']['origin'] }) {
+  if (origin.source === 'unknown') return null;
+  return (
+    <p className="sw-canvas-origin" data-origin={origin.source}>
+      <strong>{origin.label}.</strong> {origin.detail}
+    </p>
+  );
 }

@@ -24,7 +24,7 @@ const viewOf = (set: StakeholderSet, revision: number): StakeholdersView => ({
 });
 
 /** A server that answers each `METHOD path` with the view it is told to, and the actors as they stand. */
-function serve(replies: Record<string, StakeholdersView>): string[] {
+function serve(replies: Record<string, unknown>): string[] {
   const asked: string[] = [];
   vi.stubGlobal('fetch', async (path: string, init: RequestInit = {}) => {
     const key = `${(init.method ?? 'GET').toUpperCase()} ${path}`;
@@ -42,10 +42,13 @@ function serve(replies: Record<string, StakeholdersView>): string[] {
 }
 
 function setup(set: StakeholderSet | null, revision: number | null = 3) {
+  const outcomes: unknown[] = [];
   const state = {
     exec: vi.fn(async (_kind: string, work: () => Promise<unknown>) => {
-      await work();
-      return true;
+      const outcome = await work();
+      outcomes.push(outcome);
+      // As the page state does: a step the model could not do is not a change that was made.
+      return !(typeof outcome === 'object' && outcome !== null && 'stopped' in outcome);
     }),
     save: vi.fn(async () => true),
   };
@@ -65,7 +68,7 @@ function setup(set: StakeholderSet | null, revision: number | null = 3) {
       }),
     { wrapper },
   );
-  return { actions: result.current, state, focus, say };
+  return { actions: result.current, state, focus, say, outcomes };
 }
 
 const proposedSet = (): StakeholderSet => ({
@@ -166,5 +169,57 @@ describe('what a person does to the participants', () => {
     const [undone] = folded.state.save.mock.calls[0] as unknown as [StakeholderSet['stakeholders']];
     expect(undone.find((item) => item.id === 'provider')?.mergedFrom).toEqual([]);
     expect(undone.find((item) => item.id === 'resellers')?.status).toBe('proposed');
+  });
+
+  describe('proposing one participant again', () => {
+    const STOP = {
+      stopped: {
+        code: 'MODEL_TIMEOUT',
+        detail: 'The model did not answer in time.',
+        retryable: true,
+      },
+    };
+    const path = 'POST /api/projects/p/stakeholders/regulator/regenerate';
+
+    it('hands back the model’s failure, reads nothing more, and says nothing was proposed, when the model could not be used', async () => {
+      const asked = serve({ [path]: STOP });
+      const { actions, outcomes, say, focus } = setup(proposedSet());
+      expect(await actions.regenerate('regulator', { mode: 'model', confirm: true })).toBe(false);
+      expect(outcomes).toEqual([
+        {
+          stopped: {
+            step: 'regenerate',
+            stop: STOP.stopped,
+            confirm: true,
+            participantId: 'regulator',
+          },
+        },
+      ]);
+      expect(asked).toEqual([path]);
+      // The stop is told by the page that holds it; this hook does not claim the participant was proposed again.
+      expect(say).not.toHaveBeenCalledWith(expect.stringContaining('Proposed Regulator again'));
+      expect(focus).not.toHaveBeenCalled();
+    });
+
+    it('sends the failure the person goes on from when they choose rules, and says that the rules fallback made it', async () => {
+      const asked = serve({ [path]: viewOf(proposedSet(), 4) });
+      const { actions, say } = setup(proposedSet());
+      await actions.regenerate('regulator', {
+        mode: 'rules',
+        confirm: false,
+        fallbackFrom: 'MODEL_TIMEOUT',
+      });
+      expect(asked).toEqual([path, 'GET /api/projects/p/actors']);
+      expect(say).toHaveBeenCalledWith(
+        'Proposed Regulator again by rules, from the rules fallback. It is waiting for your review.',
+      );
+    });
+
+    it('says what it always said when the model proposed it', async () => {
+      serve({ [path]: viewOf(proposedSet(), 4) });
+      const { actions, say } = setup(proposedSet());
+      await actions.regenerate('regulator', { mode: 'model', confirm: false });
+      expect(say).toHaveBeenCalledWith('Proposed Regulator again. It is waiting for your review.');
+    });
   });
 });

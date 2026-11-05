@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { actorSetFixture, stakeholderSetFixture } from '../../../shared/lab-fixtures';
+import { proposalWasStopped } from '../../../shared/model-failure';
 import type { ActorsView, StakeholdersView } from '../../../shared/stakeholders';
 import { ApiError } from '../api';
 import { participantsApi, thenActors } from './participants';
@@ -134,15 +135,57 @@ describe('the participant routes as the page calls them', () => {
       'POST /api/projects/p/stakeholders/propose': { body: viewOf(1) },
       'GET /api/projects/p/actors': { body: actorsOf() },
     });
-    const shown = await thenActors(
-      'p',
-      participantsApi.propose('p', { mode: 'rules', confirm: false }),
-    );
+    const answer = await participantsApi.propose('p', { mode: 'rules', confirm: false });
+    if (proposalWasStopped(answer)) throw new Error('The model was not asked.');
+    const shown = await thenActors('p', Promise.resolve(answer));
     expect(calls.map((call) => `${call.method} ${call.path}`)).toEqual([
       'POST /api/projects/p/stakeholders/propose',
       'GET /api/projects/p/actors',
     ]);
     expect(shown.view.revision).toBe(1);
     expect(shown.actors.revision).toBe(2);
+  });
+
+  describe('when the model could not be used', () => {
+    const stop = {
+      code: 'MODEL_TRUNCATED',
+      detail: 'The model’s answer was cut short.',
+      retryable: true,
+    } as const;
+
+    it('hands the stop back as it is, so that nothing is read as a list', async () => {
+      server({
+        'POST /api/projects/p/stakeholders/propose': { body: { stopped: stop } },
+        'POST /api/projects/p/stakeholders/a/regenerate': { body: { stopped: stop } },
+      });
+      const proposed = await participantsApi.propose('p', { mode: 'model' });
+      expect(proposalWasStopped(proposed) && proposed.stopped).toEqual(stop);
+      const again = await participantsApi.regenerate('p', 'a', {
+        expectedRevision: 1,
+        mode: 'model',
+      });
+      expect(proposalWasStopped(again) && again.stopped).toEqual(stop);
+    });
+
+    it('sends the failure the person is going on from when they choose rules', async () => {
+      const calls = server({
+        'POST /api/projects/p/stakeholders/propose': { body: viewOf(1) },
+        'POST /api/projects/p/stakeholders/a/regenerate': { body: viewOf(2) },
+      });
+      await participantsApi.propose('p', {
+        mode: 'rules',
+        confirm: false,
+        fallbackFrom: 'MODEL_TRUNCATED',
+      });
+      await participantsApi.regenerate('p', 'a', {
+        expectedRevision: 1,
+        mode: 'rules',
+        fallbackFrom: 'MODEL_TRUNCATED',
+      });
+      expect(calls.map((call) => call.body)).toEqual([
+        { mode: 'rules', confirm: false, fallbackFrom: 'MODEL_TRUNCATED' },
+        { expectedRevision: 1, mode: 'rules', fallbackFrom: 'MODEL_TRUNCATED' },
+      ]);
+    });
   });
 });

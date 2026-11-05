@@ -26,7 +26,7 @@ import {
   type Headline,
   type VariantMeasure,
 } from '../brief/measures.js';
-import type { ParticipantReading } from './participants.js';
+import type { ParticipantOrigin, ParticipantReading } from './participants.js';
 import { Guard, clip, decimals, embed, inHundred, round4 } from './words.js';
 
 /** The parts of the canvas that read the runs themselves: the futures, the actors, the risks and the timing. */
@@ -60,6 +60,8 @@ export interface ReadingWorld {
   baseline: VariantMeasure | null;
   evidence: EvidenceIndex;
   participants: ReadonlyMap<string, ParticipantReading>;
+  /** How the list of participants was made, said beside the roles that came from it. */
+  origin: ParticipantOrigin;
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -216,6 +218,11 @@ export function readActors(
       'Roles are simulated: Swarm made them up from the question and the sources, and what they do here is what the simulation does under its assumptions, not what any real person would do.',
       400,
     ),
+    origin: {
+      source: world.origin.source,
+      label: guard.say(world.origin.label, 80),
+      detail: guard.say(world.origin.detail, 400),
+    },
   };
 }
 

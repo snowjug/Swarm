@@ -48,7 +48,7 @@ one. Attribute values are listed here by the enumeration they come from.
 | `swarm.research.quarantines`       | counter        | `swarm.quarantine.reason`                                                     | Pages set aside, by `QUARANTINE_REASONS`                                                                                                  |
 | `swarm.research.sources.used`      | counter        | `swarm.source.category`                                                       | Sources that became evidence, by `SOURCE_CATEGORIES`                                                                                      |
 | `swarm.research.evidence.passages` | counter        | `swarm.research.mode`                                                         | Passages indexed as evidence                                                                                                              |
-| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Participant proposals that were kept: by the model, by rules as asked, or by rules after the model could not be used (`fallback`)         |
+| `swarm.actors.proposals`           | counter        | `swarm.proposal.origin`                                                       | Participant proposals by origin: `model`, `rules`, `fallback` (rules chosen after a model failure), `stopped` (none kept)                 |
 | `swarm.actors.proposed`            | counter        | `swarm.proposal.origin`                                                       | Participants those proposals made, as the person is shown the list (folded or left out are not counted)                                   |
 | `swarm.actors.valid`               | counter        | `swarm.proposal.origin`                                                       | Of those, the participants with no blocking issue in the review that followed                                                             |
 | `swarm.actors.issues`              | counter        | `swarm.issue.code`                                                            | The review's issues by rule code, blocking and advisory (`PARTICIPANT_ISSUE_CODES`)                                                       |
@@ -83,7 +83,7 @@ and never a sentence or a name.
 | `swarm.safety.reason`                       | `SAFETY_BLOCK_REASONS`                                                              |
 | `swarm.quarantine.reason`                   | the quarantine reasons of `shared/research.ts`                                      |
 | `swarm.source.category`                     | the source categories of `shared/research.ts`                                       |
-| `swarm.proposal.origin`                     | `model`, `rules`, `fallback`                                                        |
+| `swarm.proposal.origin`                     | `model`, `rules`, `fallback`, `stopped`                                             |
 | `swarm.issue.code`                          | `PARTICIPANT_ISSUE_CODES` (the review's rule codes, such as `too-few`), or `other`  |
 | `swarm.gate.status`                         | `clear`, `provisional`, `blocked` (`GATE_STATUSES`), or `other`                     |
 | `swarm.sim.outcome`, `swarm.report.outcome` | `completed`, `failed`, `cancelled`                                                  |

@@ -476,7 +476,10 @@ sources talk about. Until there is a graph, the sources themselves fill its plac
 ### Map
 
 Who is in play. Before anything is found, one invitation: **Find who is affected** (by a model when the
-project has one, otherwise by reading the text), **Read the text instead**, and **Add one yourself**.
+project has one, otherwise by reading the text), **Read the text instead**, and **Add one yourself**. If the
+model was asked and could not be used, the page stops and says what failed, with **Retry with the model**,
+**Edit participants** and **Continue with rules**; rules that stand in for the model are labelled
+**Participants from the rules fallback**, never as the model's.
 
 - **The map** (see below) draws the stakeholders as an ecosystem, under a heading that counts the parties,
   the key ones and those still to review, with a chip that says how they were found. A floating

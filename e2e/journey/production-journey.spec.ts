@@ -73,6 +73,7 @@ import {
   signIn,
   stage,
   untilResearchStops,
+  untilProposed,
   useActors,
   useTheActors,
 } from '../support/journey-ui';
@@ -419,10 +420,7 @@ for (const variant of VARIANTS) {
         // Until a person has approved who is in play, nothing can be simulated.
         await expect(journeyStep(page, 'simulate')).toHaveAccessibleName(/locked/u);
         await page.getByRole('button', { name: 'Find who is affected' }).click();
-        const notice = page
-          .getByRole('status')
-          .filter({ hasText: 'Swarm proposed these participants' });
-        await expect(notice).toBeVisible({ timeout: 60_000 });
+        const notice = await untilProposed(page);
         await notice.getByRole('button', { name: 'Review participants' }).click();
         await expect(page).toHaveURL(/[?&]view=review(?:&|$)/u);
         await expect(

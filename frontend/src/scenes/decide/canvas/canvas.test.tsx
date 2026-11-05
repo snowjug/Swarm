@@ -25,6 +25,7 @@ import {
 } from '../../../test/decision';
 import { ReportBridge } from './Bridge';
 import { DecisionCanvasView } from './Canvas';
+import { Detail } from './Detail';
 import {
   COPY,
   GLANCE,
@@ -271,6 +272,85 @@ describe('the first viewport of the decision canvas', () => {
     expect(markup).not.toContain('<img');
     expect(markup).not.toContain('<script');
     expect(markup).toContain('&lt;img src=x onerror=alert(1)&gt;');
+  });
+
+  describe('how the participants were made', () => {
+    const originOf = (source: 'model' | 'rules' | 'rules-fallback' | 'user' | 'unknown') =>
+      canvasFixture((canvas) => {
+        canvas.actors.origin =
+          source === 'rules-fallback'
+            ? {
+                source,
+                label: 'Participants from the rules fallback',
+                detail:
+                  'The model’s answer was cut short. Swarm read the text for roles instead, so no model proposed these participants.',
+              }
+            : source === 'model'
+              ? {
+                  source,
+                  label: 'Participants proposed by a model',
+                  detail:
+                    'The model gpt-5-mini proposed them, and Swarm checked every quotation against the sources.',
+                }
+              : source === 'user'
+                ? {
+                    source,
+                    label: 'Participants added by a person',
+                    detail: 'A person built this list. Swarm did not propose it.',
+                  }
+                : source === 'unknown'
+                  ? { source, label: 'Participants: not recorded', detail: 'No list was recorded.' }
+                  : canvas.actors.origin;
+      });
+
+    it('says in words, beside the roles, that a list the rules made after the model failed is the rules fallback, and not the model’s', () => {
+      const markup = render(handleOf(viewFixture(originOf('rules-fallback'))));
+      const who = markup.slice(
+        markup.indexOf('data-canvas-item="who"'),
+        markup.indexOf('data-canvas-item="constraints"'),
+      );
+      expect(who).toContain('data-origin="rules-fallback"');
+      expect(text(who)).toContain('Participants from the rules fallback.');
+      expect(text(who)).toContain('no model proposed these participants');
+      expect(text(who)).not.toMatch(/proposed by a model/iu);
+    });
+
+    it('says the same where the roles are given in full', () => {
+      const canvas = originOf('rules-fallback');
+      const markup = renderToStaticMarkup(
+        <TooltipProvider>
+          <Detail canvas={canvas} open={new Set(['actors'])} onOpenChange={noop} />
+        </TooltipProvider>,
+      );
+      const start = markup.indexOf('data-detail="actors"');
+      expect(start).toBeGreaterThan(0);
+      const actors = markup.slice(start, markup.indexOf('</section>', start));
+      expect(actors).toContain('data-origin="rules-fallback"');
+      expect(text(actors)).toContain('Participants from the rules fallback.');
+    });
+
+    it('says that a model proposed them, that rules did, or that a person did, as it was; and nothing where it was not recorded', () => {
+      expect(text(render(handleOf(viewFixture(originOf('model')))))).toContain(
+        'Participants proposed by a model.',
+      );
+      expect(text(render(handleOf(viewFixture(originOf('rules')))))).toContain(
+        'Participants read from the text by rules.',
+      );
+      expect(text(render(handleOf(viewFixture(originOf('user')))))).toContain(
+        'Participants added by a person.',
+      );
+      const unknown = render(handleOf(viewFixture(originOf('unknown'))));
+      expect(unknown).not.toContain('data-origin=');
+      expect(text(unknown)).not.toContain('Participants: not recorded');
+    });
+
+    it('does not call any other list the rules fallback', () => {
+      for (const source of ['model', 'rules', 'user'] as const) {
+        expect(text(render(handleOf(viewFixture(originOf(source)))))).not.toContain(
+          'rules fallback',
+        );
+      }
+    });
   });
 });
 

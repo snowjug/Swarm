@@ -367,6 +367,12 @@ const base = (): Raw => ({
       ),
     ],
     note: 'Roles are simulated: Swarm made them up from the question and the sources, and what they do here is what the simulation does under its assumptions, not what any real person would do.',
+    origin: {
+      source: 'rules',
+      label: 'Participants read from the text by rules',
+      detail:
+        'No model was used: Swarm read the sources for role words and quoted the sentence for each.',
+    },
   },
   changes: {
     counterfactuals: {

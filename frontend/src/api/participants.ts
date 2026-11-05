@@ -1,3 +1,4 @@
+import type { ModelFailureCode, ProposalStopped } from '../../../shared/model-failure';
 import type {
   DecisionAuthority,
   InfluenceLevel,
@@ -50,13 +51,18 @@ export interface AddMissingInput {
 
 /** The participant routes. Each change answers with the view of the stakeholders, review included. */
 export const participantsApi = {
-  /** `rules` reads the text for roles; `model` asks the project's model. `confirm` replaces a reviewed list. */
+  /**
+   * `rules` reads the text for roles; `model` asks the project's model. `confirm` replaces a reviewed list.
+   * When a model was asked and could not be used the answer is `{ stopped }`, and nothing was kept: the person
+   * chooses, and choosing rules sends `fallbackFrom` with the failure's code, so that the list is recorded as
+   * the rules fallback and never as the model's.
+   */
   propose: (
     id: string,
-    input: { mode: 'rules' | 'model'; confirm?: boolean },
+    input: { mode: 'rules' | 'model'; confirm?: boolean; fallbackFrom?: ModelFailureCode },
     signal?: AbortSignal,
   ) =>
-    request<StakeholdersView>(`${projectPath(id)}/stakeholders/propose`, {
+    request<StakeholdersView | ProposalStopped>(`${projectPath(id)}/stakeholders/propose`, {
       ...jsonBody(input),
       signal,
     }),
@@ -86,13 +92,21 @@ export const participantsApi = {
   regenerate: (
     id: string,
     participantId: string,
-    input: { expectedRevision: number; mode: 'rules' | 'model'; confirm?: boolean },
+    input: {
+      expectedRevision: number;
+      mode: 'rules' | 'model';
+      confirm?: boolean;
+      fallbackFrom?: ModelFailureCode;
+    },
     signal?: AbortSignal,
   ) =>
-    request<StakeholdersView>(`${participantPath(id, participantId)}/regenerate`, {
-      ...jsonBody(input),
-      signal,
-    }),
+    request<StakeholdersView | ProposalStopped>(
+      `${participantPath(id, participantId)}/regenerate`,
+      {
+        ...jsonBody(input),
+        signal,
+      },
+    ),
   why: (id: string, participantId: string, signal?: AbortSignal) =>
     request<ParticipantWhy>(`${participantPath(id, participantId)}/why`, { signal }),
   mergeDuplicates: (

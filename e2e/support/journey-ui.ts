@@ -199,12 +199,29 @@ export async function addAndWait(page: Page, address: string, timeout = 120_000)
   return untilResearchStops(page, timeout);
 }
 
+/**
+ * What stands when "Find who is affected" has been pressed: the notice that participants were proposed, or the
+ * page saying that the model could not propose them. The second fails the step with the page's own words
+ * (what failed, in counts and closed-set words) rather than with a timeout, since it is the finding to report.
+ */
+export async function untilProposed(page: Page, timeout = 60_000): Promise<Locator> {
+  const notice = page.getByRole('status').filter({ hasText: 'Swarm proposed these participants' });
+  const stopped = page
+    .getByRole('alert')
+    .filter({ hasText: 'The model could not propose the participants' });
+  await expect(notice.or(stopped)).toBeVisible({ timeout });
+  if (await stopped.isVisible()) {
+    const said = (await stopped.innerText()).replace(/\s+/gu, ' ').trim();
+    throw new Error(`The model could not propose the participants: ${said}`);
+  }
+  return notice;
+}
+
 /** From Ground, with sources, to the actors made: the participants accepted as they were proposed, and used. */
 export async function useTheActors(page: Page): Promise<void> {
   await press(page, 'Map the stakeholders').first().click();
   await page.getByRole('button', { name: 'Find who is affected' }).click();
-  const notice = page.getByRole('status').filter({ hasText: 'Swarm proposed these participants' });
-  await expect(notice).toBeVisible({ timeout: 60_000 });
+  const notice = await untilProposed(page);
   await notice.getByRole('button', { name: 'Review participants' }).click();
   await page.getByRole('button', { name: /^Accept all/u }).click();
   await expect(page.getByRole('button', { name: 'Accept all (0)' })).toBeDisabled();

@@ -966,8 +966,9 @@ export function stakeholdersSection(facts: Facts, tally: Tally): BriefSection {
   const set = facts.inputs.stakeholders;
   const entries = landscape(facts);
   if (set) {
-    const by =
-      set.discovery.mode === 'rules'
+    const by = set.proposal?.failure
+      ? 'the rules fallback, after the model could not be used (no model proposed them)'
+      : set.discovery.mode === 'rules'
         ? 'rules'
         : set.discovery.mode === 'model'
           ? 'a model'

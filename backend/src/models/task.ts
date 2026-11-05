@@ -1,4 +1,11 @@
 import type { z } from 'zod';
+import {
+  MODEL_FAILURE_CODES,
+  RULES_USED,
+  withoutRulesUsed,
+  type ModelFailureCode,
+  type ProposalStop,
+} from '../../../shared/model-failure.js';
 import { AppError, throwIfAborted } from '../errors.js';
 import type { CallReport } from './call.js';
 import type { ModelGateway } from './client.js';
@@ -77,28 +84,29 @@ export const TASK_REPAIRS = 1;
 /** A person or a safety rule said no. Answering from rules would hide that, so it is never a fallback. */
 const NEVER_FALLBACK = new Set(['MODEL_REFUSED', 'RUN_CANCELLED', 'CLIENT_DISCONNECTED']);
 
-const DETAIL: Record<string, string> = {
-  MODEL_OUTPUT_INVALID:
-    'The model replied, but its answer did not pass validation, so rules were used.',
-  MODEL_TIMEOUT: 'The model did not answer in time, so rules were used.',
-  MODEL_UNREACHABLE: 'The model could not be reached, so rules were used.',
-  MODEL_RATE_LIMIT: 'The model was rate limited, so rules were used.',
-  MODEL_AUTH: 'The model rejected the server’s credentials, so rules were used.',
-  MODEL_NOT_FOUND: 'The model deployment was not found, so rules were used.',
-  MODEL_CALL_BUDGET: 'The model budget for this step was reached, so rules were used.',
-  MODEL_TOKEN_BUDGET: 'The model token budget for this operation was reached, so rules were used.',
-  MODEL_COST_BUDGET:
-    'The estimated model cost limit for this operation was reached, so rules were used.',
-  PROJECT_BUDGET: 'The project’s model budget was used, so rules were used.',
-  MODEL_ROUTE_UNAVAILABLE:
-    'No configured model deployment could serve this step, so rules were used.',
-  MODEL_PARAMETER_UNSUPPORTED:
-    'The model deployment refused a request setting, so rules were used.',
-  MODEL_HTTP_ERROR: 'The model service returned an error, so rules were used.',
-  MODEL_TRUNCATED: 'The model’s answer was cut short, so rules were used.',
-  MODEL_CONTEXT_LIMIT: 'The request was too large for the model, so rules were used.',
+/** What each class of failure says went wrong, without saying what was done about it. */
+const CAUSE: Record<Exclude<ModelFailureCode, 'MODEL_UNEXPECTED'>, string> = {
+  MODEL_OUTPUT_INVALID: 'The model replied, but its answer did not pass validation',
+  MODEL_TIMEOUT: 'The model did not answer in time',
+  MODEL_UNREACHABLE: 'The model could not be reached',
+  MODEL_RATE_LIMIT: 'The model was rate limited',
+  MODEL_AUTH: 'The model rejected the server’s credentials',
+  MODEL_NOT_FOUND: 'The model deployment was not found',
+  MODEL_CALL_BUDGET: 'The model budget for this step was reached',
+  MODEL_TOKEN_BUDGET: 'The model token budget for this operation was reached',
+  MODEL_COST_BUDGET: 'The estimated model cost limit for this operation was reached',
+  PROJECT_BUDGET: 'The project’s model budget was used',
+  MODEL_ROUTE_UNAVAILABLE: 'No configured model deployment could serve this step',
+  MODEL_PARAMETER_UNSUPPORTED: 'The model deployment refused a request setting',
+  MODEL_HTTP_ERROR: 'The model service returned an error',
+  MODEL_TRUNCATED: 'The model’s answer was cut short',
+  MODEL_CONTEXT_LIMIT: 'The request was too large for the model',
 };
-const GENERIC_DETAIL = 'The model could not be used for this step, so rules were used.';
+const GENERIC_CAUSE = 'The model could not be used for this step';
+const DETAIL: Record<string, string> = Object.fromEntries(
+  Object.entries(CAUSE).map(([code, cause]) => [code, `${cause}${RULES_USED}`]),
+);
+const GENERIC_DETAIL = `${GENERIC_CAUSE}${RULES_USED}`;
 /** What a stored failure may hold; `proposalInfoSchema` and the others limit it to this. */
 const MAX_DETAIL = 300;
 
@@ -113,6 +121,36 @@ export const taskFailure = (code: string, error?: unknown): TaskFailure => {
   if (!(error instanceof ModelReplyError)) return { code, detail: base };
   const detail = `${base} (${failureClause(error.diagnostics)})`;
   return { code, detail: detail.length <= MAX_DETAIL ? detail : base };
+};
+
+const KNOWN_CODES: ReadonlySet<string> = new Set(MODEL_FAILURE_CODES);
+/** The class a failure is recorded and shown under: its own when it has fixed wording, else `MODEL_UNEXPECTED`. */
+export const modelFailureCode = (code: string): ModelFailureCode =>
+  KNOWN_CODES.has(code) ? (code as ModelFailureCode) : 'MODEL_UNEXPECTED';
+
+/** Failures that asking again as the model was asked cannot cure: the deployment, the credentials, the budget or the size of the request. */
+const NOT_CURED_BY_ASKING_AGAIN: ReadonlySet<string> = new Set<ModelFailureCode>([
+  'MODEL_AUTH',
+  'MODEL_NOT_FOUND',
+  'MODEL_ROUTE_UNAVAILABLE',
+  'MODEL_PARAMETER_UNSUPPORTED',
+  'PROJECT_BUDGET',
+  'MODEL_TOKEN_BUDGET',
+  'MODEL_COST_BUDGET',
+  'MODEL_CONTEXT_LIMIT',
+]);
+
+/**
+ * What a step answers when its model could not be used and a person is to choose: the failure as it is told
+ * when nothing was done about it (what failed, and not that rules were used), and whether asking again may help.
+ */
+export const stopOf = (failure: TaskFailure): ProposalStop => {
+  const code = modelFailureCode(failure.code);
+  return {
+    code,
+    detail: withoutRulesUsed(failure.detail).slice(0, MAX_DETAIL),
+    retryable: !NOT_CURED_BY_ASKING_AGAIN.has(code),
+  };
 };
 
 function checked<T>(task: StructuredTask<T>, value: T): T {

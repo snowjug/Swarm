@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import { isArtifactKind, type ArtifactKind } from '../../../shared/artifacts.js';
+import { MODEL_FAILURE_CODES } from '../../../shared/model-failure.js';
 import {
   idSchema,
   stakeholderSetSchema,
@@ -19,6 +20,7 @@ import { projectAllows } from '../auth/roles.js';
 import type { ProviderConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import type { ModelFactory } from '../models/factory.js';
+import { productSignals } from '../telemetry/product-signals.js';
 import {
   actorEditSchema,
   applyActorEdit,
@@ -63,14 +65,26 @@ import type { Repository } from '../storage/repository.js';
 
 const idParams = z.object({ id: z.uuid() });
 const participantParams = idParams.extend({ participantId: idSchema });
+/**
+ * `fallbackFrom`: the class of failure a model had when the person chose rules instead. It goes with
+ * `mode: 'rules'` only, and what is recorded for it is the server's own wording of that class.
+ */
+const fallbackFrom = z.enum(MODEL_FAILURE_CODES).optional();
+const withRules = (input: { mode: 'rules' | 'model'; fallbackFrom?: unknown }): boolean =>
+  input.fallbackFrom === undefined || input.mode === 'rules';
+const WITH_RULES = {
+  message: 'fallbackFrom goes with mode "rules": it says why rules were chosen.',
+};
 const proposeInput = z
   .object({
     /** `model` asks the project's model; `rules` reads the text for roles and uses none. */
     mode: z.enum(['rules', 'model']).default('rules'),
     /** Needed to replace a list the person has already reviewed. */
     confirm: z.boolean().default(false),
+    fallbackFrom,
   })
-  .strict();
+  .strict()
+  .refine(withRules, WITH_RULES);
 const revision = z.int().min(1);
 const acceptInput = z
   .object({ expectedRevision: revision, ids: z.array(idSchema).min(1).max(40).optional() })
@@ -85,8 +99,10 @@ const regenerateInput = z
     mode: z.enum(['rules', 'model']).default('rules'),
     /** Needed to replace a participant the person has changed. */
     confirm: z.boolean().default(false),
+    fallbackFrom,
   })
-  .strict();
+  .strict()
+  .refine(withRules, WITH_RULES);
 const mergeInput = z
   .object({
     expectedRevision: revision,
@@ -524,7 +540,7 @@ export function stakeholderRoutes(
         );
       }
       const context = proposalContext(id, project);
-      const result = await exclusive(id, reply, (signal) =>
+      const answer = await exclusive(id, reply, (signal) =>
         proposeParticipants({
           context,
           model: wanted
@@ -533,8 +549,16 @@ export function stakeholderRoutes(
           modelName: wanted ? provider.model : null,
           signal,
           existing: existing?.data ?? null,
+          // A person is at the screen: a model that could not be used is told to them, not answered for.
+          onModelFailure: 'stop',
+          ...(input.fallbackFrom ? { after: input.fallbackFrom } : {}),
         }),
       );
+      if ('stopped' in answer) {
+        productSignals.actorProposal({ origin: 'stopped', proposed: 0, valid: 0 });
+        return reply.code(200).send(answer);
+      }
+      const result = answer;
       repository.atomic(() => {
         repository.artifacts.put(id, 'stakeholders', KEY, result.set, {
           expectedRevision: existing?.revision ?? 0,
@@ -649,7 +673,7 @@ export function stakeholderRoutes(
         );
       }
       const context = proposalContext(id, project);
-      const result = await exclusive(id, reply, (signal) =>
+      const answer = await exclusive(id, reply, (signal) =>
         regenerateParticipant({
           context,
           set: existing.data,
@@ -659,8 +683,15 @@ export function stakeholderRoutes(
             : null,
           modelName: wanted ? provider.model : null,
           signal,
+          onModelFailure: 'stop',
+          ...(input.fallbackFrom ? { after: input.fallbackFrom } : {}),
         }),
       );
+      if ('stopped' in answer) {
+        productSignals.actorProposal({ origin: 'stopped', proposed: 0, valid: 0 });
+        return reply.code(200).send(answer);
+      }
+      const result = answer;
       const stakeholders = existing.data.stakeholders.map((item) =>
         item.id === participantId ? result.participant : item,
       );
@@ -674,9 +705,12 @@ export function stakeholderRoutes(
         approvedAt: null,
         proposal: existing.data.proposal && {
           ...existing.data.proposal,
-          notes: [...existing.data.proposal.notes, 'One participant was proposed again.'].slice(
-            -12,
-          ),
+          notes: [
+            ...existing.data.proposal.notes,
+            result.failure
+              ? 'One participant was proposed again by rules, from the rules fallback: no model proposed it.'
+              : 'One participant was proposed again.',
+          ].slice(-12),
         },
       });
       commit(request, id, existing, next, {

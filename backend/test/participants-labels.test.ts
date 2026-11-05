@@ -324,7 +324,7 @@ describe('a model’s proposal on that page', () => {
     expect(source).toBe('rules');
     expect(failure?.code).toBe('MODEL_OUTPUT_INVALID');
     expect(set.discovery.mode).toBe('rules');
-    expect(set.discovery.note).toContain('The model could not be used');
+    expect(set.discovery.note).toContain('Participants from the rules fallback');
     expect(set.proposal).toMatchObject({
       source: 'rules',
       failure: { code: 'MODEL_OUTPUT_INVALID' },

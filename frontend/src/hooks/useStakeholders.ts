@@ -1,4 +1,9 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import {
+  proposalWasStopped,
+  type ModelFailureCode,
+  type ProposalStop,
+} from '../../../shared/model-failure';
 import type {
   Actor,
   ActorsView,
@@ -20,6 +25,22 @@ export type StakeholderWork =
   | 'making-actors'
   | 'saving-actors';
 
+/**
+ * A step the model was asked to do and could not, which the person is to choose what to do about. Nothing
+ * was kept: the list is as it was. `confirm` is what they confirmed when they asked, so that asking again,
+ * or going on with rules, is asking for the same thing.
+ */
+export interface ModelStop {
+  step: 'propose' | 'regenerate';
+  stop: ProposalStop;
+  confirm: boolean;
+  /** The participant that was being proposed again, for `regenerate`. */
+  participantId?: string;
+}
+
+/** What a change to the participants answers with: the list and its actors, or the model's failure. */
+export type Outcome = Shown | { stopped: ModelStop };
+
 export interface StakeholderState {
   view: StakeholdersView | null;
   actors: ActorsView | null;
@@ -30,16 +51,27 @@ export interface StakeholderState {
   working: StakeholderWork | null;
   /** Why the last change was refused, in a sentence for the person. */
   problem: string | null;
+  /** The step the model could not do, until the person has chosen what to do about it; null when there is none. */
+  stopped: ModelStop | null;
   reload: () => void;
   dismissProblem: () => void;
+  dismissStop: () => void;
   discover: (mode: 'rules' | 'model', confirm?: boolean) => Promise<boolean>;
-  /** Proposes the participants of the decision, by rules or by the model; the person reviews them next. */
-  propose: (mode: 'rules' | 'model', confirm?: boolean) => Promise<boolean>;
+  /**
+   * Proposes the participants of the decision, by rules or by the model; the person reviews them next. False
+   * when nothing was proposed, because the model could not be used (see `stopped`) or the change was refused.
+   * `fallbackFrom` is the failure the person is going on from, when they chose rules after the model's.
+   */
+  propose: (
+    mode: 'rules' | 'model',
+    confirm?: boolean,
+    fallbackFrom?: ModelFailureCode,
+  ) => Promise<boolean>;
   /**
    * Runs one change to the participants under the same rules as every other: one thing at a time, a refusal
    * becomes a sentence, a conflict reads the page again. What it answers with is what the page then shows.
    */
-  exec: (kind: StakeholderWork, work: () => Promise<Shown>) => Promise<boolean>;
+  exec: (kind: StakeholderWork, work: () => Promise<Outcome>) => Promise<boolean>;
   save: (stakeholders: Stakeholder[], relations: StakeholderRelation[]) => Promise<boolean>;
   /** Approves the list, then makes the actors from it. */
   approve: (options: { model: boolean }) => Promise<boolean>;
@@ -64,6 +96,7 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState<StakeholderWork | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [stopped, setStopped] = useState<ModelStop | null>(null);
   const [revision, setRevision] = useState(0);
   const changed = useRef(onChanged);
   const mounted = useRef(true);
@@ -104,17 +137,20 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
 
   const reload = useCallback(() => setRevision((old) => old + 1), []);
   const dismissProblem = useCallback(() => setProblem(null), []);
+  const dismissStop = useCallback(() => setStopped(null), []);
 
-  /** One piece of work at a time; a refusal becomes a sentence, and a conflict reads the page again. */
+  /**
+   * One piece of work at a time; a refusal becomes a sentence, and a conflict reads the page again. Work
+   * that ends without doing what was asked (a model that could not be used) answers `false`.
+   */
   const run = useCallback(
-    async (kind: StakeholderWork, work: () => Promise<void>): Promise<boolean> => {
+    async (kind: StakeholderWork, work: () => Promise<void | false>): Promise<boolean> => {
       if (busy.current) return false;
       busy.current = true;
       setWorking(kind);
       setProblem(null);
       try {
-        await work();
-        return true;
+        return (await work()) !== false;
       } catch (failure) {
         if (mounted.current) {
           setProblem(errorMessage(failure));
@@ -140,6 +176,7 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
       run('finding', async () => {
         const shown = await discoverFlow(projectId, mode, confirm);
         if (!mounted.current) return;
+        setStopped(null);
         setView(shown.view);
         setActors(shown.actors);
         changed.current();
@@ -148,22 +185,34 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
   );
 
   const exec = useCallback(
-    (kind: StakeholderWork, work: () => Promise<Shown>) =>
+    (kind: StakeholderWork, work: () => Promise<Outcome>) =>
       run(kind, async () => {
-        const shown = await work();
+        const outcome = await work();
         if (!mounted.current) return;
-        setView(shown.view);
-        setActors(shown.actors);
+        if ('stopped' in outcome) {
+          setStopped(outcome.stopped);
+          return false;
+        }
+        setStopped(null);
+        setView(outcome.view);
+        setActors(outcome.actors);
         changed.current();
       }),
     [run],
   );
 
   const propose = useCallback(
-    (mode: 'rules' | 'model', confirm = false) =>
-      exec('proposing', () =>
-        thenActors(projectId, participantsApi.propose(projectId, { mode, confirm })),
-      ),
+    (mode: 'rules' | 'model', confirm = false, fallbackFrom?: ModelFailureCode) =>
+      exec('proposing', async () => {
+        const answer = await participantsApi.propose(projectId, {
+          mode,
+          confirm,
+          ...(fallbackFrom ? { fallbackFrom } : {}),
+        });
+        return proposalWasStopped(answer)
+          ? { stopped: { step: 'propose', stop: answer.stopped, confirm } }
+          : thenActors(projectId, Promise.resolve(answer));
+      }),
     [exec, projectId],
   );
 
@@ -240,8 +289,10 @@ export function useStakeholders(projectId: string, onChanged: () => void): Stake
     error,
     working,
     problem,
+    stopped,
     reload,
     dismissProblem,
+    dismissStop,
     discover,
     propose,
     exec,

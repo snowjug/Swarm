@@ -127,6 +127,12 @@ export function canvasBlocks(canvas: DecisionCanvas): CanvasBlock[] {
   }
 
   blocks.push({ kind: 'heading', level: 3, text: '4. Who moves' });
+  // Rules that stood in for a model are never read as the model's: the page says which list this is.
+  blocks.push({
+    kind: 'paragraph',
+    text: `${canvas.actors.origin.label}. ${canvas.actors.origin.detail}`,
+    tone: canvas.actors.origin.source === 'rules-fallback' ? 'alert' : 'note',
+  });
   blocks.push(
     canvas.actors.items.length > 0
       ? {

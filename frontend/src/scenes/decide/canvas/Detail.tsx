@@ -17,7 +17,7 @@ import {
 } from '../../../../../shared/decision';
 import { Disclosure } from '../../../design/ui';
 import { perHundred, plural, signedPerHundred } from '../model/format';
-import { LabelChip } from './parts';
+import { LabelChip, ParticipantOrigin } from './parts';
 import {
   COPY,
   FIGURE_UNIT,
@@ -410,6 +410,7 @@ function Actors({ canvas }: { canvas: DecisionCanvas }) {
   const { actors } = canvas;
   return (
     <>
+      <ParticipantOrigin origin={actors.origin} />
       <p className="sw-canvas-quiet">
         {actors.note} {SYNTHETIC_ACTORS_NOTE}
       </p>

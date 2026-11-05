@@ -294,7 +294,12 @@ what you meet, in order:
    button), and **Read the text instead** reads the text with no model. **How stakeholders are found** says
    what each way costs and cannot do. A group that the model proposes without a quote that can be checked is
    kept (marked inferred) only if your question or scenario names it; otherwise it is dropped and the note
-   says so.
+   says so. If the model cannot be used (its answer was cut short or did not pass the checks, it timed out,
+   or its budget is used), Swarm **stops** and says what failed: nothing is kept, and no list the rules make
+   takes the model's place unannounced. You choose **Retry with the model**, **Edit participants** (the
+   list as it stands, or the first one by hand), or **Continue with rules**. A list made by choosing rules
+   after a failure is called **Participants from the rules fallback** everywhere it is shown: on the Map, in
+   the review, on Decide under **Who moves**, and in what you export.
 2. **After finding**, the stakeholders are drawn as a map, in clusters by kind: Decide, Use & benefit, Bear
    cost & risk, Influence & reach, Rivals, Partners & operations, Regulators and Others. A key party is drawn
    larger, with its name in bold (**How to read this map** says so). Under the heading, counts say how many

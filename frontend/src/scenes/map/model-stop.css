@@ -1,0 +1,15 @@
+@layer scenes {
+  .sw-stop:focus-visible {
+    outline: 2px solid var(--focus-ring);
+    outline-offset: 2px;
+  }
+  .sw-stop__what {
+    margin: 0 0 var(--s-1);
+  }
+  .sw-stop__choices {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-2);
+    margin-top: var(--s-2);
+  }
+}

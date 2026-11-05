@@ -39,9 +39,10 @@ import { safeAttributes } from './attributes.js';
  *   evidencePassages(count, mode)               passages indexed as evidence
  * Actors (`swarm.actors.*`: the participants a proposal makes, which become the simulated actors)
  *   actorProposal({ origin, proposed, valid, issues })   one proposal, by origin (the model; rules, as
- *                                               asked; or the fallback, rules after the model failed):
- *                                               the participants it made, how many passed the review,
- *                                               and the review's issues by rule code
+ *                                               asked; the fallback, rules a person chose after the model
+ *                                               failed; or stopped, the model failed and nothing was
+ *                                               proposed): the participants it made, how many passed
+ *                                               the review, and the review's issues by rule code
  *                                               (PARTICIPANT_ISSUE_CODES)
  * Constraints (`swarm.constraints.*`)
  *   constraintProposal({ origin, count })       one proposal, by origin, and how many constraints it
@@ -90,8 +91,11 @@ export const SAFETY_BLOCK_REASONS = [
 ] as const;
 export type SafetyBlockReason = (typeof SAFETY_BLOCK_REASONS)[number];
 
-/** Where a proposal came from: the model and it passed, the rules by design, or the rules after the model failed. */
-export const PROPOSAL_ORIGINS = ['model', 'rules', 'fallback'] as const;
+/**
+ * Where a proposal came from: the model and it passed, the rules by design, the rules a person chose after the
+ * model failed (the fallback), or no one: the model failed and the step stopped for the person to choose.
+ */
+export const PROPOSAL_ORIGINS = ['model', 'rules', 'fallback', 'stopped'] as const;
 export type ProposalOrigin = (typeof PROPOSAL_ORIGINS)[number];
 
 export const WORK_OUTCOMES = ['completed', 'failed', 'cancelled'] as const;
@@ -267,7 +271,7 @@ function createInstruments(): Instruments {
       description: 'Passages indexed as evidence',
     }),
     actorProposals: meter.createCounter('swarm.actors.proposals', {
-      description: 'Actor proposals, by origin: model, rules or fallback',
+      description: 'Actor proposals, by origin: model, rules, fallback or stopped',
     }),
     actorsProposed: meter.createCounter('swarm.actors.proposed', {
       description: 'Actors proposed, by origin',

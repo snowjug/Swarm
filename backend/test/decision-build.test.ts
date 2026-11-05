@@ -12,7 +12,7 @@ import {
   type Labelled,
 } from '../../shared/decision.js';
 import { scenarioFixture, stakeholderSetFixture } from '../../shared/lab-fixtures.js';
-import type { Stakeholder } from '../../shared/stakeholders.js';
+import type { Stakeholder, StakeholderSet } from '../../shared/stakeholders.js';
 import { lintText } from '../src/brief/lint.js';
 import { buildCanvas } from '../src/decision/build.js';
 import { WITHHELD_TEXT } from '../src/decision/words.js';
@@ -767,5 +767,108 @@ describe('participants are read defensively, before and after the proposal field
       influence: 'medium',
       plausibleActions: [],
     });
+  });
+});
+
+describe('the canvas says how the participants were made, and never reads rules as the model’s', () => {
+  const FAILED = {
+    code: 'MODEL_TRUNCATED',
+    detail: 'The model’s answer was cut short, so rules were used.',
+  };
+  const madeBy = (
+    discovery: Partial<StakeholderSet['discovery']>,
+    proposal?: Partial<NonNullable<StakeholderSet['proposal']>>,
+  ): StakeholderSet => {
+    const set = stakeholderSetFixture();
+    return {
+      ...set,
+      discovery: { ...set.discovery, ...discovery },
+      ...(proposal
+        ? {
+            proposal: {
+              version: 1,
+              generatedAt: set.discovery.generatedAt,
+              source: 'rules',
+              model: null,
+              failure: null,
+              evidence: { shown: 1, of: 1 },
+              flaggedPassages: [],
+              usedResearch: false,
+              usedConstraints: false,
+              merged: 0,
+              dropped: [],
+              missingVoices: [],
+              notes: [],
+              ...proposal,
+            },
+          }
+        : {}),
+    };
+  };
+  const originOf = (set: StakeholderSet | undefined) =>
+    canvasOf(WINNER, set ? { stakeholders: set } : {}).actors.origin;
+
+  it('labels a list that rules made after the model failed as the rules fallback, with what failed', () => {
+    const origin = originOf(madeBy({ mode: 'rules' }, { failure: FAILED }));
+    expect(origin.source).toBe('rules-fallback');
+    expect(origin.label).toBe('Participants from the rules fallback');
+    expect(origin.detail).toContain('The model’s answer was cut short.');
+    expect(origin.detail).toContain('no model proposed these participants');
+    expect(origin.detail).not.toContain('so rules were used');
+    expect(origin.detail).not.toMatch(/proposed by a model/iu);
+  });
+
+  it('labels a list the first way of finding stakeholders made after a model failed the same way', () => {
+    const origin = originOf(
+      madeBy({
+        mode: 'rules',
+        note: 'The model could not be used (The provider returned invalid JSON.) so stakeholders were found by reading the text for roles, not by a model; expect gaps.',
+      }),
+    );
+    expect(origin.source).toBe('rules-fallback');
+    expect(origin.label).toBe('Participants from the rules fallback');
+  });
+
+  it('says that a model proposed the list only when its reply was used, and which model', () => {
+    const origin = originOf(
+      madeBy({ mode: 'model', model: 'gpt-5-mini' }, { source: 'model', model: 'gpt-5-mini' }),
+    );
+    expect(origin).toMatchObject({ source: 'model', label: 'Participants proposed by a model' });
+    expect(origin.detail).toContain('gpt-5-mini');
+  });
+
+  it('says that rules made the list when rules were the choice, and that a person made it when one did', () => {
+    expect(originOf(madeBy({ mode: 'rules' }, { failure: null }))).toMatchObject({
+      source: 'rules',
+      label: 'Participants read from the text by rules',
+    });
+    expect(originOf(madeBy({ mode: 'user' }))).toMatchObject({
+      source: 'user',
+      label: 'Participants added by a person',
+    });
+  });
+
+  it('says that no list was recorded when none was', () => {
+    const inputs = controlledInputs(WINNER, { sensitivity: CALM });
+    const canvas = buildCanvas({ ...inputs, stakeholders: null });
+    expect(canvas.actors.origin.source).toBe('unknown');
+    expect(decisionCanvasSchema.safeParse(canvas).success).toBe(true);
+  });
+
+  it('keeps the label as it was written once the list is edited and approved', () => {
+    const edited = madeBy({ mode: 'rules' }, { failure: FAILED });
+    edited.stakeholders = edited.stakeholders.map((item) => ({ ...item, status: 'edited' }));
+    expect(originOf(edited).label).toBe('Participants from the rules fallback');
+  });
+
+  it('is a sentence of ours that passes the guard, and is never withheld', () => {
+    const canvas = canvasOf(WINNER, {
+      stakeholders: madeBy({ mode: 'rules' }, { failure: FAILED }),
+    });
+    expect(canvas.withheld).toBe(0);
+    for (const text of [canvas.actors.origin.label, canvas.actors.origin.detail]) {
+      expect(lintText(text).map((issue) => issue.rule)).toEqual([]);
+      expect(text).not.toBe(WITHHELD_TEXT);
+    }
   });
 });

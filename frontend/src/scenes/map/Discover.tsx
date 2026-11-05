@@ -28,8 +28,10 @@ export function FindExplanation({ model }: { model: ModelAvailability }) {
           Sends your source text to the model, which proposes stakeholders with quotes. Swarm checks
           every quote against your sources: one it cannot find is dropped. A stakeholder left
           without a quote is kept, marked inferred, only if your question or scenario names that
-          group; otherwise it is dropped. If the model fails, Swarm reads the text for roles instead
-          and says so.
+          group; otherwise it is dropped. If the model fails, Swarm stops and says what failed: you
+          can ask the model again, edit the participants yourself, or continue with rules. A list
+          the rules make after a model failed is labelled “Participants from the rules fallback”
+          wherever it is shown, and is never presented as the model’s.
           {!model.available && model.reason && (
             <span className="sw-how__hint"> Not available here: {model.reason}</span>
           )}

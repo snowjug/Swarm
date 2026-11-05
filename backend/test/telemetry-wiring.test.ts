@@ -191,7 +191,7 @@ describe('proposing participants', () => {
     );
   });
 
-  it('records a proposal that a model made, and one that rules made after the model could not be used', async () => {
+  it('records a proposal that a model made, a step that stopped when the model could not be used, and the rules a person then chose', async () => {
     const spy = vi.spyOn(productSignals, 'actorProposal');
     const used = await participantsWorld(
       new ScriptedGateway([proposal(passagesOf(NOTES_OF_THE_PROJECT))]),
@@ -201,20 +201,27 @@ describe('proposing participants', () => {
     expect(spy.mock.calls[0]?.[0]).toMatchObject({ origin: 'model' });
 
     spy.mockClear();
-    // A reply that names a participant "Staff" is refused by the server's checks, and rules answer.
+    // A reply that names a participant "Staff" is refused by the server's checks: the step stops, and no rules answer.
     const bad = JSON.parse(JSON.stringify(proposal(passagesOf(NOTES_OF_THE_PROJECT)))) as {
       participants: { name: string }[];
     };
     bad.participants[0]!.name = 'Staff';
-    const unusable = await participantsWorld(new ScriptedGateway([bad]));
-    const response = await propose(unusable, { mode: 'model' });
-    expect(response.statusCode, response.body).toBe(201);
-    expect((response.json() as StakeholdersView).stakeholders!.discovery.mode).toBe('rules');
+    const unusable = await participantsWorld(new ScriptedGateway([bad, bad]));
+    const stopped = await propose(unusable, { mode: 'model' });
+    expect(stopped.statusCode, stopped.body).toBe(200);
+    expect(stopped.json()).toHaveProperty('stopped.code', 'MODEL_OUTPUT_INVALID');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy.mock.calls[0]?.[0]).toEqual({ origin: 'stopped', proposed: 0, valid: 0 });
+
+    spy.mockClear();
+    const chosen = await propose(unusable, { mode: 'rules', fallbackFrom: 'MODEL_OUTPUT_INVALID' });
+    expect(chosen.statusCode, chosen.body).toBe(201);
+    expect((chosen.json() as StakeholdersView).stakeholders!.discovery.mode).toBe('rules');
     expect(spy).toHaveBeenCalledTimes(1);
     expect(spy.mock.calls[0]?.[0]).toMatchObject({ origin: 'fallback' });
 
     const points = await telemetry.measurements();
-    for (const origin of ['model', 'fallback']) {
+    for (const origin of ['model', 'stopped', 'fallback']) {
       expect(
         telemetry.total(points, 'swarm.actors.proposals', { 'swarm.proposal.origin': origin }),
         origin,

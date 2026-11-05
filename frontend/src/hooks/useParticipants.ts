@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from 'react';
+import { proposalWasStopped, type ModelFailureCode } from '../../../shared/model-failure';
 import type {
   ParticipantWhy,
   StakeholderSet,
@@ -42,10 +43,14 @@ export interface ParticipantActions {
   edit: (id: string, changes: ParticipantChanges) => Promise<boolean>;
   remove: (id: string) => Promise<boolean>;
   restore: (id: string) => Promise<boolean>;
-  /** Proposes one participant again from the rest of the list; `confirm` replaces what the person changed. */
+  /**
+   * Proposes one participant again from the rest of the list; `confirm` replaces what the person changed. False
+   * when the model could not be used (the stop is on the page state) or the change was refused: the participant
+   * is as it was. `fallbackFrom` is the failure the person is going on from, when they chose rules after it.
+   */
   regenerate: (
     id: string,
-    options: { mode: 'rules' | 'model'; confirm: boolean },
+    options: { mode: 'rules' | 'model'; confirm: boolean; fallbackFrom?: ModelFailureCode },
   ) => Promise<boolean>;
   /** Merges the groups named, or every set of participants that is certainly one. */
   mergeDuplicates: (groups?: MergeGroup[]) => Promise<boolean>;
@@ -166,18 +171,40 @@ export function useParticipants(args: ParticipantsArgs): ParticipantActions {
   );
 
   const regenerate = useCallback(
-    async (id: string, options: { mode: 'rules' | 'model'; confirm: boolean }) => {
+    async (
+      id: string,
+      options: { mode: 'rules' | 'model'; confirm: boolean; fallbackFrom?: ModelFailureCode },
+    ) => {
       const name = latest.current.set?.stakeholders.find((item) => item.id === id)?.name ?? 'it';
-      const done = await change((projectId, expectedRevision) =>
-        participantsApi.regenerate(projectId, id, { expectedRevision, ...options }),
-      );
+      const { state, projectId, revision } = latest.current;
+      if (revision === null) return false;
+      const done = await state.exec('reviewing', async () => {
+        const answer = await participantsApi.regenerate(projectId, id, {
+          expectedRevision: revision,
+          ...options,
+        });
+        return proposalWasStopped(answer)
+          ? {
+              stopped: {
+                step: 'regenerate',
+                stop: answer.stopped,
+                confirm: options.confirm,
+                participantId: id,
+              },
+            }
+          : thenActors(projectId, Promise.resolve(answer));
+      });
       if (done) {
         latest.current.focus([`rv:${id}`, 'rv:top']);
-        latest.current.say(`Proposed ${name} again. It is waiting for your review.`);
+        latest.current.say(
+          options.fallbackFrom
+            ? `Proposed ${name} again by rules, from the rules fallback. It is waiting for your review.`
+            : `Proposed ${name} again. It is waiting for your review.`,
+        );
       }
       return done;
     },
-    [change],
+    [],
   );
 
   const mergeDuplicates = useCallback(

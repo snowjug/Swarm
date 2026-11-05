@@ -97,6 +97,44 @@ describe('the Markdown and the printable page open on the decision picture', () 
     expect(text).toContain('Swarm recommends and explains. It does not contact anyone');
   });
 
+  it('says under “Who moves” how the participants were made, and calls a list the rules made after the model failed the rules fallback', () => {
+    const set = stakeholderSetFixture();
+    const fallback = buildCanvas(
+      controlledInputs(WINNER, {
+        sensitivity: [sensitivityRow('small-move', 0.01)],
+        stakeholders: {
+          ...set,
+          proposal: {
+            version: 1,
+            generatedAt: set.discovery.generatedAt,
+            source: 'rules',
+            model: null,
+            failure: {
+              code: 'MODEL_TRUNCATED',
+              detail: 'The model’s answer was cut short, so rules were used.',
+            },
+            evidence: { shown: 1, of: 1 },
+            flaggedPassages: [],
+            usedResearch: false,
+            usedConstraints: false,
+            merged: 0,
+            dropped: [],
+            missingVoices: [],
+            notes: [],
+          },
+        },
+      }),
+    );
+    const text = plain(briefMarkdown(exportInput(fallback)));
+    const who = text.slice(text.indexOf('4. Who moves'), text.indexOf('5. Material constraints'));
+    expect(who).toContain('Participants from the rules fallback.');
+    expect(who).toContain('no model proposed these participants');
+    expect(briefHtml(exportInput(fallback))).toContain('Participants from the rules fallback.');
+    const rules = plain(briefMarkdown(exportInput(canvasOf())));
+    expect(rules).toContain('Participants read from the text by rules.');
+    expect(rules).not.toContain('rules fallback');
+  });
+
   it('counts the parts of the recommendation that are stated, and lists reversibility among those that are not, as the data does', () => {
     const canvas = canvasOf();
     const card = canvas.answer.recommendation;

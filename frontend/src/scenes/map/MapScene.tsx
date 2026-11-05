@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { AnimatePresence } from 'motion/react';
 import { Bot, Plus, UserRound, Users, Wand2 } from 'lucide-react';
-import type { Actor, TraitKey } from '../../../../shared/stakeholders';
+import type { ModelFailureCode } from '../../../../shared/model-failure';
+import { RULES_FALLBACK_LABEL } from '../../../../shared/model-failure';
+import type { Actor, StakeholderSet, TraitKey } from '../../../../shared/stakeholders';
 import { useWorkspace } from '../../app/context';
 import { useUnsavedWork } from '../../app/unsaved-context';
 import { useTween } from '../../design/motion';
@@ -40,6 +42,7 @@ import type { EcoNode } from '../../viz/ecosystem/model';
 import { Discover, SYNTHETIC_LINE, SYNTHETIC_NOTE, type FindMode } from './Discover';
 import { Inspector } from './Inspector';
 import { Legend } from './Legend';
+import { ModelStopNotice } from './ModelStop';
 import { PartyActions } from './PartyActions';
 import { Pill, type ApproveModel, type PillModel } from './Pill';
 import { gateOf } from './review/logic';
@@ -64,6 +67,14 @@ import { useReview } from './useReview';
 import './map.css';
 
 const FAILED_MODEL = /could not be used|did not answer in time/u;
+
+/**
+ * Whether a list was made by rules after the model was asked and could not be used. The participant proposal
+ * records it as a failure; the first way of finding stakeholders left it only in its note.
+ */
+const isRulesFallback = (set: StakeholderSet): boolean =>
+  set.discovery.mode === 'rules' &&
+  (set.proposal ? set.proposal.failure !== null : FAILED_MODEL.test(set.discovery.note));
 
 const WORKING_WORDS: Record<StakeholderWork, string> = {
   finding: 'Finding stakeholders…',
@@ -98,17 +109,22 @@ function SourceChip({
   mode,
   model,
   note,
+  fellBack,
 }: {
   mode: 'rules' | 'model' | 'user';
   model: string | null;
   note: string;
+  /** Rules made the list after the model was asked and could not be used: never shown as the model's. */
+  fellBack: boolean;
 }) {
   const Icon = mode === 'model' ? Bot : mode === 'rules' ? Wand2 : UserRound;
   const label =
     mode === 'model'
       ? 'Found by a model'
       : mode === 'rules'
-        ? 'Read from your text'
+        ? fellBack
+          ? 'Rules fallback'
+          : 'Read from your text'
         : 'Built by you';
   return (
     <Popover>
@@ -118,12 +134,14 @@ function SourceChip({
         </ChipButton>
       </PopoverTrigger>
       <PopoverContent align="start" width="23rem" className="sw-source">
-        <p className="sw-eyebrow">How these were found</p>
+        <p className="sw-eyebrow">{fellBack ? RULES_FALLBACK_LABEL : 'How these were found'}</p>
         <p>
           {mode === 'model'
             ? `A model proposed them${model ? ` (${model})` : ''}, and Swarm checked every quote against your sources.`
             : mode === 'rules'
-              ? 'Swarm read your text for role words and quoted the sentence for each. No model was used.'
+              ? fellBack
+                ? 'The model could not be used, so Swarm read your text for role words and quoted the sentence for each. No model proposed these participants.'
+                : 'Swarm read your text for role words and quoted the sentence for each. No model was used.'
               : 'You built this list yourself.'}
         </p>
         {note && (
@@ -244,21 +262,75 @@ export function MapScene() {
     say,
     focus,
   });
+  // A step the model could not do is said, and focus goes to the choices, so that it is not missed.
+  const { stopped } = state;
+  useEffect(() => {
+    if (!stopped) return;
+    focus(['model-stop-retry', 'model-stop']);
+    say(
+      stopped.step === 'regenerate'
+        ? 'The model could not propose this participant again. Nothing was changed. Choose what to do next.'
+        : 'The model could not propose the participants. Nothing was kept. Choose what to do next.',
+    );
+  }, [stopped, focus, say]);
 
   // ---- Finding, approving, and making actors ---------------------------------------------------------------
-  const find = async (mode: FindMode, confirm = false): Promise<void> => {
+  const find = async (
+    mode: FindMode,
+    confirm = false,
+    fallbackFrom?: ModelFailureCode,
+  ): Promise<void> => {
     setPending(mode);
     setReplacing(null);
     // The participants are proposed, and checked, whichever way they are found.
-    const found = await state.propose(mode, confirm);
+    const found = await state.propose(mode, confirm, fallbackFrom);
     setPending(null);
     if (found) {
       focus(view === 'review' ? ['rv:top', 'title'] : ['title']);
+      const where = view === 'review' ? 'They are in the review.' : 'They are on the map.';
       say(
-        view === 'review'
-          ? 'Participants proposed again. They are in the review.'
-          : 'Stakeholders found. They are on the map.',
+        fallbackFrom
+          ? `Participants proposed by rules, from the rules fallback. No model proposed them. ${where}`
+          : view === 'review'
+            ? `Participants proposed again. ${where}`
+            : `Stakeholders found. ${where}`,
       );
+    }
+  };
+  /** The model could not be used: asking it again, as it was asked. */
+  const retryStopped = async (): Promise<void> => {
+    const stop = state.stopped;
+    if (!stop) return;
+    if (stop.step === 'regenerate' && stop.participantId) {
+      await participants.regenerate(stop.participantId, { mode: 'model', confirm: stop.confirm });
+    } else {
+      await find('model', stop.confirm);
+    }
+  };
+  /** The model could not be used: going on with rules, which the list is then labelled as having been made by. */
+  const rulesStopped = async (): Promise<void> => {
+    const stop = state.stopped;
+    if (!stop) return;
+    if (stop.step === 'regenerate' && stop.participantId) {
+      await participants.regenerate(stop.participantId, {
+        mode: 'rules',
+        confirm: stop.confirm,
+        fallbackFrom: stop.stop.code,
+      });
+    } else {
+      await find('rules', stop.confirm, stop.stop.code);
+    }
+  };
+  /** The model could not be used: editing by hand, in the list there is, or by adding the first participant. */
+  const editStopped = (): void => {
+    state.dismissStop();
+    if (set) {
+      setSelectedId(null);
+      ws.setView('review');
+      focus(['rv:top', 'title']);
+      say('Editing the participants. Nothing was changed.');
+    } else {
+      setDialog({ mode: 'add', ghost: null });
     }
   };
   const startFind = (mode: FindMode): void => {
@@ -532,6 +604,22 @@ export function MapScene() {
       {state.problem}
     </Notice>
   );
+  const stopNotice = stopped && (
+    <ModelStopNotice
+      stopped={stopped}
+      participantName={
+        stopped.participantId
+          ? (set?.stakeholders.find((item) => item.id === stopped.participantId)?.name ?? null)
+          : null
+      }
+      busy={busy}
+      may={may}
+      hasList={set !== null}
+      onRetry={() => void retryStopped()}
+      onEdit={editStopped}
+      onRules={() => void rulesStopped()}
+    />
+  );
 
   if (!set) {
     return (
@@ -543,7 +631,14 @@ export function MapScene() {
           pending={pending}
           onFind={(mode) => void find(mode)}
           onAdd={() => setDialog({ mode: 'add', ghost: null })}
-          notice={failure}
+          notice={
+            stopNotice || failure ? (
+              <>
+                {stopNotice}
+                {failure}
+              </>
+            ) : undefined
+          }
         />
         <StakeholderDialog
           open={dialog !== null}
@@ -562,7 +657,13 @@ export function MapScene() {
   }
 
   // ---- The map ---------------------------------------------------------------------------------------------------------
-  const modelFailed = FAILED_MODEL.test(set.discovery.note);
+  const fellBack = isRulesFallback(set);
+  // Finding them again asks as they were found: the model for a list the model made, and also for one the rules
+  // made only because the model could not be used, since that is the way the person did not get.
+  const againMode: FindMode =
+    set.discovery.mode === 'model' || (fellBack && stakeholdersView.model.available)
+      ? 'model'
+      : 'rules';
   const stale = actorsView?.stale === true;
   const whyOf = (id: string): string => {
     const stakeholder = set.stakeholders.find((item) => item.id === id);
@@ -741,6 +842,7 @@ export function MapScene() {
                 mode={set.discovery.mode}
                 model={set.discovery.model}
                 note={set.discovery.note}
+                fellBack={fellBack}
               />
             </p>
             <p className="sw-caption sw-map__truth">
@@ -748,10 +850,11 @@ export function MapScene() {
               <span className="sw-hide-lg">Synthetic stand-ins, not real people.</span>
             </p>
             <div className="sw-map__notices">
+              {stopNotice}
               {failure}
-              {modelFailed && (
-                <Notice tone="caution" title="How these were found">
-                  {set.discovery.note}
+              {fellBack && (
+                <Notice tone="caution" title={RULES_FALLBACK_LABEL}>
+                  {set.discovery.note.replace(`${RULES_FALLBACK_LABEL}. `, '')}
                 </Notice>
               )}
               {checks && view !== 'review' && !set.approvedAt && (set.proposal || !gate.open) && (
@@ -832,7 +935,7 @@ export function MapScene() {
             gaps={narrow && may.edit && canAdd && subject === 'stakeholders' ? ghosts : []}
             onGap={(ghost) => setDialog({ mode: 'add', ghost })}
             canFind={may.run && subject === 'stakeholders'}
-            onFindAgain={() => startFind(set.discovery.mode === 'model' ? 'model' : 'rules')}
+            onFindAgain={() => startFind(againMode)}
             canMakeAgain={may.run && hasActors && set.approvedAt !== null}
             onMakeAgain={() => setResetting(true)}
           />
@@ -847,7 +950,7 @@ export function MapScene() {
             problem={state.problem}
             actions={participants}
             focus={focus}
-            onProposeAgain={() => startFind(set.discovery.mode === 'model' ? 'model' : 'rules')}
+            onProposeAgain={() => startFind(againMode)}
           />
         )}
         {view === 'list' && model && (

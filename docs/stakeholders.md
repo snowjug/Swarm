@@ -253,8 +253,9 @@ of them reads with the defaults of its role and makes the actor it always made.
    credential a source held is replaced before anything leaves the server. Source text is untrusted data.
 2. With a model (the person's choice, as for finding), the reply must be `ProposedParticipants` v1: a
    strict schema that refuses any field it was not asked for (an email, a gender, a private motive), then
-   the server's own checks, one correction, and then the rules, with a sanitised reason and none of the
-   model's words. A refusal and a cancelled request are never answered from rules. Without a model, the
+   the server's own checks, and one correction. If it still cannot be used, the step **stops** (see
+   [When the model could not be used](#when-the-model-could-not-be-used)): no rules list takes its place
+   unannounced. A refusal and a cancelled request are never answered from rules. Without a model, the
    **rules path** runs and calls none: it reads the text for the groups it names, adds what a decision like
    this has and the sources leave unsaid, and marks each of those as an assumption (see
    [The rules path](#the-rules-path-what-it-reads-and-what-it-adds)).
@@ -268,6 +269,40 @@ of them reads with the defaults of its role and makes the actor it always made.
    participants' own fields and never from a model's prose; the issues, each **blocking** or **advisory**
    with a sentence on what to do; and which roles are covered. It is made when a set is read and is never
    stored, so it cannot be out of date.
+
+#### When the model could not be used
+
+A live pilot asked a model for the participants, had its reply cut off, and was handed a list that rules had
+made in its place ("Added advanced management", "Calendar Management", "Executive Offices", …) with a note
+the person had to go and find. The proposal now **stops** when a model was asked and could not be used (a
+reply that fails validation after the correction, one cut off at its limit, a timeout, a refusal of
+credentials, an exhausted budget):
+
+- **Nothing is kept.** The list is as it was, or there is none. The route answers `200` with
+  `{ "stopped": { "code", "detail", "retryable" } }` instead of the `201` with the set. `detail` is fixed
+  wording for the class of failure and, when the reply was seen, counts about it (cut off at its limit or
+  complete but refused, the tokens used and how many of them were hidden reasoning); it holds no word of the
+  model's. `retryable` is false where asking again as before cannot help: the credentials, the deployment,
+  the budget or the size of the request. The same is true of **Propose again** for one participant
+  (`…/:participantId/regenerate`), which then leaves the participant as it was.
+- **The Map says what failed and offers three ways on:** **Retry with the model**, **Edit participants**
+  (the list as it stands, or the first participant by hand when there is none) and **Continue with rules**.
+- **Continuing with rules is a choice, and is recorded as one.** The page asks again with `mode: "rules"`
+  and `fallbackFrom` (the code from the stop; only the codes of `MODEL_FAILURE_CODES` are accepted, and the
+  wording stored for it is the server's own, never the caller's). The set then carries `proposal.failure`
+  and a `discovery.note` that begins **"Participants from the rules fallback."** The Map's source chip says
+  _Rules fallback_ and a notice carries the same words; the review says that no model proposed the list;
+  the Decide page's **Who moves** says **"Participants from the rules fallback"**, with what failed, and so
+  do the exports and the brief. A list the rules made because rules were chosen from the start says only
+  that, and a list a model proposed says which model. The label stays on the list when it is edited: it is
+  how the list began.
+- **Find stakeholders again** on a list made by the rules fallback asks the model again, since that is the
+  way the person did not get.
+- Telemetry counts a stop as `swarm.actors.proposals` with `swarm.proposal.origin = stopped`, and the rules
+  a person chose after it as `fallback`. A stop writes no audit entry: nothing was changed or handed over.
+
+The engine's default is unchanged for a caller with nobody to ask (the evaluation harness): it answers from
+rules and records the failure. The routes ask it to stop (`onModelFailure: "stop"`).
 
 If the sources carry text addressed to an AI system, it is ignored, the passages are flagged on the set,
 a reply that repeats text such an instruction asked for is refused, and what only the model's word backs is
@@ -623,18 +658,21 @@ no stakeholders yet; it is not an error.
 | `POST /stakeholders/discover`                  | run         | `{ mode: "rules" or "model", confirm }`; answers `201`                                |
 | `PUT  /stakeholders`                           | edit        | The reviewed list and the revision you saw; `0` builds one by hand                    |
 | `POST /stakeholders/approve`                   | edit        | `{ expectedRevision }`; refused while the review has a blocking issue                 |
-| `POST /stakeholders/propose`                   | run         | `{ mode: "rules" or "model", confirm }`; the participants; answers `201`              |
+| `POST /stakeholders/propose`                   | run         | `{ mode, confirm, fallbackFrom? }`; answers `201`, or `200 { stopped }`               |
 | `GET  /stakeholders/validation`                | read        | `{ revision, review }`: the check that gates approval                                 |
 | `POST /stakeholders/accept`                    | edit        | `{ expectedRevision, ids? }`: the ones named, or every one still only proposed        |
 | `PATCH /stakeholders/:participantId`           | edit        | `{ expectedRevision, changes }`: only the fields a person may change                  |
 | `DELETE /stakeholders/:participantId`          | edit        | `?expectedRevision=`: marks it removed; it stays in the record                        |
-| `POST /stakeholders/:participantId/regenerate` | run         | `{ expectedRevision, mode, confirm }`: one participant again, given the rest          |
+| `POST /stakeholders/:participantId/regenerate` | run         | `{ expectedRevision, mode, confirm, fallbackFrom? }`: one participant again           |
 | `GET  /stakeholders/:participantId/why`        | read        | The participant explained from what it already holds; no model                        |
 | `POST /stakeholders/merge-duplicates`          | edit        | `{ expectedRevision, groups? }`: the same names, or the groups you choose             |
 | `POST /stakeholders/add-missing`               | edit        | `{ expectedRevision, role, name }`: a participant for a role nobody holds             |
 | `GET  /actors`                                 | read        | The actors, and whether they are older than the stakeholders                          |
 | `POST /actors/generate`                        | run         | `{ model, confirm }`; needs an approved list; answers `201`                           |
 | `PUT  /actors`                                 | edit        | Edited actors and the revision you saw                                                |
+
+`200 { stopped }` is what propose and regenerate answer when a model was asked and could not be used: nothing
+was kept (see [When the model could not be used](#when-the-model-could-not-be-used)).
 
 A change made against an old revision is refused with `ARTIFACT_CONFLICT` (HTTP 409) and nothing is
 overwritten. A review that rewrites a cited quotation (its document, the document's name, its position, its

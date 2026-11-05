@@ -537,6 +537,36 @@ describe('what the proposal says of how it was made', () => {
     ).toBeTruthy();
     expect(screen.getByText('It read 4 of 9 passages.')).toBeTruthy();
   });
+
+  it('calls a list the rules made after the model failed the rules fallback, says what failed and that no model proposed it, and does not say that no model was asked', async () => {
+    const { user } = show({
+      set: setOf([PANEL, CREW, USERS], {
+        proposal: proposal({
+          failure: {
+            code: 'MODEL_TRUNCATED',
+            detail: 'The model’s answer was cut short, so rules were used.',
+          },
+        }),
+      }),
+    });
+    const notice = screen.getByRole('status', { name: '' });
+    expect(notice.textContent).toContain('Participants from the rules fallback');
+    expect(notice.textContent).toContain('The model’s answer was cut short.');
+    expect(notice.textContent).toContain('no model proposed these participants');
+    expect(notice.textContent).not.toContain('so rules were used');
+    await user.click(screen.getByRole('button', { name: 'How this list was checked' }));
+    expect(
+      screen.getByText(
+        /^Participants from the rules fallback: The model’s answer was cut short\./u,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(/No model was used\./u)).toBeNull();
+  });
+
+  it('says nothing of a fallback for a list the rules made when rules were the choice, or a model made', () => {
+    show({ set: setOf([PANEL, CREW, USERS], { proposal: proposal() }) });
+    expect(screen.queryByText('Participants from the rules fallback')).toBeNull();
+  });
 });
 
 describe('when the list cannot be changed or is empty', () => {

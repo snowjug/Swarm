@@ -6,7 +6,7 @@ import { Disclosure } from '../../../design/ui';
 import { useMediaQuery } from '../../../hooks/useMediaQuery';
 import { plural } from '../model/format';
 import type { DetailId } from './details';
-import { LabelChip, LabelsOf, ShareBar, StatusIcon } from './parts';
+import { LabelChip, LabelsOf, ParticipantOrigin, ShareBar, StatusIcon } from './parts';
 import {
   COPY,
   FIGURE_UNIT,
@@ -280,6 +280,7 @@ function Who({ canvas, openDetail }: Props) {
   if (items.length === 0) return <Quiet>No role was simulated.</Quiet>;
   return (
     <>
+      <ParticipantOrigin origin={canvas.actors.origin} />
       <ul className="sw-canvas-list sw-canvas-who" role="list">
         {items.map((actor) => {
           const Arrow =

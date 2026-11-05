@@ -182,14 +182,126 @@ describe('a reply that cannot be used', () => {
     });
     expect(set.discovery.mode).toBe('rules');
     expect(set.discovery.model).toBeNull();
-    expect(set.discovery.note).toContain('The model could not be used');
+    expect(set.discovery.note).toContain('Participants from the rules fallback');
     expect(set.discovery.note).toContain('did not pass validation');
+    expect(set.discovery.note).toContain('no model proposed these');
     expect(set.proposal).toMatchObject({
       source: 'rules',
       failure: { code: 'MODEL_OUTPUT_INVALID' },
     });
     expect(JSON.stringify(set)).not.toContain(canary);
     expect(live(set).length).toBeGreaterThanOrEqual(2);
+  });
+
+  describe('when the caller asks to be told, not given rules', () => {
+    const ask = (replies: unknown[], overrides: { after?: 'MODEL_TIMEOUT' } = {}) => {
+      const model = new ScriptedGateway(replies);
+      return {
+        model,
+        run: () =>
+          proposeParticipants({
+            context: contextOf(),
+            model,
+            modelName: 'fixture-model',
+            signal: signal(),
+            now: () => NOW,
+            onModelFailure: 'stop',
+            ...overrides,
+          }),
+      };
+    };
+
+    it('stops with the failure and proposes nothing: rules do not stand in for the model', async () => {
+      const poisoned = generic();
+      poisoned.participants[0]!.name = `${canary} approvers`;
+      const { run, model } = ask([poisoned, poisoned]);
+      const result = await run();
+      expect(model.attempts).toBe(2);
+      expect(result).toEqual({
+        stopped: {
+          code: 'MODEL_OUTPUT_INVALID',
+          detail: 'The model replied, but its answer did not pass validation.',
+          retryable: true,
+        },
+      });
+      expect(result).not.toHaveProperty('set');
+      expect(JSON.stringify(result)).not.toContain(canary);
+    });
+
+    it.each([
+      ['MODEL_TIMEOUT', 'did not answer in time', true],
+      ['MODEL_RATE_LIMIT', 'rate limited', true],
+      ['MODEL_AUTH', 'rejected the server’s credentials', false],
+    ])('stops after %s, whatever the provider said', async (code, words, retryable) => {
+      const { run } = ask([new AppError(502, code, 'provider said: secret-body-xyz')]);
+      const result = await run();
+      expect(result).toMatchObject({ stopped: { code, retryable } });
+      const { detail } = (result as { stopped: { detail: string } }).stopped;
+      expect(detail).toContain(words);
+      expect(detail).not.toContain('so rules were used');
+      expect(JSON.stringify(result)).not.toContain('secret-body-xyz');
+    });
+
+    it('gives the set of a model that could be used, as before', async () => {
+      const result = await ask([proposal(passages)]).run();
+      expect(result).toMatchObject({ source: 'model', failure: null });
+    });
+
+    it('still refuses what a model refused, and what the person cancelled', async () => {
+      await expect(
+        ask([new AppError(409, 'MODEL_REFUSED', 'The model declined.')]).run(),
+      ).rejects.toMatchObject({ code: 'MODEL_REFUSED' });
+    });
+  });
+
+  describe('when a person chose rules after the model failed', () => {
+    const rulesAfter = (code: 'MODEL_TRUNCATED' | 'MODEL_TIMEOUT') =>
+      proposeParticipants({
+        context: contextOf(),
+        model: null,
+        modelName: null,
+        signal: signal(),
+        now: () => NOW,
+        after: code,
+      });
+
+    it('proposes by rules and records the proposal as the rules fallback, not as a rules run by design', async () => {
+      const { set, source, failure } = await rulesAfter('MODEL_TRUNCATED');
+      expect(source).toBe('rules');
+      expect(failure).toEqual({
+        code: 'MODEL_TRUNCATED',
+        detail: 'The model’s answer was cut short, so rules were used.',
+      });
+      expect(set.proposal).toMatchObject({
+        source: 'rules',
+        model: null,
+        failure: { code: 'MODEL_TRUNCATED' },
+      });
+      expect(set.discovery).toMatchObject({ mode: 'rules', model: null });
+      expect(set.discovery.note).toMatch(
+        /^Participants from the rules fallback\. The model’s answer/u,
+      );
+      expect(set.discovery.note).toContain('no model proposed these');
+    });
+
+    it('says nothing of a failure when rules were the choice from the start', async () => {
+      const { set, failure } = await proposeParticipants({
+        context: contextOf(),
+        model: null,
+        modelName: null,
+        signal: signal(),
+        now: () => NOW,
+      });
+      expect(failure).toBeNull();
+      expect(set.proposal?.failure).toBeNull();
+      expect(set.discovery.note).not.toContain('rules fallback');
+    });
+
+    it('is not what a model that answers is recorded as', async () => {
+      const { source, failure } = await propose([proposal(passages)], { after: 'MODEL_TIMEOUT' });
+      expect(source).toBe('model');
+      expect(failure).toBeNull();
+    });
   });
 
   it.each([
@@ -734,5 +846,45 @@ describe('proposing one participant again', () => {
         signal: signal(),
       }),
     ).rejects.toMatchObject({ code: 'MODEL_REFUSED' });
+  });
+
+  it('stops, and leaves the participant as it was, when the caller asks to be told and the model could not be used', async () => {
+    const set = await stored();
+    const model = new ScriptedGateway([
+      new AppError(502, 'MODEL_TIMEOUT', 'provider said: zq-body'),
+    ]);
+    const result = await regenerateParticipant({
+      context: contextOf(),
+      set,
+      targetId: 'old-corridor-residents',
+      model,
+      modelName: 'fixture-model',
+      signal: signal(),
+      onModelFailure: 'stop',
+    });
+    expect(result).toEqual({
+      stopped: {
+        code: 'MODEL_TIMEOUT',
+        detail: 'The model did not answer in time.',
+        retryable: true,
+      },
+    });
+    expect(JSON.stringify(result)).not.toContain('zq-body');
+  });
+
+  it('resets it by rules and records the failure when a person chose rules after the model failed', async () => {
+    const set = await stored();
+    const result = await regenerateParticipant({
+      context: contextOf(),
+      set,
+      targetId: 'old-corridor-residents',
+      model: null,
+      modelName: null,
+      signal: signal(),
+      after: 'MODEL_TRUNCATED',
+    });
+    expect(result.source).toBe('rules');
+    expect(result.failure).toMatchObject({ code: 'MODEL_TRUNCATED' });
+    expect(result.participant.origin).not.toBe('model');
   });
 });

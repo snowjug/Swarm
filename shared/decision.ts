@@ -639,6 +639,13 @@ export const POSITION_WORDS: Record<DecisionPosition, string> = {
   none: 'No say in the decision',
 };
 
+/**
+ * Where the list of participants came from. `rules-fallback` is a list the rules made after the model was
+ * asked and could not be used: it is said so, and never read as one a model proposed.
+ */
+export const PARTICIPANT_SOURCES = ['model', 'rules', 'rules-fallback', 'user', 'unknown'] as const;
+export type ParticipantSource = (typeof PARTICIPANT_SOURCES)[number];
+
 const actorReadingSchema = z.object({
   actorId: idSchema,
   name: text(120),
@@ -957,6 +964,15 @@ export const decisionCanvasSchema = z.object({
     baselineLabel: text(120).nullable(),
     items: z.array(actorReadingSchema).max(12),
     note: text(400),
+    /**
+     * How the list of participants behind these roles was made. A list the rules made after the model failed
+     * says so here, in its own words, and is never read as the model's.
+     */
+    origin: z.object({
+      source: z.enum(PARTICIPANT_SOURCES),
+      label: text(80),
+      detail: text(400),
+    }),
   }),
   /** 7. What could change the result. */
   changes: z.object({

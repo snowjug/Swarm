@@ -16,6 +16,7 @@ import {
   type StakeholderSet,
 } from '../../../../../shared/stakeholders';
 import { Button, Dialog, DialogContent, Disclosure, Notice } from '../../../design/ui';
+import { RULES_FALLBACK_LABEL, withoutRulesUsed } from '../../../../../shared/model-failure';
 import type { ParticipantActions } from '../../../hooks/useParticipants';
 import type { RequestFocus } from '../../../hooks/useFocusRequest';
 import { MAX_MERGED, liveStakeholders, mergedIntoMap } from '../../../lib/stakeholders/review';
@@ -213,6 +214,13 @@ export function ReviewSurface({
         <Notice tone="caution" title="Some of your sources carry text addressed to an AI system">
           Swarm read it as text and did not follow it as an instruction. Passages:{' '}
           {proposal.flaggedPassages.join(', ')}.
+        </Notice>
+      )}
+
+      {proposal && proposal.source === 'rules' && proposal.failure && (
+        <Notice tone="caution" title={RULES_FALLBACK_LABEL}>
+          {withoutRulesUsed(proposal.failure.detail)} Swarm read your text for roles instead, so no
+          model proposed these participants: look at each name before you use them.
         </Notice>
       )}
 
@@ -417,7 +425,9 @@ export function ReviewSurface({
             <li className="sw-caption">
               {proposal.source === 'model'
                 ? `Proposed by a model${proposal.model ? ` (${proposal.model})` : ''}, then checked by Swarm: every quotation is compared with its passage.`
-                : 'Read from your text for roles and checked by Swarm. No model was used.'}
+                : proposal.failure
+                  ? `${RULES_FALLBACK_LABEL}: ${withoutRulesUsed(proposal.failure.detail)} Read from your text for roles and checked by Swarm. No model proposed these participants.`
+                  : 'Read from your text for roles and checked by Swarm. No model was used.'}
             </li>
             <li className="sw-caption">
               {`It read ${proposal.evidence.shown} of ${plural(proposal.evidence.of, 'passage', 'passages')}.`}

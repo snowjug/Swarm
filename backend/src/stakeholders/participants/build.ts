@@ -1,3 +1,4 @@
+import { RULES_FALLBACK_LABEL, withoutRulesUsed } from '../../../../shared/model-failure.js';
 import type { EvidenceRef } from '../../../../shared/evidence.js';
 import {
   CONFIDENCE_BASIS_MEANINGS,
@@ -494,7 +495,7 @@ function noteOf(
   } else {
     parts.push({
       text: failure
-        ? `The model could not be used: ${failure.detail.replace(/,? so rules were used\.?$/u, '')}. Participants were proposed by reading the text for roles instead; expect gaps.`
+        ? `${RULES_FALLBACK_LABEL}. ${withoutRulesUsed(failure.detail)} Swarm read the text for roles instead, so no model proposed these; expect gaps.`
         : 'Participants were proposed by reading the text for roles and applying a domain-neutral role taxonomy, not by a model; expect gaps.',
       keep: true,
     });

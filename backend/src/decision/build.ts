@@ -42,7 +42,7 @@ import { readConstraints } from './constraints.js';
 import { readEvidence } from './evidence.js';
 import { assumptionFlips, counterfactualFlips, couldReverse, type FlipWorld } from './flips.js';
 import { computeLenses } from './lenses.js';
-import { participantsOf } from './participants.js';
+import { participantOrigin, participantsOf } from './participants.js';
 import {
   readActors,
   readFutures,
@@ -152,6 +152,7 @@ export function buildCanvas(inputs: DecisionInputs): DecisionCanvas {
     baseline,
     evidence: index,
     participants,
+    origin: participantOrigin(inputs.stakeholders),
   };
 
   // ---- Constraints, lenses, evidence ----------------------------------------------------------

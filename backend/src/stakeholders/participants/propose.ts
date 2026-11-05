@@ -9,9 +9,16 @@ import {
   type Stakeholder,
   type StakeholderSet,
 } from '../../../../shared/stakeholders.js';
+import type { ModelFailureCode, ProposalStopped } from '../../../../shared/model-failure.js';
 import { AppError } from '../../errors.js';
 import type { ModelGateway } from '../../models/client.js';
-import { runStructuredTask, type TaskFailure, type TaskSource } from '../../models/task.js';
+import {
+  runStructuredTask,
+  stopOf,
+  taskFailure,
+  type TaskFailure,
+  type TaskSource,
+} from '../../models/task.js';
 import { productSignals, type ProposalOrigin } from '../../telemetry/product-signals.js';
 import { occurrencesOf } from '../mentions.js';
 import { impactFor, uncertaintyFor } from '../rules.js';
@@ -46,14 +53,32 @@ export interface ProposeInput {
   /** The set this replaces, so that a participant found again keeps its id. */
   existing?: StakeholderSet | null;
   now?: () => Date;
+  /**
+   * What happens when a model was asked and its answer could not be used. `rules` (the default) answers from
+   * rules and records why, for a caller with nobody to ask. `stop` makes no proposal and says what failed, so
+   * that a person at a screen chooses what next: a rules answer that took the model's place unannounced would
+   * be read as what the model proposed.
+   */
+  onModelFailure?: 'rules' | 'stop';
+  /**
+   * A person chose rules after the model failed with this class of failure: the proposal is made by rules and
+   * recorded as the rules fallback, with the fixed wording of that class. Ignored when a model is asked.
+   */
+  after?: ModelFailureCode;
 }
 
 export interface ProposeResult {
   set: StakeholderSet;
   source: 'model' | 'rules';
-  /** Why rules answered when a model was asked; null otherwise. It holds none of the model's words. */
+  /** Why rules answered when a model was asked or had been; null otherwise. It holds none of the model's words. */
   failure: TaskFailure | null;
 }
+
+/**
+ * A model was asked and could not be used, and the caller asked to be told instead of being given rules: the
+ * failure as a person is told of it (see `stopOf`), and nothing in place of the model's answer.
+ */
+export type ProposeStopped = ProposalStopped;
 
 const sourceOf = (task: TaskSource): 'model' | 'rules' => (task === 'model' ? 'model' : 'rules');
 
@@ -88,8 +113,17 @@ export function recordProposal(
  * sanitised reason and none of the model's words); without one it runs the rules path and calls no
  * model. Either way the proposal then goes through the same deterministic steps, and the result says
  * how it was made. A refusal and a cancelled request are never answered from rules.
+ *
+ * With `onModelFailure: 'stop'` a model that could not be used ends the step with `{ stopped }` and no
+ * proposal; nothing is kept and nothing is answered in its place.
  */
-export async function proposeParticipants(input: ProposeInput): Promise<ProposeResult> {
+export async function proposeParticipants(
+  input: ProposeInput & { onModelFailure: 'stop' },
+): Promise<ProposeResult | ProposeStopped>;
+export async function proposeParticipants(input: ProposeInput): Promise<ProposeResult>;
+export async function proposeParticipants(
+  input: ProposeInput,
+): Promise<ProposeResult | ProposeStopped> {
   const { context } = input;
   const side = newSide();
   const data = modelData(context);
@@ -104,6 +138,11 @@ export async function proposeParticipants(input: ProposeInput): Promise<ProposeR
     validate: proposalChecker(context, data),
     fallback: () => rulesProposal(context, side),
   });
+  if (outcome.failure && input.onModelFailure === 'stop') {
+    return { stopped: stopOf(outcome.failure) };
+  }
+  const failure =
+    outcome.failure ?? (input.after && !input.model ? taskFailure(input.after) : null);
   const source = sourceOf(outcome.source);
   return {
     set: buildSet({
@@ -111,13 +150,13 @@ export async function proposeParticipants(input: ProposeInput): Promise<ProposeR
       context,
       source,
       modelName: input.modelName,
-      failure: outcome.failure,
+      failure,
       side,
       existing: input.existing ?? null,
       now: (input.now ?? (() => new Date()))(),
     }),
     source,
-    failure: outcome.failure,
+    failure,
   };
 }
 
@@ -198,6 +237,10 @@ export interface RegenerateInput {
   model: ModelGateway | null;
   modelName: string | null;
   signal: AbortSignal;
+  /** As for `ProposeInput`: `stop` ends the step with `{ stopped }` when a model could not be used. */
+  onModelFailure?: 'rules' | 'stop';
+  /** As for `ProposeInput`: a person chose rules after the model failed with this class of failure. */
+  after?: ModelFailureCode;
 }
 
 export interface RegenerateResult {
@@ -210,9 +253,17 @@ export interface RegenerateResult {
  * Proposes one participant again, given the rest, under the same checks as a whole proposal: the model
  * (if one was chosen) is shown the others and asked for one replacement that must keep the target's id
  * and role and must not repeat any other; rules reset it from the sources. The rest of the list, and
- * every relation, stay as they are. The result is the new participant, still only proposed.
+ * every relation, stay as they are. The result is the new participant, still only proposed. With
+ * `onModelFailure: 'stop'` a model that could not be used ends the step with `{ stopped }`, and the
+ * participant is left as it was.
  */
-export async function regenerateParticipant(input: RegenerateInput): Promise<RegenerateResult> {
+export async function regenerateParticipant(
+  input: RegenerateInput & { onModelFailure: 'stop' },
+): Promise<RegenerateResult | ProposeStopped>;
+export async function regenerateParticipant(input: RegenerateInput): Promise<RegenerateResult>;
+export async function regenerateParticipant(
+  input: RegenerateInput,
+): Promise<RegenerateResult | ProposeStopped> {
   const target = input.set.stakeholders.find((item) => item.id === input.targetId);
   if (!target || target.status === 'removed') {
     throw new AppError(404, 'PARTICIPANT_NOT_FOUND', 'There is no such participant in the list.');
@@ -275,6 +326,11 @@ export async function regenerateParticipant(input: RegenerateInput): Promise<Reg
     },
     fallback: () => resetFromSources(target, context),
   });
+  if (outcome.failure && input.onModelFailure === 'stop') {
+    return { stopped: stopOf(outcome.failure) };
+  }
+  const failure =
+    outcome.failure ?? (input.after && !input.model ? taskFailure(input.after) : null);
   const source = sourceOf(outcome.source);
   const byPassage = new Map(context.passages.map((passage) => [passage.id, passage]));
   const [proposed] = outcome.value.participants;
@@ -291,6 +347,6 @@ export async function regenerateParticipant(input: RegenerateInput): Promise<Reg
   return {
     participant: { ...built, mergedFrom: target.mergedFrom },
     source,
-    failure: outcome.failure,
+    failure,
   };
 }

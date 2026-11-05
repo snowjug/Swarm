@@ -184,19 +184,111 @@ describe('proposing the participants', () => {
     expect(w.repository.usage.get(w.project.id)).toMatchObject({ calls: 1 });
   });
 
-  it('reads the text instead when the model’s reply cannot be used, and says so without any of the model’s words', async () => {
-    const bad = JSON.parse(JSON.stringify(proposal(passagesOf(`${NOTES} Canary: ${CANARY}.`)))) as {
-      participants: { name: string }[];
+  describe('when the model could not be used', () => {
+    /** A reply the server's checks refuse: it names a participant "Staff". */
+    const unusable = () => {
+      const bad = JSON.parse(
+        JSON.stringify(proposal(passagesOf(`${NOTES} Canary: ${CANARY}.`))),
+      ) as { participants: { name: string }[] };
+      bad.participants[0]!.name = 'Staff';
+      return bad;
     };
-    bad.participants[0]!.name = 'Staff';
-    const model = new RouteModel([bad]);
-    const w = await world({ model });
-    const response = await w.propose({ mode: 'model' });
-    expect(response.statusCode, response.body).toBe(201);
-    const set = (response.json() as StakeholdersView).stakeholders!;
-    expect(set.discovery.mode).toBe('rules');
-    expect(set.discovery.note).toContain('The model could not be used');
-    expect(set.proposal?.failure?.code).toBe('MODEL_OUTPUT_INVALID');
+
+    it('stops and says what failed, instead of answering from rules, and keeps nothing', async () => {
+      const bad = unusable();
+      const model = new RouteModel([bad, bad]);
+      const w = await world({ model });
+      const response = await w.propose({ mode: 'model' });
+      expect(response.statusCode, response.body).toBe(200);
+      expect(response.json()).toEqual({
+        stopped: {
+          code: 'MODEL_OUTPUT_INVALID',
+          detail: 'The model replied, but its answer did not pass validation.',
+          retryable: true,
+        },
+      });
+      expect((await w.view()).stakeholders).toBeNull();
+      expect(model.calls).toBe(1);
+      expect(JSON.stringify(response.json())).not.toContain('Staff');
+    });
+
+    it('leaves a list that was there as it was', async () => {
+      const bad = unusable();
+      const model = new RouteModel([bad, bad]);
+      const w = await world({ model });
+      expect((await w.propose({ mode: 'rules' })).statusCode).toBe(201);
+      const before = await w.view();
+      const response = await w.propose({ mode: 'model', confirm: true });
+      expect(response.json()).toHaveProperty('stopped.code', 'MODEL_OUTPUT_INVALID');
+      expect(await w.view()).toEqual(before);
+    });
+
+    it.each([
+      ['MODEL_TIMEOUT', true],
+      ['MODEL_AUTH', false],
+    ])(
+      'says whether asking again may help after %s, without the provider’s words',
+      async (code, retryable) => {
+        const model = new RouteModel([new AppError(502, code, `provider said ${CANARY}`)]);
+        const w = await world({ model });
+        const response = await w.propose({ mode: 'model' });
+        expect(response.statusCode, response.body).toBe(200);
+        expect(response.json().stopped).toMatchObject({ code, retryable });
+        expect(response.body).not.toContain(CANARY);
+      },
+    );
+
+    it('goes on with rules when the person chooses them, and records the proposal as the rules fallback', async () => {
+      const bad = unusable();
+      const model = new RouteModel([bad, bad]);
+      const w = await world({ model });
+      expect((await w.propose({ mode: 'model' })).statusCode).toBe(200);
+      const calls = model.calls;
+      const response = await w.propose({ mode: 'rules', fallbackFrom: 'MODEL_OUTPUT_INVALID' });
+      expect(response.statusCode, response.body).toBe(201);
+      expect(model.calls).toBe(calls);
+      const set = (response.json() as StakeholdersView).stakeholders!;
+      expect(set.discovery).toMatchObject({ mode: 'rules', model: null });
+      expect(set.discovery.note).toContain('Participants from the rules fallback');
+      expect(set.proposal).toMatchObject({
+        source: 'rules',
+        failure: {
+          code: 'MODEL_OUTPUT_INVALID',
+          detail: 'The model replied, but its answer did not pass validation, so rules were used.',
+        },
+      });
+      expect(JSON.stringify(set)).not.toContain('Staff');
+    });
+
+    it('records a rules run chosen from the start with no failure at all', async () => {
+      const w = await world();
+      const set = ((await w.propose({ mode: 'rules' })).json() as StakeholdersView).stakeholders!;
+      expect(set.proposal?.failure).toBeNull();
+      expect(set.discovery.note).not.toContain('rules fallback');
+    });
+
+    it('accepts a reason for choosing rules only from the closed list, and only with the rules', async () => {
+      const w = await world();
+      expect((await w.propose({ mode: 'rules', fallbackFrom: 'ZQ_SOMETHING' })).statusCode).toBe(
+        400,
+      );
+      expect((await w.propose({ mode: 'model', fallbackFrom: 'MODEL_TIMEOUT' })).statusCode).toBe(
+        400,
+      );
+      expect((await w.view()).stakeholders).toBeNull();
+    });
+
+    it('still asks for a confirmation before it replaces a reviewed list, so a model is not called for nothing', async () => {
+      const model = new RouteModel([]);
+      const w = await world({ model });
+      await w.propose({ mode: 'rules' });
+      const first = (await w.live())[0]!;
+      await change(w, 'POST', '/stakeholders/accept', { ids: [first.id] });
+      const refused = await w.propose({ mode: 'model' });
+      expect(refused.statusCode).toBe(409);
+      expect(refused.json().error.code).toBe('STAKEHOLDERS_REVIEWED');
+      expect(model.calls).toBe(0);
+    });
   });
 
   it('answers a model’s refusal as a refusal, and stores nothing', async () => {
@@ -691,7 +783,7 @@ describe('proposing one participant again', () => {
     expect((await change(w, 'POST', '/stakeholders/nobody/regenerate', {})).statusCode).toBe(404);
   });
 
-  it('asks the model for one replacement when it is chosen and available, and falls back to the sources when it cannot be used', async () => {
+  it('asks the model for one replacement when it is chosen and available, stops when it cannot be used, and uses the sources only when the person chooses rules', async () => {
     const passages = passagesOf(`${NOTES} Canary: ${CANARY}.`);
     const all = proposal(passages);
     const replacement = JSON.parse(JSON.stringify(all)) as typeof all;
@@ -721,11 +813,30 @@ describe('proposing one participant again', () => {
     (model as unknown as { replies: unknown[] }).replies.push(
       new AppError(502, 'MODEL_UNREACHABLE', 'down'),
     );
-    const fallback = await change(w, 'POST', `/stakeholders/${target.id}/regenerate`, {
+    const before = await w.view();
+    const stopped = await change(w, 'POST', `/stakeholders/${target.id}/regenerate`, {
       mode: 'model',
       confirm: true,
     });
-    expect(fallback.statusCode, fallback.body).toBe(200);
+    expect(stopped.statusCode, stopped.body).toBe(200);
+    expect(stopped.json()).toEqual({
+      stopped: {
+        code: 'MODEL_UNREACHABLE',
+        detail: 'The model could not be reached.',
+        retryable: true,
+      },
+    });
+    expect(await w.view()).toEqual(before);
+
+    const rules = await change(w, 'POST', `/stakeholders/${target.id}/regenerate`, {
+      mode: 'rules',
+      confirm: true,
+      fallbackFrom: 'MODEL_UNREACHABLE',
+    });
+    expect(rules.statusCode, rules.body).toBe(200);
+    const after = (rules.json() as StakeholdersView).stakeholders!;
+    expect(after.proposal?.notes.at(-1)).toContain('rules fallback');
+    expect((await w.live()).find((item) => item.id === target.id)?.origin).not.toBe('model');
     const plain = await world();
     await plain.propose();
     const first = (await plain.live())[0]!;
