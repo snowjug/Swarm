@@ -110,26 +110,28 @@ function Start({
         run without any.
       </EmptyState>
       <div className="sw-cons__start-actions">
-        {may.run && (
+        {may.run && model.available && (
           <Button
             variant="primary"
-            icon={<Wand2 size={16} aria-hidden="true" />}
+            icon={<Bot size={16} aria-hidden="true" />}
             busy={working}
+            busyLabel="Reading"
+            disabled={state.working !== null}
+            onClick={() => void state.propose('model')}
+          >
+            Ask the model to read them
+          </Button>
+        )}
+        {may.run && (
+          <Button
+            variant={model.available ? 'glass' : 'primary'}
+            icon={<Wand2 size={16} aria-hidden="true" />}
+            busy={working && !model.available}
             busyLabel="Reading"
             disabled={state.working !== null}
             onClick={() => void state.propose('rules')}
           >
             Read my sources for constraints
-          </Button>
-        )}
-        {may.run && model.available && (
-          <Button
-            variant="glass"
-            icon={<Bot size={16} aria-hidden="true" />}
-            disabled={state.working !== null}
-            onClick={() => void state.propose('model')}
-          >
-            Ask the model to read them
           </Button>
         )}
         {may.edit && (

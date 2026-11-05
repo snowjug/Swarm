@@ -195,6 +195,7 @@ export const LABEL_TABLE = {
     'question-quote': 'assumption',
     'scenario-quote': 'assumption',
     'evidence-quote': 'fact',
+    'model-quote': 'source-claim',
     'actor-statement': 'model-inference',
     'category-prompt': 'model-inference',
     'model-reading': 'model-inference',

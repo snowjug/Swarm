@@ -231,7 +231,11 @@ describe('a project with no constraints yet', () => {
 
   it('offers the model only when the project has one, and lets a person add a constraint of their own', async () => {
     const { calls, user } = mount(viewOf(null, null, { model: { available: true, reason: null } }));
-    await user.click(screen.getByRole('button', { name: 'Ask the model to read them' }));
+    // A model-assisted project leads with the model, and keeps reading the sources as the other way.
+    const rules = screen.getByRole('button', { name: 'Read my sources for constraints' });
+    const asking = screen.getByRole('button', { name: 'Ask the model to read them' });
+    expect(asking.compareDocumentPosition(rules) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    await user.click(asking);
     expect(calls.propose).toHaveBeenCalledWith('model');
     await user.click(screen.getByRole('button', { name: 'Add one yourself' }));
     const form = await screen.findByRole('form', { name: 'Add a constraint' });

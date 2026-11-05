@@ -148,6 +148,7 @@ export const CONFIDENCE_BASES = [
   'question-quote',
   'scenario-quote',
   'evidence-quote',
+  'model-quote',
   'actor-statement',
   'category-prompt',
   'model-reading',
@@ -159,6 +160,8 @@ export const CONFIDENCE_BASIS_WORDS: Record<ConfidenceBasisKind, string> = {
   'question-quote': 'Your question says so, in these words.',
   'scenario-quote': 'Your scenario says so, in these words.',
   'evidence-quote': 'A source passage says so, in these words, and Swarm found the quote in it.',
+  'model-quote':
+    'A model proposed it, and Swarm found the quote it gave in a source passage. The model chose it; the source says it.',
   'actor-statement':
     'It is listed as a limit of a simulated actor, which Swarm wrote, not a source.',
   'category-prompt':
@@ -692,6 +695,9 @@ export function sourceLabel(constraint: Pick<Constraint, 'source' | 'confidenceB
     if (kind === 'question-quote') return 'From your question';
     if (kind === 'scenario-quote') return 'From your scenario';
   }
+  // Where a model chose the constraint, that is said whatever it quoted: the source says it, the model picked it.
+  const kind = constraint.confidenceBasis.kind;
+  if (kind === 'model-quote' || kind === 'model-reading') return 'Proposed by a model';
   return SOURCE_LABELS[constraint.source];
 }
 

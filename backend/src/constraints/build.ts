@@ -175,7 +175,9 @@ const sourceNote = (proposal: Proposal, refs: readonly EvidenceRef[]): string =>
     case 'category':
       return origin.reason.slice(0, 240);
     case 'model':
-      return refs[0] ? `Found in ${refs[0].documentName.slice(0, 160)}.` : 'Proposed by a model.';
+      return refs[0]
+        ? `Proposed by a model; its quote was found in ${refs[0].documentName.slice(0, 160)}.`
+        : 'Proposed by a model.';
   }
 };
 
@@ -249,13 +251,17 @@ export function buildConstraints(
         ? 'question-quote'
         : proposal.origin.kind === 'scenario' || proposal.origin.kind === 'assumption'
           ? 'scenario-quote'
-          : source === 'extracted'
-            ? 'evidence-quote'
-            : proposal.origin.kind === 'actor'
-              ? 'actor-statement'
-              : proposal.origin.kind === 'category'
-                ? 'category-prompt'
-                : 'model-reading';
+          : proposal.origin.kind === 'model'
+            ? evidence.length > 0
+              ? 'model-quote'
+              : 'model-reading'
+            : source === 'extracted'
+              ? 'evidence-quote'
+              : proposal.origin.kind === 'actor'
+                ? 'actor-statement'
+                : proposal.origin.kind === 'category'
+                  ? 'category-prompt'
+                  : 'model-reading';
     const examples = evidence.filter((ref) => context.exampleDocuments?.has(ref.documentId));
     const basisNote = [
       sourceNote(proposal, evidence),

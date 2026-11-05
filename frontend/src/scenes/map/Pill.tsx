@@ -36,7 +36,7 @@ export type PillModel =
       approve: ApproveModel;
     }
   | { kind: 'make'; approve: ApproveModel }
-  | { kind: 'ready'; actors: number; onContinue: () => void }
+  | { kind: 'ready'; actors: number; onContinue: () => void; onConstraints?: () => void }
   | { kind: 'read'; text: string; onContinue?: () => void };
 
 function ApproveButton({ approve }: { approve: ApproveModel }) {
@@ -250,6 +250,11 @@ function Body({ model }: { model: PillModel }): ReactNode {
             </span>
             <span className="sw-pill__sub">Synthetic stand-ins</span>
           </p>
+          {model.onConstraints && (
+            <Button variant="ghost" size="lg" onClick={model.onConstraints}>
+              Constraints
+            </Button>
+          )}
           <Button
             variant="accent"
             size="lg"

@@ -431,7 +431,12 @@ export function MapScene() {
       return allowed
         ? { kind: 'make', approve: confirm('make') }
         : { kind: 'read', text: 'Approved. The actors are not made yet.' };
-    return { kind: 'ready', actors: actorSet.actors.length, onContinue: () => go('simulate') };
+    return {
+      kind: 'ready',
+      actors: actorSet.actors.length,
+      onContinue: () => go('simulate'),
+      onConstraints: () => ws.setView('constraints'),
+    };
     // The handlers close over state that changes with these.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [

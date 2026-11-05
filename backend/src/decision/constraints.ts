@@ -129,7 +129,7 @@ export function readConstraints(
   const provisional = comparisonStatus === 'provisional' || gate === 'provisional';
   const note =
     gate === 'none'
-      ? 'No constraints were reviewed for this decision, so the picture does not say what limits it.'
+      ? 'No constraints were reviewed for this decision, so the picture does not say what limits it. To read them, open the Map, choose Constraints, and read the sources, or ask the model when the project is model-assisted.'
       : live.length === 0
         ? 'No constraints were identified. That is what was found, not proof that none exist.'
         : `${listed([`${hard.length} hard`, `${soft.length} soft`])} ${live.length === 1 ? 'constraint' : 'constraints'} stand${live.length === 1 ? 's' : ''} behind this answer. ${comparison ? 'The comparison ran under the ones marked applied.' : 'The comparison recorded none of them.'}`;
