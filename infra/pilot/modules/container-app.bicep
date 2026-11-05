@@ -1,12 +1,14 @@
-// Container Apps environment (Consumption profile only) and the one container app that serves both
-// the React UI and the Fastify API. No secret value is defined here: every setting is an ordinary
-// environment variable, every credential is a Microsoft Entra token of the attached managed identity,
-// and the one thing that cannot be (an optional OIDC client secret) is a reference to a Key Vault secret.
+// The one container app that serves both the React UI and the Fastify API, and the Container Apps
+// environment it runs in: created by environment-new.bicep, or read from environment-existing.bicep. One
+// of the two modules is deployed, never both, because a template must not declare the same resource
+// twice. No secret value is defined here: every setting is an ordinary environment variable, every
+// credential is a Microsoft Entra token of the attached managed identity, and the one thing that cannot be
+// (an optional OIDC client secret) is a reference to a Key Vault secret.
 //
 // The app runs in MULTIPLE-revision mode so that a release is blue/green: the new revision starts
 // beside the one that serves, takes no traffic until it is shifted to, and the previous revision stays
 // available for an instant rollback (traffic back) until it is deactivated. See
-// docs/production/release-process.md; none of this has run in Azure.
+// docs/production/release-process.md.
 targetScope = 'resourceGroup'
 
 param environmentResourceName string
@@ -46,7 +48,7 @@ param registryLoginServer string
 @description('The image to run, already resolved by the caller (see main.bicep).')
 param image string
 
-@description('True while the image is the public placeholder. It listens on port 80 and has no health routes, so the ingress targets port 80 and no probe is set until the first real image replaces it.')
+@description('True while the image is the public placeholder. It listens on port 80 and has no health routes, so the ingress targets port 80, no PORT is set (the application would refuse 80) and no probe is set. A real image gets port 3001, PORT=3001 and the three probes; see main.bicep for how the image is chosen, and docs/azure/pilot-plan.md.')
 param placeholderImage bool = false
 
 @description('vCPU of the replica. Memory is set to twice that, the ratio the Consumption profile requires.')
@@ -147,7 +149,10 @@ type SecretReference = {
   secretName: string
 }
 
-var targetPort = placeholderImage ? 80 : 3001
+// The port the application listens on (PORT, whose schema is 1024-65535) and the ingress targets. Only the
+// placeholder differs: it listens on 80 and is replaced by the first real image.
+var applicationPort = 3001
+var targetPort = placeholderImage ? 80 : applicationPort
 var memoryByCpu = {
   '0.25': '0.5Gi'
   '0.5': '1Gi'
@@ -155,49 +160,36 @@ var memoryByCpu = {
   '2': '4Gi'
 }
 
-resource workspace 'Microsoft.OperationalInsights/workspaces@2025-02-01' existing = {
-  name: workspaceName
-  scope: resourceGroup(workspaceSubscriptionId, workspaceResourceGroup)
-}
-
-resource createdEnvironment 'Microsoft.App/managedEnvironments@2025-07-01' = if (createEnvironment) {
-  name: environmentResourceName
-  location: location
-  tags: tags
-  properties: {
-    appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: workspace.properties.customerId
-        // Read by Azure Resource Manager while deploying; it is never written to a file or an output.
-        sharedKey: workspace.listKeys().primarySharedKey
-      }
-    }
-    // Only the pay-per-use Consumption profile: no dedicated profile, no private endpoint and no
-    // planned maintenance, which are the features that add an hourly management charge.
-    workloadProfiles: [
-      {
-        name: 'Consumption'
-        workloadProfileType: 'Consumption'
-      }
-    ]
-    vnetConfiguration: empty(infrastructureSubnetId)
-      ? null
-      : {
-          infrastructureSubnetId: infrastructureSubnetId
-          internal: false
-        }
+// Exactly one of the two modules is deployed, so the environment is declared once per deployment.
+module createdEnvironment 'environment-new.bicep' = if (createEnvironment) {
+  name: 'environment-new'
+  params: {
+    environmentName: environmentResourceName
+    location: location
+    tags: tags
+    workspaceName: workspaceName
+    workspaceSubscriptionId: workspaceSubscriptionId
+    workspaceResourceGroup: workspaceResourceGroup
+    infrastructureSubnetId: infrastructureSubnetId
     zoneRedundant: zoneRedundant
   }
 }
 
-resource environment 'Microsoft.App/managedEnvironments@2025-07-01' existing = {
-  name: environmentResourceName
+module existingEnvironment 'environment-existing.bicep' = if (!createEnvironment) {
+  name: 'environment-existing'
   scope: resourceGroup(environmentSubscriptionId, environmentResourceGroup)
+  params: {
+    environmentName: environmentResourceName
+  }
 }
 
+var environmentId = createEnvironment ? createdEnvironment!.outputs.id : existingEnvironment!.outputs.id
+var environmentDefaultDomain = createEnvironment
+  ? createdEnvironment!.outputs.defaultDomain
+  : existingEnvironment!.outputs.defaultDomain
+
 // The app's own address is known before the app exists: <app name>.<environment default domain>.
-var fqdn = '${appName}.${environment.properties.defaultDomain}'
+var fqdn = '${appName}.${environmentDefaultDomain}'
 
 // The app answers the two health routes for any Host, but names its own host anyway, so that the
 // probes also pass a build that checks the host on every route.
@@ -208,8 +200,13 @@ var probeHeaders = [
   }
 ]
 
+// A real image is told its port. The placeholder is not: it ignores PORT, the application refuses 80 (the
+// schema of PORT starts at 1024), and a revision made later with `az containerapp update` copies this
+// list, so a PORT=80 here would reach the real image and stop it at start. Without PORT the application
+// uses 3001, which is the port every real revision runs on.
+var portEnvironment = placeholderImage ? [] : [{ name: 'PORT', value: string(applicationPort) }]
+
 var baseEnvironment = [
-  { name: 'PORT', value: string(targetPort) }
   { name: 'HOST', value: '0.0.0.0' }
   { name: 'DEPLOYMENT_MODE', value: deploymentMode }
   { name: 'AUTH_MODE', value: 'entra' }
@@ -357,7 +354,7 @@ resource app 'Microsoft.App/containerApps@2025-07-01' = {
     }
   }
   properties: {
-    environmentId: environment.id
+    environmentId: environmentId
     workloadProfileName: 'Consumption'
     configuration: {
       // Blue/green: several revisions can be active, and traffic weights say which serve. A new revision
@@ -400,6 +397,7 @@ resource app 'Microsoft.App/containerApps@2025-07-01' = {
             memory: memoryByCpu[cpu]
           }
           env: concat(
+            portEnvironment,
             baseEnvironment,
             assertionEnvironment,
             secretEnvironment,
@@ -425,7 +423,6 @@ resource app 'Microsoft.App/containerApps@2025-07-01' = {
       }
     }
   }
-  dependsOn: [createdEnvironment]
 }
 
 output id string = app.id

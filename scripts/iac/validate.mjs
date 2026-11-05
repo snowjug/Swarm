@@ -10,6 +10,11 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
+  describeDuplicates,
+  findDuplicateDeclarations,
+  findDuplicatePredictions,
+} from './duplicates.mjs';
+import {
   PARAM_FILES,
   TEMPLATES,
   build,
@@ -104,6 +109,15 @@ for (const file of TEMPLATES) {
   const built = build(bicep, file);
   const problems = describeDiagnostics(built.diagnostics);
   record(`bicep build ${file}`, built.status === 0 && !problems ? 'pass' : 'fail', problems);
+  if (built.json) {
+    // ARM refuses a template that declares one resource twice, and neither `build` nor `lint` says so.
+    const duplicates = findDuplicateDeclarations(built.json, file);
+    record(
+      `no resource is declared twice in ${file}`,
+      duplicates.length === 0 ? 'pass' : 'fail',
+      describeDuplicates(duplicates),
+    );
+  }
   const linted = lint(bicep, file);
   const lintProblems = describeDiagnostics(linted.diagnostics);
   record(
@@ -143,6 +157,14 @@ for (const [profile, file] of Object.entries(PARAM_FILES)) {
         ? snapshotProblems.map((problem) => JSON.stringify(problem)).join('\n')
         : `${resources} resources predicted`,
   );
+  if (evaluated.snapshot) {
+    const same = findDuplicatePredictions(evaluated.snapshot);
+    record(
+      `${profile}: no predicted resource appears twice`,
+      same.length === 0 ? 'pass' : 'fail',
+      same.map((entry) => `${entry.id} is predicted ${entry.count} times`).join('\n'),
+    );
+  }
 }
 
 finish(checks.some((check) => check.status === 'fail') ? 1 : 0);

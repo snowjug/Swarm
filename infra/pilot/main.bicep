@@ -62,7 +62,7 @@ param deploymentMode string = 'pilot'
 @maxLength(80)
 param deploymentLabel string = ''
 
-@description('BUILD_SHA of a template deployment. A release sets it on the revision it creates. Empty leaves it out.')
+@description('BUILD_SHA of a template deployment: the commit the image was built from. A release sets it on the revision it creates. Empty keeps the BUILD_SHA of the app that runs now (when appExists), and leaves it out otherwise.')
 @maxLength(40)
 param buildSha string = ''
 
@@ -70,11 +70,11 @@ param buildSha string = ''
 // The container app and its releases
 // ---------------------------------------------------------------------------------------------
 
-@description('Image to run. Empty keeps the image that already runs (when appExists) or starts a public placeholder until the first image is pushed. A release passes <registry>/swarm:<commit sha>@sha256:<digest>.')
+@description('Image to run, as <registry>/swarm@sha256:<digest>. Empty means: keep the image the app runs now (appExists true), or start the public placeholder (appExists false). A real image is given port 3001, PORT=3001 and the three probes; the placeholder gets port 80, no PORT and no probe. The release tool normally changes the image, not this parameter.')
 param containerImage string = ''
 
-@description('True when the container app already exists, so that re-applying the template keeps its image and its traffic. azd supplies it.')
-param appExists bool = false
+@description('REQUIRED, no default, on purpose. true: the container app already exists, so the image it runs now and its traffic are read from it and kept, and its port and probes follow from that image. false: it does not exist yet (the first deployment), so a public placeholder starts it. Answering false for an app that exists resets it to the placeholder on port 80 with no probes, and a template cannot tell the difference, so there is no default to fall back on. azd supplies it as SERVICE_SWARM_RESOURCE_EXISTS; main.bicepparam reads that variable and refuses to compile without it.')
+param appExists bool
 
 @description('vCPU of the one replica; memory is twice that.')
 @allowed(['0.25', '0.5', '1', '2'])
@@ -136,9 +136,10 @@ param researchSearchProvider string = 'none'
 // PostgreSQL
 // ---------------------------------------------------------------------------------------------
 
-@description('Compute SKU. Burstable B1ms is the cheapest sane choice for a pilot.')
+@description('Compute SKU of a NEW server. Burstable B1ms is the cheapest sane choice for a pilot, but a subscription can be refused it in a region (the deployment fails with SkuNotAvailable, and `list-skus` still shows it). The fallback that worked in Central India is databaseSkuName=Standard_D2ds_v4 with databaseSkuTier=GeneralPurpose, at a higher price: see docs/azure/pilot-plan.md and docs/azure/pilot-cost.md. A server that exists keeps its SKU: both are ignored with existingPostgresServerResourceId.')
 param databaseSkuName string = 'Standard_B1ms'
 
+@description('Tier of the compute SKU above. It must match the SKU: Standard_B* is Burstable, Standard_D*ds_v4 and _v5 are GeneralPurpose. The CPU-credit alert exists only for Burstable.')
 @allowed(['Burstable', 'GeneralPurpose', 'MemoryOptimized'])
 param databaseSkuTier string = 'Burstable'
 
@@ -386,6 +387,15 @@ var image = !empty(containerImage)
   : (existingApp.?properties.template.containers[0].image ?? bootstrapImage)
 var preservedTraffic = existingApp.?properties.configuration.ingress.traffic ?? []
 
+// The commit the running image was built from. A release sets it on its revision with `az containerapp update`,
+// so a re-apply that is not given a buildSha keeps the one that is there, and does not erase it.
+var runningEnvironment = existingApp.?properties.template.containers[0].env ?? []
+var runningBuildSha = join(
+  map(filter(runningEnvironment, entry => entry.name == 'BUILD_SHA'), entry => entry.?value ?? ''),
+  ''
+)
+var effectiveBuildSha = !empty(buildSha) ? buildSha : runningBuildSha
+
 module network 'modules/network.bicep' = if (enablePrivateNetworking) {
   name: 'network'
   params: {
@@ -536,7 +546,7 @@ module app 'modules/container-app.bicep' = {
     researchSearchProvider: researchSearchProvider
     deploymentMode: deploymentMode
     deploymentLabel: deploymentLabel
-    buildSha: buildSha
+    buildSha: effectiveBuildSha
     revisionSuffix: revisionSuffix
     trafficMode: trafficMode
     preservedTraffic: preservedTraffic

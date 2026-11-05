@@ -29,7 +29,8 @@ param authClientId = readEnvironmentVariable('SWARM_AUTH_CLIENT_ID', '')
 param authAudience = readEnvironmentVariable('SWARM_AUTH_AUDIENCE', '')
 param sourceUrl = readEnvironmentVariable('SWARM_SOURCE_URL', '')
 param containerImage = readEnvironmentVariable('SWARM_CONTAINER_IMAGE', '')
-param appExists = bool(readEnvironmentVariable('SERVICE_SWARM_RESOURCE_EXISTS', 'false'))
+// Required, with no default: see main.bicepparam. false only for the first deployment.
+param appExists = bool(readEnvironmentVariable('SERVICE_SWARM_RESOURCE_EXISTS'))
 
 param alertEmailAddress = readEnvironmentVariable('SWARM_ALERT_EMAIL', '')
 param additionalAlertEmailAddresses = filter(split(readEnvironmentVariable('SWARM_ADDITIONAL_ALERT_EMAILS', ''), ','), address => !empty(address))
@@ -45,6 +46,7 @@ param existingContainerAppsEnvironmentResourceId = readEnvironmentVariable('SWAR
 param ingressAllowedCidrs = filter(split(readEnvironmentVariable('SWARM_INGRESS_ALLOWED_CIDRS', ''), ','), cidr => !empty(cidr))
 param researchSignalsEmitted = bool(readEnvironmentVariable('SWARM_RESEARCH_SIGNALS_EMITTED', 'false'))
 param revisionSuffix = readEnvironmentVariable('SWARM_REVISION_SUFFIX', '')
+param buildSha = readEnvironmentVariable('SWARM_BUILD_SHA', '')
 param trafficMode = readEnvironmentVariable('SWARM_TRAFFIC_MODE', 'preserve')
 param previousRevisionName = readEnvironmentVariable('SWARM_PREVIOUS_REVISION', '')
 param newRevisionTrafficPercent = int(readEnvironmentVariable('SWARM_NEW_REVISION_TRAFFIC_PERCENT', '100'))

@@ -22,6 +22,8 @@ export const TEMPLATES = [
   'infra/pilot/modules/appinsights-access.bicep',
   'infra/pilot/modules/budget.bicep',
   'infra/pilot/modules/container-app.bicep',
+  'infra/pilot/modules/environment-existing.bicep',
+  'infra/pilot/modules/environment-new.bicep',
   'infra/pilot/modules/key-vault.bicep',
   'infra/pilot/modules/monitoring.bicep',
   'infra/pilot/modules/network.bicep',
@@ -44,6 +46,8 @@ export const PLACEHOLDER_ENV = {
   SWARM_AI_ACCOUNT_RESOURCE_ID: `/subscriptions/${PLACEHOLDER_SUBSCRIPTION}/resourceGroups/rg-example/providers/Microsoft.CognitiveServices/accounts/ai-example`,
   SWARM_AUTH_CLIENT_ID: '00000000-0000-0000-0000-000000000001',
   SWARM_ALERT_EMAIL: 'owner@example.invalid',
+  // Required with no default: an app that exists must never be reset to the placeholder by a forgotten value.
+  SERVICE_SWARM_RESOURCE_EXISTS: 'false',
 };
 
 /** Variables the parameter files read; removed from the caller's environment so a real value never leaks into a check. */
@@ -144,10 +148,13 @@ export function buildParams(bicep, file, extraEnv = {}) {
   return { status: result.status, parameters, diagnostics: parseDiagnostics(result.stderr) };
 }
 
-/** The same parameter file with its environment unset: the required values must make it fail. */
-export function buildParamsWithoutEnvironment(bicep, file) {
+/**
+ * The same parameter file with some of its environment unset (by default all of it): a required value
+ * must make it fail, and `names` leaves out exactly the ones to test.
+ */
+export function buildParamsWithoutEnvironment(bicep, file, names = Object.keys(PLACEHOLDER_ENV)) {
   const env = checkEnvironment();
-  for (const name of Object.keys(PLACEHOLDER_ENV)) delete env[name];
+  for (const name of names) delete env[name];
   const result = runBicep(bicep, ['build-params', '--stdout', file], { env });
   return { status: result.status, diagnostics: parseDiagnostics(result.stderr) };
 }

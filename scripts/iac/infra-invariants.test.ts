@@ -1,5 +1,18 @@
 import { beforeAll, describe, expect, it } from 'vitest';
-import { PARAM_FILES, build, evaluate, findBicep, type BicepCli, type Json } from './bicep.mjs';
+import {
+  PARAM_FILES,
+  build,
+  buildParamsWithoutEnvironment,
+  evaluate,
+  findBicep,
+  type BicepCli,
+  type Json,
+} from './bicep.mjs';
+import {
+  describeDuplicates,
+  findDuplicateDeclarations,
+  findDuplicatePredictions,
+} from './duplicates.mjs';
 
 /**
  * Invariants of the Azure templates, asserted on what Bicep compiles (the ARM template) and on what it
@@ -150,6 +163,7 @@ describe.skipIf(!bicep || postgresRun)(
     let searching: Json;
     let production: Json;
     let existing: Json;
+    let fallback: Json;
 
     beforeAll(() => {
       const cli = bicep as BicepCli;
@@ -188,7 +202,47 @@ describe.skipIf(!bicep || postgresRun)(
         SWARM_EXISTING_KEYVAULT_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.KeyVault/vaults/kv-shared`,
         SWARM_EXISTING_CONTAINER_APPS_ENVIRONMENT_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.App/managedEnvironments/cae-shared`,
       });
+      // What the live pilot needed: the General Purpose fallback for a subscription refused Burstable (SkuNotAvailable),
+      // the app already on a real image, and the commit it was built from.
+      fallback = run('pilot', {
+        SERVICE_SWARM_RESOURCE_EXISTS: 'true',
+        SWARM_DATABASE_SKU_NAME: 'Standard_D2ds_v4',
+        SWARM_DATABASE_SKU_TIER: 'GeneralPurpose',
+        SWARM_CONTAINER_IMAGE: IMAGE,
+        SWARM_BUILD_SHA: '7'.repeat(40),
+      });
     }, 240_000);
+
+    describe('the database tier', () => {
+      it('is Burstable B1ms unless the parameter file says otherwise', () => {
+        const [server] = ofType(predicted(pilot), 'Microsoft.DBforPostgreSQL/flexibleServers');
+        expect(get(server, 'sku')).toEqual({ name: 'Standard_B1ms', tier: 'Burstable' });
+      });
+
+      it('takes the fallback for SkuNotAvailable from two variables: General Purpose D2ds_v4, with no CPU-credit alert', () => {
+        const [server] = ofType(predicted(fallback), 'Microsoft.DBforPostgreSQL/flexibleServers');
+        expect(get(server, 'sku')).toEqual({ name: 'Standard_D2ds_v4', tier: 'GeneralPurpose' });
+        const alerts = ofType(predicted(fallback), 'Microsoft.Insights/metricAlerts').map((rule) =>
+          String(rule.name),
+        );
+        // CPU credits exist only on Burstable servers, so the alert on them is not created for another tier.
+        expect(alerts.some((name) => name.endsWith('db-cpu-credits'))).toBe(false);
+        expect(
+          ofType(predicted(pilot), 'Microsoft.Insights/metricAlerts').some((rule) =>
+            String(rule.name).endsWith('db-cpu-credits'),
+          ),
+        ).toBe(true);
+      });
+
+      it('sets BUILD_SHA from the parameter file when the commit is given', () => {
+        const [app] = ofType(predicted(fallback), 'Microsoft.App/containerApps');
+        const env = objects(get(app, 'properties', 'template', 'containers', 0, 'env'));
+        expect(env.find((entry) => entry.name === 'BUILD_SHA')).toEqual({
+          name: 'BUILD_SHA',
+          value: '7'.repeat(40),
+        });
+      });
+    });
 
     describe('the database', () => {
       it('is Entra-only: password authentication is off and no administrator password exists', () => {
@@ -535,6 +589,22 @@ describe.skipIf(!bicep || postgresRun)(
           );
         }
         expect(get(probes[2], 'httpGet', 'path')).toBe('/api/health/ready');
+        // The same port in all three places: what the application is told, what the ingress targets, what is probed.
+        const environment = objects(
+          get(appOf(release), 'properties', 'template', 'containers', 0, 'env'),
+        );
+        expect(environment.filter((entry) => entry.name === 'PORT')).toEqual([
+          { name: 'PORT', value: '3001' },
+        ]);
+        // Every probe names the app's own address in its Host header, as the plan describes.
+        for (const probe of probes) {
+          // The address is the app's name and the environment's default domain, known only to Azure.
+          const [header, ...others] = objects(get(probe, 'httpGet', 'httpHeaders'));
+          expect(others).toEqual([]);
+          expect(header?.name).toBe('Host');
+          expect(String(header?.value)).toContain("'ca-swarm-pilot'");
+          expect(String(header?.value)).toContain('.defaultDomain');
+        }
       });
 
       it('starts the placeholder image on its own port with no probe, so the first provision can succeed', () => {
@@ -544,6 +614,59 @@ describe.skipIf(!bicep || postgresRun)(
         );
         expect(get(app, 'properties', 'configuration', 'ingress', 'targetPort')).toBe(80);
         expect(get(app, 'properties', 'template', 'containers', 0, 'probes')).toEqual([]);
+      });
+
+      it('gives the placeholder no PORT: the application refuses 80, and a revision made later copies this list', () => {
+        const environment = objects(
+          get(appOf(pilot), 'properties', 'template', 'containers', 0, 'env'),
+        );
+        expect(environment.map((entry) => entry.name)).not.toContain('PORT');
+        // The live failure: the real image started with PORT=80 and stopped with "Invalid server configuration: PORT".
+        expect(environment.some((entry) => entry.value === '80')).toBe(false);
+      });
+
+      it('has no default for appExists, so that re-applying the template cannot silently reset a running app to the placeholder', () => {
+        expect(get(main, 'parameters', 'appExists')).not.toHaveProperty('defaultValue');
+        const cli = bicep as BicepCli;
+        for (const file of Object.values(PARAM_FILES)) {
+          const result = buildParamsWithoutEnvironment(cli, file, [
+            'SERVICE_SWARM_RESOURCE_EXISTS',
+          ]);
+          expect(result.status, file).not.toBe(0);
+          expect(JSON.stringify(result.diagnostics), file).toContain(
+            'SERVICE_SWARM_RESOURCE_EXISTS',
+          );
+        }
+      });
+
+      it('keeps the BUILD_SHA of the running app when it is not given one, instead of erasing it', () => {
+        // What-if on the live pilot showed a re-apply deleting BUILD_SHA, which a release had set with az containerapp update.
+        const expression = JSON.stringify(
+          get(main, 'resources', 'app', 'properties', 'parameters', 'buildSha'),
+        );
+        expect(expression).toContain("parameters('buildSha')");
+        expect(expression).toContain("reference('existingApp'");
+        expect(expression).toContain("'BUILD_SHA'");
+      });
+
+      it('takes the image from containerImage, else from the app that runs, and only then from the placeholder', () => {
+        const placeholder = String(
+          get(main, 'resources', 'app', 'properties', 'parameters', 'placeholderImage', 'value'),
+        );
+        const chosen = placeholder.indexOf("parameters('containerImage')");
+        const running = placeholder.indexOf("reference('existingApp'");
+        const bootstrap = placeholder.indexOf("variables('bootstrapImage')");
+        expect(chosen).toBeGreaterThan(-1);
+        expect(running).toBeGreaterThan(chosen);
+        expect(bootstrap).toBeGreaterThan(running);
+        // The app is read only when it is said to exist, and its traffic is kept the same way.
+        expect(get(main, 'resources', 'existingApp', 'condition')).toBe(
+          "[parameters('appExists')]",
+        );
+        const traffic = String(
+          get(main, 'resources', 'app', 'properties', 'parameters', 'preservedTraffic', 'value'),
+        );
+        expect(traffic).toContain("reference('existingApp'");
       });
 
       it('accepts HTTPS only', () => {
@@ -577,6 +700,35 @@ describe.skipIf(!bicep || postgresRun)(
     });
 
     describe('every resource is accounted for', () => {
+      it('declares no resource twice in any template or module, and predicts none twice in any profile', () => {
+        // The first deployment of the pilot was refused by Azure for exactly this: the Container Apps
+        // environment was declared once to create it and once to read it.
+        expect(describeDuplicates(findDuplicateDeclarations(main, 'main.bicep'))).toBe('');
+        for (const [name, snapshot] of Object.entries({
+          pilot,
+          production,
+          release,
+          searching,
+          existing,
+        })) {
+          expect(findDuplicatePredictions(snapshot as never), name).toEqual([]);
+        }
+      });
+
+      it('deploys the Container Apps environment once, new or existing, and exactly one of the two modules', () => {
+        const environments = (snapshot: Json) =>
+          ofType(predicted(snapshot), 'Microsoft.App/managedEnvironments').map((one) =>
+            String(one.name),
+          );
+        expect(environments(pilot)).toEqual(['cae-swarm-pilot']);
+        expect(environments(production)).toEqual(['cae-swarm-prodshape']);
+        expect(environments(existing)).toEqual([]);
+        const [piloted] = ofType(predicted(pilot), 'Microsoft.App/containerApps');
+        const [shared] = ofType(predicted(existing), 'Microsoft.App/containerApps');
+        expect(String(get(piloted, 'properties', 'environmentId'))).toContain('cae-swarm-pilot');
+        expect(String(get(shared, 'properties', 'environmentId'))).toContain('cae-shared');
+      });
+
       it('tags everything that can be tagged, in both profiles', () => {
         for (const snapshot of [pilot, production, existing]) {
           for (const resource of predicted(snapshot)) {

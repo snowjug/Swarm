@@ -63,6 +63,7 @@ export function buildParams(
 export function buildParamsWithoutEnvironment(
   bicep: BicepCli,
   file: string,
+  names?: readonly string[],
 ): { status: number; diagnostics: Diagnostic[] };
 export function evaluate(
   bicep: BicepCli,

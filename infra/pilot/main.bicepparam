@@ -33,8 +33,13 @@ param sourceUrl = readEnvironmentVariable('SWARM_SOURCE_URL', '')
 
 // Optional. Empty keeps the image that already runs, or starts a placeholder on the first provision.
 param containerImage = readEnvironmentVariable('SWARM_CONTAINER_IMAGE', '')
-// azd sets this to true once the app exists, so that `azd provision` does not reset its image or its traffic.
-param appExists = bool(readEnvironmentVariable('SERVICE_SWARM_RESOURCE_EXISTS', 'false'))
+// REQUIRED, with no default, on purpose. true: the container app exists, so its image, traffic, port and probes
+// are kept and only the template's other settings are applied. false: it does not exist yet, so the first
+// deployment starts a placeholder. A template cannot tell whether the app exists, and answering false for an
+// app that runs the real image resets it to the placeholder on port 80 with no probes, so an unset variable
+// stops the deployment before anything is created: BCP427, Environment variable "SERVICE_SWARM_RESOURCE_EXISTS"
+// does not exist. azd sets it; with plain az, export it: false for the first deployment, true for every later one.
+param appExists = bool(readEnvironmentVariable('SERVICE_SWARM_RESOURCE_EXISTS'))
 
 // Optional. The monthly budget in the BILLING currency of the subscription (a budget alerts; it is not a cap).
 param budgetAmount = int(readEnvironmentVariable('SWARM_BUDGET_AMOUNT', '4500'))
@@ -48,6 +53,13 @@ param existingPostgresServerResourceId = readEnvironmentVariable('SWARM_EXISTING
 param existingKeyVaultResourceId = readEnvironmentVariable('SWARM_EXISTING_KEYVAULT_ID', '')
 param existingContainerAppsEnvironmentResourceId = readEnvironmentVariable('SWARM_EXISTING_CONTAINER_APPS_ENVIRONMENT_ID', '')
 
+// PostgreSQL compute of a NEW server. Burstable B1ms is the cheapest choice, but a subscription can be refused it in
+// a region: the deployment then fails with SkuNotAvailable, although `list-skus` shows the SKU. The fallback that
+// worked in Central India is SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4 with SWARM_DATABASE_SKU_TIER=GeneralPurpose
+// (several times the price; docs/azure/pilot-plan.md). Both are ignored when SWARM_EXISTING_POSTGRES_SERVER_ID is set.
+param databaseSkuName = readEnvironmentVariable('SWARM_DATABASE_SKU_NAME', 'Standard_B1ms')
+param databaseSkuTier = readEnvironmentVariable('SWARM_DATABASE_SKU_TIER', 'Burstable')
+
 // Optional. Client address ranges (CIDR, comma separated) allowed to reach the app; empty allows everyone.
 param ingressAllowedCidrs = filter(split(readEnvironmentVariable('SWARM_INGRESS_ALLOWED_CIDRS', ''), ','), cidr => !empty(cidr))
 
@@ -58,6 +70,8 @@ param researchSignalsEmitted = bool(readEnvironmentVariable('SWARM_RESEARCH_SIGN
 // `az containerapp`; these let the same release be made with this template instead. The default keeps
 // the live app's traffic, so applying the template without a release never moves traffic.
 param revisionSuffix = readEnvironmentVariable('SWARM_REVISION_SUFFIX', '')
+// The commit the running image was built from (BUILD_SHA). `azure:release -- build` prints it with the image.
+param buildSha = readEnvironmentVariable('SWARM_BUILD_SHA', '')
 param trafficMode = readEnvironmentVariable('SWARM_TRAFFIC_MODE', 'preserve')
 param previousRevisionName = readEnvironmentVariable('SWARM_PREVIOUS_REVISION', '')
 param newRevisionTrafficPercent = int(readEnvironmentVariable('SWARM_NEW_REVISION_TRAFFIC_PERCENT', '100'))
