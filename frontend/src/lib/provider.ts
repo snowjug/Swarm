@@ -219,6 +219,40 @@ export function projectModeChip(project: {
   };
 }
 
+export interface ProjectEngineWords {
+  /** The two words a person reads at a glance. */
+  text: 'Model-assisted' | 'Rules only';
+  /** What it means for this project, as a sentence. */
+  detail: string;
+  model: boolean;
+}
+
+/**
+ * Which engine one project uses, from what it was made with and not from what the server is set up to do now:
+ * a project made with rules never calls a model, whatever the header chip says about the server.
+ */
+export function projectEngineWords(project: {
+  mode: EngineMode;
+  execution: ExecutionInfo | null;
+}): ProjectEngineWords {
+  if (project.mode !== 'llm') {
+    return {
+      text: 'Rules only',
+      detail:
+        'This project is read and simulated by rules on the server. No model is called: its actors and constraints come from reading the text for roles and limits.',
+      model: false,
+    };
+  }
+  const provider = project.execution?.provider;
+  const named = provider && provider !== 'none' ? providerName(provider) : 'the configured model';
+  const model = project.execution?.model ? ` · ${project.execution.model}` : '';
+  return {
+    text: 'Model-assisted',
+    detail: `This project can ask ${named}${model}. What a model proposes is labelled as the model’s, and waits for your review.`,
+    model: true,
+  };
+}
+
 export function projectUsageText(execution: ExecutionInfo): string {
   const calls = `${execution.modelCalls} real model calls`;
   return execution.modelCalls > 0 && execution.inputTokens === 0 && execution.outputTokens === 0

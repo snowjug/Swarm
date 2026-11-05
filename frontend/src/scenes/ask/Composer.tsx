@@ -179,6 +179,8 @@ export interface ComposerProps {
   /** Whether Swarm researches for itself, which is the one thing it does that the person did not ask for by name. */
   research: ReactNode;
   tools: ReactNode;
+  /** Who reads the question (rules or a model), on the row of the question's label, where it is seen before the question is asked. */
+  engine?: ReactNode;
   /** What opens under the foot of the composer (the advanced fields). */
   panel?: ReactNode;
   note?: ReactNode;
@@ -260,9 +262,12 @@ export const Composer = forwardRef<HTMLFormElement, ComposerProps>(function Comp
     >
       <span className="sw-composer__edge" aria-hidden="true" />
       <div className="sw-composer__field">
-        <label className="sw-composer__label" htmlFor="swarm-question">
-          Your what-if question
-        </label>
+        <div className="sw-composer__headline">
+          <label className="sw-composer__label" htmlFor="swarm-question">
+            Your what-if question
+          </label>
+          {props.engine}
+        </div>
         <div className="sw-composer__box">
           <Prompts questions={props.pool} visible={question.length === 0} />
           <Textarea

@@ -3,8 +3,10 @@ import {
   ArrowRight,
   CircleCheck,
   CircleX,
+  Cpu,
   FlaskConical,
   PauseCircle,
+  Server,
   Sparkles,
   Square,
 } from 'lucide-react';
@@ -15,6 +17,7 @@ import type { Tone } from '../../design/ui';
 import { useWorkspace } from '../../app/context';
 import { useMediaQuery } from '../../hooks/useMediaQuery';
 import { openConflicts } from '../../lib/ledger';
+import { projectEngineWords } from '../../lib/provider';
 import { Figures, type FigureSpec } from './Figures';
 import { Method } from './Method';
 import { Phases } from './Phases';
@@ -134,6 +137,8 @@ export function Hero() {
   const reason = failureReason(project);
   const event = latestEvent(project);
   const sample = sampleNote(documents);
+  // Which engine this project uses: a page of results says it too, not only the bar.
+  const engine = projectEngineWords(project);
   // While research is what the page is about, its status, its figures and its actions are the page's head, and its
   // stages are drawn where the research is; the evidence's own are what follow when research has done its part.
   const research = useGroundResearch();
@@ -292,6 +297,14 @@ export function Hero() {
               {sample}
             </span>
           )}
+          <span className="sw-ground__sample" title={engine.detail}>
+            {engine.model ? (
+              <Server size={13} aria-hidden="true" />
+            ) : (
+              <Cpu size={13} aria-hidden="true" />
+            )}
+            {engine.text}
+          </span>
         </div>
         <div className="sw-ground__asking sw-rise" style={vars({ '--i': 1 })}>
           <Question text={project.question} />

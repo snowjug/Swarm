@@ -4,6 +4,7 @@ import type { AppConfig, ProviderConnectivity, SimulationSettings } from '../../
 import { Button, Disclosure, Field, Input, Notice, Segmented } from '../../design/ui';
 import { authText, modelReadiness, realModelLabel } from '../../lib/provider';
 import { Surface } from './Surface';
+import { withMode } from './engine';
 import './SettingsPopover.css';
 
 /** The most the engine accepts of a number, for the mode in use. */
@@ -17,22 +18,6 @@ function settingLimits(config: AppConfig | null, mode: SimulationSettings['mode'
       mode === 'llm'
         ? (config?.limits.modelMaxRounds ?? 10)
         : (config?.limits.localMaxRounds ?? 24),
-  };
-}
-
-/** Changing the engine keeps every number inside what the other engine accepts. */
-function withMode(
-  settings: SimulationSettings,
-  mode: SimulationSettings['mode'],
-): SimulationSettings {
-  const limit = mode === 'llm' ? 10 : 24;
-  return {
-    ...settings,
-    mode,
-    agentCount: Math.min(settings.agentCount, limit),
-    rounds: Math.min(settings.rounds, limit),
-    intervention:
-      settings.intervention && settings.intervention.round <= limit ? settings.intervention : null,
   };
 }
 

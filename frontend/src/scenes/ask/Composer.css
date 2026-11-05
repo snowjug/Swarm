@@ -79,6 +79,13 @@
     display: grid;
     gap: 0.25rem;
   }
+  .sw-composer__headline {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: var(--s-2) var(--s-3);
+  }
   .sw-composer__label {
     color: var(--ink-3);
     font-size: var(--fs-micro);

@@ -37,6 +37,7 @@ import {
 import { useAway } from './unsaved-context';
 import { AskScene } from '../scenes/ask/AskScene';
 import { ProviderStatus } from '../panels/ProviderStatus';
+import { ProjectEngine } from '../panels/ProjectEngine';
 import { BudgetGuard } from '../panels/BudgetGuard';
 
 /** The scene each engine stage belongs to, for the one thing the lab's polling needs to know. */
@@ -493,7 +494,12 @@ export function Application() {
           onHistory={() => setPanel('history')}
           onAsk={() => panels.ask()}
           onPalette={() => setPalette(true)}
-          status={statusChip}
+          status={
+            <>
+              {project && <ProjectEngine mode={project.mode} execution={project.execution} />}
+              {statusChip}
+            </>
+          }
           menu={
             project && workspace ? (
               <ProjectMenu

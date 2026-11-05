@@ -1,0 +1,11 @@
+@layer scenes {
+  /* The engine choice sits in the row of tools under the question: a small segmented control, not a form. */
+  .sw-engine-choice {
+    display: inline-flex;
+    align-items: center;
+  }
+  .sw-engine-choice[aria-disabled='true'] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+}

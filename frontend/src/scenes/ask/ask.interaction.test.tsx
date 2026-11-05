@@ -288,6 +288,108 @@ describe('asking for a reading', () => {
     expect(net.parse).not.toHaveBeenCalled();
   });
 
+  describe('who reads the question, said where the question is written', () => {
+    const engine = () => screen.getByRole('radiogroup', { name: 'How it is read' });
+    const choice = (name: 'Rules only' | 'Model-assisted') =>
+      // The name of an option begins with its label and goes on to say where the question goes.
+      within(engine()).getByRole<HTMLButtonElement>('radio', { name: new RegExp(`^${name}`, 'u') });
+    const modelByDefault: AppConfig = {
+      ...CONFIG,
+      capabilities: { ...CONFIG.capabilities, defaultEngine: 'llm' },
+    };
+
+    it('is beside the evidence and Options, not behind them, and starts on rules, which send nothing anywhere', () => {
+      renderAsk();
+      expect(choice('Rules only').getAttribute('aria-checked')).toBe('true');
+      expect(choice('Model-assisted').getAttribute('aria-checked')).toBe('false');
+      expect(choice('Model-assisted').disabled).toBe(false);
+      expect(screen.getByText('Stays on this server')).toBeTruthy();
+    });
+
+    it('sends the question to the model once the person chooses it, and says where it goes', async () => {
+      net.parse.mockResolvedValue(reading(scenario(), 'model'));
+      const { user } = renderAsk();
+      await compose(user);
+      await user.click(choice('Model-assisted'));
+      expect(choice('Model-assisted').getAttribute('aria-checked')).toBe('true');
+      expect(screen.getByText('Sent to Azure AI')).toBeTruthy();
+      await user.click(explore());
+      await groundIt();
+      expect(net.parse.mock.calls[0]![3]).toBe(true);
+    });
+
+    it('is one choice with the Engine in Options: changing either changes both', async () => {
+      const { user } = renderAsk();
+      await chooseEngine(user, 'Model assisted');
+      expect(choice('Model-assisted').getAttribute('aria-checked')).toBe('true');
+      await user.click(choice('Rules only'));
+      await user.click(screen.getByRole('button', { name: 'Options' }));
+      const options = await screen.findByRole('dialog', { name: 'Options' });
+      expect(
+        within(options).getByRole('radio', { name: 'Local rules' }).getAttribute('aria-checked'),
+      ).toBe('true');
+    });
+
+    it('starts on the model where the operator asked for it, with the choice still there to change', async () => {
+      net.parse.mockResolvedValue(reading(scenario()));
+      const { user } = renderAsk({ config: modelByDefault });
+      expect(choice('Model-assisted').getAttribute('aria-checked')).toBe('true');
+      await compose(user);
+      await user.click(choice('Rules only'));
+      await user.click(explore());
+      await groundIt();
+      expect(net.parse.mock.calls[0]![3]).toBe(false);
+    });
+
+    it('follows the server’s own answer when it arrives late, until the person has chosen', async () => {
+      const first = renderAsk({ config: null });
+      expect(choice('Rules only').getAttribute('aria-checked')).toBe('true');
+      first.rerender(
+        <AskScene
+          config={modelByDefault}
+          busy={false}
+          onSubmit={first.onSubmit}
+          history={{ projects: [], loading: false, error: null }}
+          onOpenProject={vi.fn()}
+          onRetryHistory={vi.fn()}
+          onHistory={vi.fn()}
+          mode="guided"
+        />,
+      );
+      expect(choice('Model-assisted').getAttribute('aria-checked')).toBe('true');
+      await first.user.click(choice('Rules only'));
+      first.rerender(
+        <AskScene
+          config={{ ...modelByDefault }}
+          busy={false}
+          onSubmit={first.onSubmit}
+          history={{ projects: [], loading: false, error: null }}
+          onOpenProject={vi.fn()}
+          onRetryHistory={vi.fn()}
+          onHistory={vi.fn()}
+          mode="guided"
+        />,
+      );
+      // What the person chose is not undone by the server answering again.
+      expect(choice('Rules only').getAttribute('aria-checked')).toBe('true');
+    });
+
+    it('never preselects a model the server is not set up to use, and says why it cannot be chosen', () => {
+      renderAsk({
+        config: {
+          ...modelByDefault,
+          capabilities: { ...modelByDefault.capabilities, modelAssisted: false },
+          provider: { ...CONFIG.provider, configured: false, reason: 'No provider is set up.' },
+        },
+      });
+      expect(choice('Rules only').getAttribute('aria-checked')).toBe('true');
+      expect(choice('Model-assisted').disabled).toBe(true);
+      expect(choice('Model-assisted').getAttribute('aria-label') ?? '').toContain(
+        'No provider is set up.',
+      );
+    });
+  });
+
   it('refuses a question that is too short, says so, and sends nothing', async () => {
     const { user } = renderAsk();
     await user.type(questionBox(), 'Too short');

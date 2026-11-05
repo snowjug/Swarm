@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react';
 import { AnimatePresence, m } from 'motion/react';
-import { Globe, Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
+import { Cpu, Globe, Paperclip, Server, SlidersHorizontal, X } from 'lucide-react';
 import { DEMO_PROJECTS } from '../../../../shared/demo';
 import { SCENARIO_QUESTION_MAX, type ScenarioFrame } from '../../../../shared/scenario';
 import type {
@@ -26,6 +26,7 @@ import {
   withEvidence,
 } from '../../lib/intake';
 import { urlIngestionEnabled } from '../../lib/product';
+import { providerName } from '../../lib/provider';
 import type { UiMode } from '../../lib/mode';
 import { AdvancedPanel, AdvancedToggle, ResearchSwitch } from './Advanced';
 import {
@@ -41,6 +42,8 @@ import { Assumptions } from './Context';
 import { Credibility } from './Credibility';
 import { Demonstrations } from './Demonstrations';
 import { DocumentSheet } from './DocumentSheet';
+import { EngineChoice } from './EngineChoice';
+import { startingMode, withMode } from './engine';
 import { EvidenceMenu } from './EvidenceMenu';
 import { Explainer } from './Explainer';
 import { flowSteps } from './flow';
@@ -137,8 +140,23 @@ export function AskScene({
       })) ?? [],
   );
   const [settings, setSettings] = useState<SimulationSettings>(
-    initialProject?.settings ?? DEFAULT_SETTINGS,
+    () => initialProject?.settings ?? withMode(DEFAULT_SETTINGS, startingMode(config)),
   );
+  // Until the person says which engine, what the operator preselected follows the server's own answer, which may
+  // arrive after the page does. A project being asked again keeps what it was made with.
+  const engineChosen = useRef(Boolean(initialProject));
+  const chooseSettings = useCallback(
+    (next: SimulationSettings) => {
+      if (next.mode !== settings.mode) engineChosen.current = true;
+      setSettings(next);
+    },
+    [settings.mode],
+  );
+  useEffect(() => {
+    if (engineChosen.current) return;
+    const wanted = startingMode(config);
+    setSettings((old) => (old.mode === wanted ? old : withMode(old, wanted)));
+  }, [config]);
   const [frame, setFrame] = useState<ScenarioFrame | null>(null);
   // What the person said beside the question before it was read: how long the effects are judged over, where, what to
   // take as given, and what research is asked to do.
@@ -659,7 +677,7 @@ export function AskScene({
                       config={config}
                       connectivity={connectivity}
                       settings={settings}
-                      onSettings={setSettings}
+                      onSettings={chooseSettings}
                       name={name}
                       onName={setName}
                       disabled={busy || starting}
@@ -674,6 +692,14 @@ export function AskScene({
                       }
                     />
                   </>
+                }
+                engine={
+                  <EngineChoice
+                    config={config}
+                    mode={settings.mode}
+                    disabled={busy || starting}
+                    onMode={(mode) => chooseSettings(withMode(settings, mode))}
+                  />
                 }
                 panel={
                   <AdvancedPanel
@@ -697,12 +723,16 @@ export function AskScene({
                 }
                 note={
                   <>
-                    {useModel && (
-                      <span className="sw-ask__engine">
+                    <span className="sw-ask__engine sw-hide-sm">
+                      {useModel ? (
                         <Server size={14} aria-hidden="true" />
-                        Model assisted
-                      </span>
-                    )}
+                      ) : (
+                        <Cpu size={14} aria-hidden="true" />
+                      )}
+                      {useModel
+                        ? `Sent to ${config ? providerName(config.provider.name) : 'the model'}`
+                        : 'Stays on this server'}
+                    </span>
                     {question.length >= QUESTION_COUNT_FROM ? (
                       <>
                         <span

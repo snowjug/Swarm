@@ -14,6 +14,7 @@ import {
   providerChangeAnnouncement,
   providerLabel,
   providerName,
+  projectEngineWords,
   realModelLabel,
   tokensText,
 } from './provider';
@@ -171,6 +172,40 @@ describe('provider token text', () => {
 
   it('is not a provider claim in local mode', () => {
     expect(tokensText(localStatusFixture())).toBe('none: no model is called');
+  });
+});
+
+describe('which engine a project uses, in words', () => {
+  const execution = (patch: Partial<ExecutionInfo> = {}): ExecutionInfo => ({
+    provider: 'foundry',
+    model: 'swarm-chat',
+    modelCalls: 0,
+    inputTokens: 0,
+    outputTokens: 0,
+    ...patch,
+  });
+
+  it('says rules only for a project made without a model, whatever the server could call now', () => {
+    for (const recorded of [null, execution()]) {
+      const words = projectEngineWords({ mode: 'local', execution: recorded });
+      expect(words).toMatchObject({ text: 'Rules only', model: false });
+      expect(words.detail).toContain('No model is called');
+    }
+  });
+
+  it('says model-assisted for a project made with one, naming the provider and the deployment recorded', () => {
+    const words = projectEngineWords({ mode: 'llm', execution: execution() });
+    expect(words).toMatchObject({ text: 'Model-assisted', model: true });
+    expect(words.detail).toContain('Microsoft Foundry · swarm-chat');
+    expect(words.detail).toContain('labelled as the model’s');
+  });
+
+  it('does not call a model project rules while its provider is not yet recorded', () => {
+    for (const recorded of [null, execution({ provider: 'none', model: null })]) {
+      const words = projectEngineWords({ mode: 'llm', execution: recorded });
+      expect(words.text).toBe('Model-assisted');
+      expect(words.detail).toContain('the configured model');
+    }
   });
 });
 

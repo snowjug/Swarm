@@ -287,4 +287,31 @@
       grid-template-columns: 1fr;
     }
   }
+
+  /*
+   * Which engine this project uses, beside the provider chip so that it is marked on every screen that shows
+   * results. It is a statement, not a control: the same hairline pill as a glyph (a chip for rules, a server for a
+   * model), with an accent edge for a model and the whole statement as its name. It has no words of its own because
+   * the bar has no room for them beside the provider's; the words are in its name, in its tooltip and on the screens.
+   */
+  .sw-engine {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+    width: 2.25rem;
+    height: 2.25rem;
+    margin-right: 0.125rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    color: var(--ink-2);
+  }
+  .sw-engine[data-engine='model'] {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  [data-theme='high-contrast'] .sw-engine {
+    border-color: var(--hairline-strong);
+  }
 }

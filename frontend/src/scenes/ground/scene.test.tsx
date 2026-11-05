@@ -295,6 +295,17 @@ describe('the first screen', () => {
 });
 
 describe('the head of the page says what the sources are', () => {
+  it('says which engine the project uses, in words, beside the status', () => {
+    const rules = project();
+    rules.mode = 'local';
+    expect(words(render(<Hero />, rules))).toContain('Rules only');
+    const model = project();
+    model.mode = 'llm';
+    const text = words(render(<Hero />, model));
+    expect(text).toContain('Model-assisted');
+    expect(text).not.toContain('Rules only');
+  });
+
   it('says synthetic samples beside the status when every source is one, and when only some are', () => {
     const all = words(render(<Hero />, project()));
     expect(all).toContain('Synthetic samples');
