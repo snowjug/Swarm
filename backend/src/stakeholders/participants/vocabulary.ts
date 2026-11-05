@@ -333,6 +333,53 @@ export const COMMAND_VERBS: ReadonlySet<string> = set(
  */
 export const MACHINE_MODIFIERS: ReadonlySet<string> = set('auto automated automatic robotic');
 
+/**
+ * The verbs that open a line of release notes or a feature list ("Added advanced controls", "Allowing admins to
+ * choose", "Help users find"): what a change does, not who it is for. A name that begins with one of them, in
+ * any form a line takes (base, third person, past, "-ing"), reads as a clause from the text and not as a group.
+ * Only verbs that no group is described by are here: "supporting", "leading", "working", "visiting", "fixed" and
+ * "registered" all describe people, and "letting agents" and "extended families" are groups, so they are left out.
+ */
+export const RELEASE_NOTE_VERBS: ReadonlySet<string> = set(
+  'add allow enable help improve introduce update provide offer include bring deliver simplify ' +
+    'streamline ensure give make',
+);
+
+/** What may follow "help" and still be a group: a help desk is a team of people, though "help users" is a clause. */
+export const HELP_UNITS: ReadonlySet<string> = set('desk line team staff service');
+
+/**
+ * Words that, before an activity noun, say it is the activity itself and not the people who do it: a tier
+ * ("advanced", "enterprise") or what is handled ("calendar", "device"). "Senior management" and "store
+ * management" are people; "advanced management" and "calendar management" are features.
+ */
+const ACTIVITY_MODIFIERS: ReadonlySet<string> = set(
+  'advanced basic standard enterprise premium professional essential unified intelligent centralized ' +
+    'centralised integrated automated cloud mobile digital remote calendar device identity access content ' +
+    'data document file license licence mailbox patch application app email event meeting ticket ' +
+    'permission password endpoint configuration workflow backup storage policy lifecycle release',
+);
+
+/** Nouns for an activity that, said of an organisation, is also the people who do it. */
+export const CAPABILITY_HEADS: ReadonlyMap<string, ReadonlySet<string>> = new Map([
+  ['management', ACTIVITY_MODIFIERS],
+  ['administration', ACTIVITY_MODIFIERS],
+]);
+
+/** Nouns for a part of an organisation by where or how it is placed, which say nothing of who is in it. */
+export const UNIT_NOUNS: ReadonlySet<string> = set(
+  'office department division unit branch wing floor suite headquarters headquarter',
+);
+
+/**
+ * Words of rank or reach that are no function: an "executive office" and a "central department" say how high
+ * or how wide, not what for. "Finance department" and "sales office" say what for, and are not refused.
+ */
+export const RANK_MODIFIERS: ReadonlySet<string> = set(
+  'executive senior junior head chief corporate central regional national global group general main top ' +
+    'upper lower',
+);
+
 /** Texts that set rules, and so imply a body that sets or applies them. */
 export const INSTRUMENTS: ReadonlySet<string> = new Set(
   'code standard act policy regulation directive charter guideline framework agreement law legislation statute bylaw'.split(

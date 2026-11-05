@@ -49,12 +49,19 @@ navigation boxes, tables of contents, rows of links and footers, which are made 
 sentence about a group and say nothing about it. They are told apart by their shape, not by any word:
 
 - an **instruction** ("Configure widgets", "Manage users") is what a person does with a thing, not who: a word
-  that opens one never describes a group, and a name that begins with one is left out of a proposal. A **thing** that
-  shares a noun with a body ("content delivery network", "admin center", "notice board") and a role noun after a
-  machine word ("auto attendant") are not groups either, and neither is the **very thing the decision changes**
-  ("Acme Rooms" in a question about Rooms; unless the decision is worded as that name doing something). The same
-  check holds a model's proposal: such a name is sent back once for correction, and the rules path leaves it out
-  and says why in the list of what was left out;
+  that opens one never describes a group, and a name that begins with one is left out of a proposal. So is a
+  name that opens like a **line of release notes** ("Added advanced controls", "Allowing admins", "Help
+  users"): a verb that such a line begins with, in any form it takes, says what a change does and not who it is
+  for (a help desk, a letting agent, an extended family and a registered nurse are groups, and stand). A
+  **capability** is an activity and not the people who do it: "calendar management" and "advanced management"
+  are features, while "senior management" and "store management" are people. A **department or office named by
+  its rank alone** ("executive offices") says nothing of who is in it, while "finance department" does. A **thing**
+  that shares a noun with a body ("content delivery network", "admin center", "notice board") and a role noun
+  after a machine word ("auto attendant") are not groups either, and neither is the **very thing the decision
+  changes** ("Acme Rooms" in a question about Rooms; unless the decision is worded as that name doing something).
+  The same check holds a model's proposal: such a name is sent back once for correction, and the rules path
+  leaves it out and says why in the list of what was left out. The rules refuse a **form of words**, never a
+  word, and each form is a small list in `participants/vocabulary.ts`;
 - a line of three or more words that are nearly all capitalised, with no full stop, is a **list of names**
   (a menu row, a row of a table of contents), and no group is found in it;
 - a line of up to three words with no full stop is a **heading** when it stands between sentences, which

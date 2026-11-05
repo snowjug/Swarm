@@ -3,7 +3,16 @@ import { lintText, ownWords } from '../../brief/lint.js';
 import { singular } from '../lexicon.js';
 import { truncate } from '../names.js';
 import { shortSystem } from './topic.js';
-import { COMMAND_VERBS, MACHINE_MODIFIERS, THING_HEADS } from './vocabulary.js';
+import {
+  CAPABILITY_HEADS,
+  COMMAND_VERBS,
+  HELP_UNITS,
+  MACHINE_MODIFIERS,
+  RANK_MODIFIERS,
+  RELEASE_NOTE_VERBS,
+  THING_HEADS,
+  UNIT_NOUNS,
+} from './vocabulary.js';
 
 /**
  * The language rules behind the participant checks: what a name may not be, what generated text may
@@ -277,17 +286,41 @@ function namesTheSystem(name: string, scenario: ScenarioFrame | null): boolean {
 }
 
 /**
+ * Whether a word is a form of a verb that opens a line of release notes: "add", "adds", "added", "adding". The
+ * forms are made by taking the endings off, so a word that only looks like one ("addis") is not taken for it.
+ */
+function opensAClause(word: string): boolean {
+  const forms = [word];
+  if (word.endsWith('ing')) forms.push(word.slice(0, -3), `${word.slice(0, -3)}e`);
+  if (word.endsWith('ed')) forms.push(word.slice(0, -2), word.slice(0, -1));
+  if (word.endsWith('es')) forms.push(word.slice(0, -2));
+  if (word.endsWith('s') && !word.endsWith('ss')) forms.push(word.slice(0, -1));
+  return forms.some((form) => RELEASE_NOTE_VERBS.has(form));
+}
+
+/**
  * What stops a name from being a party at all, whoever proposed it: it opens like an instruction or a
- * menu item ("Configure widgets", "Manage users"), which is what a person does, not who; it names a thing
- * ("Content Delivery Network", "Rooms admin center") or a machine ("auto attendants"); or it is the
- * thing the decision changes ("Acme Rooms" in a question about Rooms), unless the decision is worded
- * as that name doing something ("Harbour Library closes on Sundays"). A group is named for who it is, and
- * a page of documentation is full of all of these.
+ * menu item ("Configure widgets", "Manage users"), or like a line of release notes ("Added advanced
+ * controls", "Allowing admins", "Help users"), which is what a change does and not who it is for; it
+ * names a thing ("Content Delivery Network", "Rooms admin center") or a machine ("auto attendants"); it
+ * names a capability, which is an activity and not the people who do it ("Calendar management", "Advanced
+ * management"); it names a department or an office by its rank alone ("Executive offices"), which says
+ * nothing of who is in it; or it is the thing the decision changes ("Acme Rooms" in a question about
+ * Rooms), unless the decision is worded as that name doing something ("Harbour Library closes on
+ * Sundays"). A group is named for who it is, and a page of documentation is full of all of these.
  */
 export function partyProblem(name: string, scenario: ScenarioFrame | null): string | null {
   const words = wordsIn(name);
-  if (words.length >= 2 && COMMAND_VERBS.has(words[0] ?? '')) {
+  const first = words[0] ?? '';
+  if (words.length >= 2 && COMMAND_VERBS.has(first)) {
     return 'it begins with an instruction word, so it reads as a heading or a menu item and not a party';
+  }
+  if (
+    words.length >= 2 &&
+    opensAClause(first) &&
+    !(first === 'help' && HELP_UNITS.has(singular(words[1] ?? '')))
+  ) {
+    return 'it begins with a verb, so it reads as a line about what a change does and not as a group of people';
   }
   const last = words.at(-1);
   const before = words.at(-2);
@@ -295,14 +328,32 @@ export function partyProblem(name: string, scenario: ScenarioFrame | null): stri
     if (THING_HEADS.get(singular(last))?.has(before)) {
       return 'it names a thing, such as a page, a service or a network, and not a group of people';
     }
+    if (CAPABILITY_HEADS.get(singular(last))?.has(before)) {
+      return 'it names a capability or a feature, which is an activity and not the people who do it';
+    }
     if (MACHINE_MODIFIERS.has(before)) {
       return 'it names a machine or a feature, and not a group of people';
     }
+  }
+  if (namesAUnitByRank(name)) {
+    return 'it names a department or an office by its rank alone, which does not say who is in it';
   }
   if (namesTheSystem(name, scenario) && !leadsWith(scenario?.decision ?? '', name)) {
     return 'it names the thing the decision changes, which is not a party to it';
   }
   return null;
+}
+
+/** Whether a name is a department, an office or a branch with nothing before it but a word of rank. */
+function namesAUnitByRank(name: string): boolean {
+  const tokens = nameTokens(name);
+  const head = tokens.at(-1);
+  return (
+    tokens.length >= 2 &&
+    head !== undefined &&
+    UNIT_NOUNS.has(head) &&
+    tokens.slice(0, -1).every((token) => RANK_MODIFIERS.has(token) || GENERIC_MODIFIERS.has(token))
+  );
 }
 
 // ---------------------------------------------------------------------------------------------

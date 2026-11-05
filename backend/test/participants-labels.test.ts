@@ -333,3 +333,105 @@ describe('a model’s proposal on that page', () => {
     for (const label of NOT_PARTIES) expect(listed, label).not.toContain(label.toLowerCase());
   });
 });
+
+// A second live pilot read a page of release notes by rules, because its model's reply had been cut off, and
+// proposed these six as the parties to the decision: they drove its headline ("Allowing developers +47 in
+// 100") and its first recommendation ("Build on Executive Offices"). Each is the shape of a line of notes and
+// not of a group: a verb and what it did, the name of a capability, a tier of one, or a department by its rank.
+// The text below is written for these tests in the manner of such notes, and quotes none.
+
+const SIX = [
+  ['Added advanced management', 'begins with a verb'],
+  ['Calendar Management', 'names a capability or a feature'],
+  ['Executive Offices', 'department or an office by its rank alone'],
+  ['SharePoint Advanced Management', 'names a capability or a feature'],
+  ['Allowing developers', 'begins with a verb'],
+  ['Help users', 'begins with a verb'],
+] as const;
+
+const NOTES = [
+  '# What is new in the admin guide',
+  'Added advanced management for IT admins.',
+  'Calendar Management now lets meeting organizers hand a calendar to a delegate.',
+  'The Executive Offices ask for a way to keep their own settings.',
+  'SharePoint Advanced Management helps administrators find sites that need a review.',
+  'Allowing developers to build agents for the company is on the roadmap.',
+  'Help users find the right agent, the page says, and frontline workers ask for the same.',
+  `${QUOTES.group}.`,
+].join('\n\n');
+const notesPassages = chunkDocuments([{ id: 'D2', name: 'release-notes.md', content: NOTES }]).map(
+  (chunk) => ({ ...chunk, contentHash: createHash('sha256').update(chunk.text).digest('hex') }),
+);
+
+describe('the six that a page of release notes made parties', () => {
+  it('are read as mentions by the reader, as the pilot’s were: the page is the real path to them', () => {
+    const surfaces = readMentions(notesPassages).map((mention) => mention.surface);
+    expect(surfaces).toEqual(expect.arrayContaining(SIX.map(([name]) => name)));
+  });
+
+  it.each(SIX)('says why %s is not a party', (name, why) => {
+    expect(partyProblem(name, FRAME)).toContain(why);
+  });
+
+  it.each([
+    'Senior management',
+    'Store management',
+    'Project management',
+    'Help desk',
+    'Help desk staff',
+    'Visiting lecturers',
+    'Registered nurses',
+    'Managing director',
+    'Elected officials',
+    'Finance department',
+    'Sales office',
+    'Head office staff',
+    'Executive team',
+    'Fixed income investors',
+    'Letting agents',
+    'Extended families',
+    'Supporting actors',
+    'Developers',
+  ])('still lets %s stand: the rules refuse a form of words, not a word', (name) => {
+    expect(partyProblem(name, FRAME)).toBeNull();
+  });
+
+  it('are left out by the rules path, which says why, and the people the page speaks of are kept', async () => {
+    const { set, source } = await proposeParticipants({
+      context: buildContext({
+        question: QUESTION,
+        scenario: FRAME,
+        graph: null,
+        passages: notesPassages,
+      }),
+      model: null,
+      modelName: null,
+      signal: signal(),
+      now: () => NOW,
+    });
+    expect(source).toBe('rules');
+    const listed = names(set).map((name) => name.toLowerCase());
+    for (const [name] of SIX) expect(listed, name).not.toContain(name.toLowerCase());
+    expect(listed).toEqual(expect.arrayContaining(['it admins', 'frontline workers']));
+    for (const [name, why] of SIX) {
+      expect(set.proposal?.dropped, name).toContainEqual({
+        name,
+        reason: expect.stringMatching(new RegExp(`^Left out of the proposal: .*${why}`, 'u')),
+      });
+    }
+  });
+
+  it('are refused when a model proposes them, each with its reason, and the corrected reply is used', async () => {
+    const bad = reply(...SIX.map(([name], index) => inferred(`six-${index}`, name)));
+    const { set, source, model } = await propose([bad, reply()]);
+    expect(model.attempts).toBe(2);
+    expect(model.refused).toHaveLength(1);
+    for (const [name, why] of SIX) {
+      expect(model.refused[0], name).toContain(`“${name}”`);
+      expect(model.refused[0], name).toContain(why);
+    }
+    expect(source).toBe('model');
+    const listed = names(set).map((name) => name.toLowerCase());
+    for (const [name] of SIX) expect(listed, name).not.toContain(name.toLowerCase());
+  });
+});
