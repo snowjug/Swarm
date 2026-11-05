@@ -426,6 +426,8 @@ export interface AppConfig {
   capabilities: {
     local: boolean;
     modelAssisted: boolean;
+    /** What a new question starts with on the Ask screen. Absent from a server that does not say: `local`. */
+    defaultEngine?: 'local' | 'llm';
     fileTypes: string[];
     pdf: boolean;
     webRetrieval: boolean;

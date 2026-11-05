@@ -52,6 +52,7 @@ param previousRevisionName = readEnvironmentVariable('SWARM_PREVIOUS_REVISION', 
 param newRevisionTrafficPercent = int(readEnvironmentVariable('SWARM_NEW_REVISION_TRAFFIC_PERCENT', '100'))
 param keyVaultSecretReferences = json(readEnvironmentVariable('SWARM_KEYVAULT_SECRET_REFERENCES', '[]'))
 param researchSearchProvider = readEnvironmentVariable('SWARM_RESEARCH_SEARCH_PROVIDER', 'none')
+param defaultEngine = readEnvironmentVariable('SWARM_DEFAULT_ENGINE', 'rules')
 
 // Compute
 param cpu = '1'

@@ -91,6 +91,13 @@ param sourceUrl string = ''
 ])
 param researchSearchProvider string = 'none'
 
+@description('What the Ask screen preselects for a new question (DEFAULT_ENGINE). rules keeps everything on the server; model asks the configured model, and a pilot meant to show the model sets it. Either is only a preselection: every person sees the choice and can change it, and a model that is not configured is never preselected.')
+@allowed([
+  'rules'
+  'model'
+])
+param defaultEngine string = 'rules'
+
 @description('Most model calls one project may make in all (PROJECT_MODEL_CALL_LIMIT); 0 is no limit.')
 param projectModelCallLimit int = 0
 
@@ -238,6 +245,7 @@ var baseEnvironment = [
   { name: 'RATE_LIMIT_SCALE', value: '1' }
   { name: 'SWARM_ROLE', value: 'all' }
   { name: 'RESEARCH_SEARCH_PROVIDER', value: researchSearchProvider }
+  { name: 'DEFAULT_ENGINE', value: defaultEngine }
   { name: 'PROJECT_MODEL_CALL_LIMIT', value: string(projectModelCallLimit) }
   { name: 'PROJECT_MODEL_TOKEN_LIMIT', value: string(projectModelTokenLimit) }
 ]

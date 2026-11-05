@@ -132,6 +132,13 @@ param projectModelTokenLimit int = 4000000
 ])
 param researchSearchProvider string = 'none'
 
+@description('What the Ask screen preselects for a new question (DEFAULT_ENGINE). rules keeps everything on the server; model asks the configured model, and a pilot meant to show the model sets it. Either is only a preselection: every person sees the choice and can change it, and a model that is not configured is never preselected.')
+@allowed([
+  'rules'
+  'model'
+])
+param defaultEngine string = 'rules'
+
 // ---------------------------------------------------------------------------------------------
 // PostgreSQL
 // ---------------------------------------------------------------------------------------------
@@ -544,6 +551,7 @@ module app 'modules/container-app.bicep' = {
     projectModelCallLimit: projectModelCallLimit
     projectModelTokenLimit: projectModelTokenLimit
     researchSearchProvider: researchSearchProvider
+    defaultEngine: defaultEngine
     deploymentMode: deploymentMode
     deploymentLabel: deploymentLabel
     buildSha: effectiveBuildSha

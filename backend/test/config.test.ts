@@ -19,6 +19,24 @@ describe('provider configuration and public boundaries', () => {
     expect(JSON.stringify(publicConfig(config))).not.toContain('not-a-real-key');
   });
 
+  it('starts a new question on rules, and on the model only where one is set up and the operator asked for it', () => {
+    const model = {
+      AI_PROVIDER: 'azure',
+      AI_MODEL: 'my-deployment',
+      AZURE_OPENAI_ENDPOINT: 'https://swarm-dev.cognitiveservices.azure.com/',
+    };
+    const engine = (environment: Record<string, string>) =>
+      publicConfig(loadConfig(environment)).capabilities.defaultEngine;
+    // Privacy first: nothing is sent to a model unless it is asked for, whatever the server could do.
+    expect(engine({})).toBe('local');
+    expect(engine(model)).toBe('local');
+    expect(engine({ ...model, DEFAULT_ENGINE: 'rules' })).toBe('local');
+    expect(engine({ ...model, DEFAULT_ENGINE: 'model' })).toBe('llm');
+    // A model that is not there cannot be preselected.
+    expect(engine({ DEFAULT_ENGINE: 'model' })).toBe('local');
+    expect(() => loadConfig({ DEFAULT_ENGINE: 'always' })).toThrow(/DEFAULT_ENGINE/u);
+  });
+
   it('uses the Azure v1 endpoint and deployment name without exposing its key', () => {
     const config = loadConfig({
       AI_PROVIDER: 'azure',

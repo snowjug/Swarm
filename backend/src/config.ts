@@ -96,6 +96,8 @@ export interface ServerConfig {
   deployment: DeploymentConfig;
   /** Multiplies every per-IP request limit. Default 1; raise only for automated tests/load tests. */
   rateLimitScale: number;
+  /** What a new question starts with on the Ask screen. It is a preselection, not a requirement (`DEFAULT_ENGINE`). */
+  defaultEngine: 'rules' | 'model';
   /**
    * How many reverse proxies sit in front of the server and are trusted to say who the caller is
    * (`X-Forwarded-For`). 0 (the default) trusts none: the caller is the peer address. Behind one proxy,
@@ -224,6 +226,9 @@ const environmentSchema = z.object({
   JOB_LEASE_SECONDS: z.coerce.number().int().min(10).max(600).default(30),
   PROJECT_MODEL_CALL_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
   PROJECT_MODEL_TOKEN_LIMIT: z.coerce.number().int().min(0).max(MAX_BUDGET_LIMIT).default(0),
+  // What the Ask screen preselects for a new question: `rules` keeps everything on the server, `model` asks the
+  // configured model. The person still sees and can change it; a model that is not configured is never preselected.
+  DEFAULT_ENGINE: z.enum(['rules', 'model']).default('rules'),
   URL_INGESTION: z.enum(['on', 'off', 'true', 'false', '1', '0']).default('on'),
   URL_INGEST_ALLOWED_PORTS: z.string().trim().max(100).default('80,443'),
   URL_INGEST_MAX_BYTES: z.coerce.number().int().min(10_000).max(5_000_000).default(1_500_000),
@@ -530,6 +535,7 @@ function loadBaseConfig(
     auth,
     storageWarning: databaseUrl ? null : storageWarning(databasePath),
     rateLimitScale: input.RATE_LIMIT_SCALE,
+    defaultEngine: input.DEFAULT_ENGINE,
     trustedProxies: input.TRUST_PROXY,
     role: input.SWARM_ROLE,
     jobLeaseMs: input.JOB_LEASE_SECONDS * 1_000,
@@ -577,6 +583,8 @@ export function publicConfig(config: ServerConfig): AppConfig {
     capabilities: {
       local: true,
       modelAssisted: configured,
+      // What a new question starts with: the model only where one is set up and the operator asked for it.
+      defaultEngine: configured && config.defaultEngine === 'model' ? 'llm' : 'local',
       fileTypes: ['txt', 'md', 'markdown', 'pdf', 'csv', 'json'],
       pdf: true,
       webRetrieval: false,

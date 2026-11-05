@@ -88,3 +88,6 @@ param keyVaultSecretReferences = json(readEnvironmentVariable('SWARM_KEYVAULT_SE
 // reference RESEARCH_SEARCH_API_KEY above). A provider is sent the names and topics of a question, so it is
 // the owner's decision (docs/production/LIMITATIONS.md, A6).
 param researchSearchProvider = readEnvironmentVariable('SWARM_RESEARCH_SEARCH_PROVIDER', 'none')
+// Optional. rules (the default) or model: what a new question starts with on the Ask screen. It is a preselection;
+// every person sees the choice. Set model for a pilot meant to show the model (docs/azure/pilot-plan.md).
+param defaultEngine = readEnvironmentVariable('SWARM_DEFAULT_ENGINE', 'rules')

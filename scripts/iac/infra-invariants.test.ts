@@ -163,6 +163,7 @@ describe.skipIf(!bicep || postgresRun)(
     let searching: Json;
     let wikipedia: Json;
     let vaultFirst: Json;
+    let modelFirst: Json;
     let production: Json;
     let existing: Json;
     let fallback: Json;
@@ -199,6 +200,7 @@ describe.skipIf(!bicep || postgresRun)(
       // Question-only discovery without a key, and the vault that a key needs, made first and empty.
       wikipedia = run('pilot', { SWARM_RESEARCH_SEARCH_PROVIDER: 'wikipedia' });
       vaultFirst = run('pilot', { SWARM_ENABLE_KEY_VAULT: 'true' });
+      modelFirst = run('pilot', { SWARM_DEFAULT_ENGINE: 'model' });
       existing = run('pilot', {
         SWARM_EXISTING_WORKSPACE_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.OperationalInsights/workspaces/log-shared`,
         SWARM_EXISTING_APPINSIGHTS_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.Insights/components/appi-shared`,
@@ -486,6 +488,24 @@ describe.skipIf(!bicep || postgresRun)(
         const [vaultApp] = ofType(predicted(vaultFirst), 'Microsoft.App/containerApps');
         expect(objects(get(vaultApp, 'properties', 'configuration', 'secrets'))).toEqual([]);
         expect(ofType(predicted(pilot), 'Microsoft.KeyVault/vaults')).toEqual([]);
+      });
+
+      it('starts a new question on rules, and on the model only where the operator said so', () => {
+        const environment = (snapshot: Json) =>
+          objects(
+            get(
+              ofType(predicted(snapshot), 'Microsoft.App/containerApps')[0],
+              'properties',
+              'template',
+              'containers',
+              0,
+              'env',
+            ),
+          ).filter((entry) => entry.name === 'DEFAULT_ENGINE');
+        for (const snapshot of [pilot, production]) {
+          expect(environment(snapshot)).toEqual([{ name: 'DEFAULT_ENGINE', value: 'rules' }]);
+        }
+        expect(environment(modelFirst)).toEqual([{ name: 'DEFAULT_ENGINE', value: 'model' }]);
       });
 
       it('has no Key Vault secret resource and no public blob storage', () => {
