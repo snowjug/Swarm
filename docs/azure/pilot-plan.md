@@ -76,7 +76,8 @@ requests in any region: that is a data-residency decision, and it is yours.
 
 **4. The database: a tier fallback, and a name that is busy for a while.** Burstable (`Standard_B1ms`, then
 `Standard_B2s`) answered `SkuNotAvailable` in Central India for this subscription, although the SKU is listed. What worked
-was General Purpose, which costs more ([pilot-cost.md](./pilot-cost.md)):
+was General Purpose, which costs about **INR 17,800 a month** against about INR 2,100 for B1ms
+([pilot-cost.md](./pilot-cost.md#what-exists-now-5-november-2026)), more than a Visual Studio credit of INR 11,000. To use it:
 
 ```bash
 export SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4

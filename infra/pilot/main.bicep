@@ -143,7 +143,7 @@ param defaultEngine string = 'rules'
 // PostgreSQL
 // ---------------------------------------------------------------------------------------------
 
-@description('Compute SKU of a NEW server. Burstable B1ms is the cheapest sane choice for a pilot, but a subscription can be refused it in a region (the deployment fails with SkuNotAvailable, and `list-skus` still shows it). The fallback that worked in Central India is databaseSkuName=Standard_D2ds_v4 with databaseSkuTier=GeneralPurpose, at a higher price: see docs/azure/pilot-plan.md and docs/azure/pilot-cost.md. A server that exists keeps its SKU: both are ignored with existingPostgresServerResourceId.')
+@description('Compute SKU of a NEW server. Burstable B1ms is the cheapest sane choice for a pilot (about INR 2,100 a month with 32 GiB, at the list prices of 5 November 2026 in Central India), but a subscription can be refused it in a region (the deployment fails with SkuNotAvailable, and `list-skus` still shows it). The fallback that worked in Central India is databaseSkuName=Standard_D2ds_v4 with databaseSkuTier=GeneralPurpose, at about INR 17,800 a month, which is more than a Visual Studio credit of INR 11,000: stop the server when nobody uses it, or look for Burstable elsewhere (docs/azure/pilot-cost.md, "What exists now"). A server that exists keeps its SKU: both are ignored with existingPostgresServerResourceId.')
 param databaseSkuName string = 'Standard_B1ms'
 
 @description('Tier of the compute SKU above. It must match the SKU: Standard_B* is Burstable, Standard_D*ds_v4 and _v5 are GeneralPurpose. The CPU-credit alert exists only for Burstable.')

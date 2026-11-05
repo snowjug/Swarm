@@ -1,5 +1,10 @@
 # Hosted pilot on Azure: cost
 
+> **What exists now is priced in [What exists now](#what-exists-now-5-november-2026)**: the pilot as it runs in Central
+> India (a General Purpose database, a placeholder revision still active), in rupees, from the Retail Prices API read on
+> 5 November 2026. **It is about INR 20,900 a month at list prices, about twice the INR 11,000 credit.** The rest of this page is the
+> plan's original estimate (a Burstable database, East US 2, US dollars) and is kept as it was written.
+
 > **An estimate, not a quote, and nothing has been created.** It prices the resources that
 > [`infra/pilot`](../../infra/pilot/main.bicep) would create (see [pilot-plan.md](./pilot-plan.md)) at **public list
 > prices** read from the Azure Retail Prices API on **30 October 2026**, in US dollars, pay-as-you-go, for a month of
@@ -12,6 +17,60 @@
 > production-shaped profile, the development VM and the model line, with the arithmetic and the "stop if" thresholds. Where
 > the two differ, read that page. The template **no longer allows `minReplicas = 0`**, so every line below that
 > describes scaling to zero describes something the template refuses.
+
+## What exists now (5 November 2026)
+
+Priced from what the live resource group holds, which was **read, not changed**, and from **list prices read from the
+Retail Prices API on 5 November 2026** (`currencyCode=INR`, `armRegionName=centralindia`, pay-as-you-go, a month of 730
+hours). It is not a quote or an invoice: an enterprise agreement, a credit's own rules or a price change will differ, and
+**no resource was created to produce it**. The credit is taken as **about INR 11,000**, as you said.
+
+| What exists                                                                                                  | List price used                                                                                | Per month (INR)                                      |
+| ------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| PostgreSQL flexible server, **General Purpose D2ds_v4** (2 vCores), 32 GiB, 7-day backups, no HA             | 11.9036 per vCore-hour × 2 × 730; storage 12.4750 per GiB-month × 32                           | **17,778** (compute 17,379, storage 399)             |
+| Container app, **two active revisions** × 0.5 vCPU / 1 GiB, one replica each, mostly idle                    | 0.000286 per vCPU-second and per GiB-second idle; the monthly free grant (180,000 and 360,000) | **2,100** (2,255 without the free grant)             |
+| Container Registry, Basic                                                                                    | 15.865 per day                                                                                 | 482                                                  |
+| Alert rules: 8 enabled log rules (15 min), 8 metric rules (3 at 1 min, 4 at 5 min, 1 at 15 min)              | 47.614, 28.569, 14.284, 4.761 per rule-month                                                   | at most 529 (Azure may allow some free)              |
+| Log Analytics, 30 days, capped at 0.5 GB a day (Application Insights is workspace-based and ingests into it) | 306.637 per GB after 5 GB free a month                                                         | about 0 so far (0.001 GB measured); 3,128 at the cap |
+| Foundry `gpt-5-mini`, Global Standard (usage only)                                                           | 23.807 in, 2.381 cached in, 190.458 out per million tokens                                     | 0 unused; about 57 to 190 per million tokens         |
+| Budget, action group, managed identity, Entra, Container Apps environment (Consumption profile only)         | no charge                                                                                      | 0                                                    |
+| **The pilot as it runs**                                                                                     |                                                                                                | **about 20,890**                                     |
+| The same after the placeholder revision is deactivated                                                       | one replica instead of two                                                                     | about 19,762                                         |
+| The same with Burstable B1ms, if it could be had                                                             | 2.3331 per hour × 730 + storage 399                                                            | about 4,087                                          |
+| The development VM (not in the pilot group), D4as_v5, running all month, with its 128 GiB Premium SSD        | 10.5704 per hour × 730; the disk 1,876.96 a month                                              | 9,593 (7,716 is compute, which stopping removes)     |
+| **The pilot and the VM**                                                                                     |                                                                                                | **about 30,480**                                     |
+
+**What this means for the credit.** At these prices the pilot alone spends about INR 690 a day, so INR 11,000 lasts about
+**16 days**; with the VM running as well, about **11 days**. If the credit is monthly, the pilot costs about 1.9 times it, and
+with the VM about 2.8 times. The template's budget is INR 4,500 a month and **only notifies** (at 50%, 80% and 100% of actual
+spend and at a forecast of 100%): it does not stop anything, and it will fire. On a subscription with a spending limit,
+when the credit is gone Azure disables the resources until the next billing period: do not let a demonstration run into that.
+
+**Where it comes from.** The database is 85% of the pilot. Burstable (B1ms, B2s) was refused in Central India for this
+subscription, and the next size down that was accepted is the smallest General Purpose (2 vCores). The placeholder revision
+(0% of traffic, still running) is a second replica billed like the first. Model usage is the small part: a project is held to
+4,000,000 tokens (`PROJECT_MODEL_TOKEN_LIMIT`), which is at most about INR 230 to 760 of `gpt-5-mini` however it is spent
+(mostly input about 230, a heavy share of reasoning output more; all output 760), and nothing at all while nobody asks.
+
+**What can be done, none of it done.** Each changes a live resource or a decision, so each is yours:
+
+1. **Deallocate the VM when it is idle** (`az vm deallocate`): stops about INR 7,700 a month; the disk (INR 1,877) stays.
+2. **Deactivate the placeholder revision** ([runbook](../production/runbook.md#deactivate-the-placeholder-revision)): about INR 1,130 a month.
+3. **Stop the database when nobody uses it** (`az postgres flexible-server stop -g <group> -n <server>`; `start` brings it
+   back): compute is not billed while it is stopped, storage is, and Azure starts a stopped server again after seven days.
+   Four hours a day on 22 working days is 88 hours, about INR 2,100 of compute instead of 17,379. While it is stopped the app
+   answers 503 on `/api/health/ready` and the database alerts email, so tell the people who use it.
+4. **Find Burstable**: ask Azure support to lift the restriction, or try another region (a new region means a new server and
+   moving the data with `pg_dump`/`pg_restore`: a new billable resource, so tell me before it is made). B1ms is about INR 2,100.
+5. **Delete the pilot** when the demonstration is over ([Teardown](./pilot-plan.md#teardown)).
+
+How to read the prices again: the Retail Prices API needs no key (`https://prices.azure.com/api/retail/prices`), for example
+`$filter=serviceName eq 'Azure Database for PostgreSQL' and armRegionName eq 'centralindia'` with `currencyCode=INR`; the
+configuration is `az postgres flexible-server show`, `az containerapp revision list`, `az monitor metrics alert list` and
+`az monitor scheduled-query list`; and the ingestion is `Usage | where IsBillable | summarize sum(Quantity)/1024 by DataType`
+in the workspace.
+
+## The plan's original estimate (East US 2, US dollars, Burstable)
 
 **Region priced: East US 2 (`eastus2`).** It is the region of the existing AI resource ([AZURE.md](../AZURE.md#live-evidence)),
 so the app and the model share a region. The region is a parameter; two others are compared

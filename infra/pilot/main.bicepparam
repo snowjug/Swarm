@@ -55,8 +55,9 @@ param existingContainerAppsEnvironmentResourceId = readEnvironmentVariable('SWAR
 
 // PostgreSQL compute of a NEW server. Burstable B1ms is the cheapest choice, but a subscription can be refused it in
 // a region: the deployment then fails with SkuNotAvailable, although `list-skus` shows the SKU. The fallback that
-// worked in Central India is SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4 with SWARM_DATABASE_SKU_TIER=GeneralPurpose
-// (several times the price; docs/azure/pilot-plan.md). Both are ignored when SWARM_EXISTING_POSTGRES_SERVER_ID is set.
+// worked in Central India is SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4 with SWARM_DATABASE_SKU_TIER=GeneralPurpose, at about
+// INR 17,800 a month against about INR 2,100 for B1ms (list prices, 5 November 2026; docs/azure/pilot-cost.md). Both are
+// ignored when SWARM_EXISTING_POSTGRES_SERVER_ID is set.
 param databaseSkuName = readEnvironmentVariable('SWARM_DATABASE_SKU_NAME', 'Standard_B1ms')
 param databaseSkuTier = readEnvironmentVariable('SWARM_DATABASE_SKU_TIER', 'Burstable')
 
