@@ -1,9 +1,12 @@
 # Release and rollback
 
-> **Status: authored offline and exercised only against a fake `az`.** `npm run azure:release` and
-> `npm run azure:rollback-drill` have never touched Azure, because no Azure authorization exists on the machine they
-> were written on. **The rollback drill has NOT been executed live. Nobody may say that rollback works until the owner
-> has run it and kept the record** ([The rollback drill](#the-rollback-drill)). Every statement below about what Azure
+> **Status: authored offline, tested against a fake `az`, and read-only against the live pilot.** The read-only actions
+> (`status`, `check`, and the proofs inside `record`) have been run against the live pilot, and that run found two
+> defects the fake could not: Azure reports a healthy revision of this app as **`RunningAtMaxScale`**, not `Running`
+> (minimum and maximum replicas are both 1), and the first real image was put on the app with `az containerapp update`,
+> which kept the placeholder's port and cannot set probes. **`release`, `promote`, `rollback` and `finalize` have not
+> been run live, and the rollback drill has NOT been executed.** Nobody may say that rollback works until the owner has
+> run the drill and kept the record ([The rollback drill](#the-rollback-drill)). Every statement below about what Azure
 > does is marked **UNVERIFIED** where it is a claim about Azure's behaviour rather than about this repository's code.
 
 This is how a new version of the **controlled pilot** reaches the hosted app, and how it is taken back. It is for the
@@ -22,6 +25,8 @@ environment variable is set (to anything but empty, `0` or `false`).
 - [Database schema changes](#database-schema-changes)
 - [Two revisions, two job runners](#two-revisions-two-job-runners)
 - [The first release](#the-first-release)
+- [Recording a revision that was made by hand](#recording-a-revision-that-was-made-by-hand)
+- [The deployed-configuration check](#the-deployed-configuration-check)
 - [The rollback drill](#the-rollback-drill)
 - [What is unverified](#what-is-unverified)
 
@@ -51,19 +56,27 @@ environment variable is set (to anything but empty, `0` or `false`).
 
 ## Rules the tooling enforces
 
-| Rule                                                                                                                               | Where it is tested                                                        |
-| ---------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
-| No `--execute` means no change: every mutating command is printed, none is run, and no record is written                           | `release-flow.test.ts`, `drill-flow.test.ts` ("a dry run is the default") |
-| A live run needs `--execute` **and** `--confirm-resource-group <the group's exact name>`, checked before any call                  | `release-flow.test.ts`, `drill-flow.test.ts`                              |
-| A live run is **refused when `CI` is set** (anything but empty, `0` or `false`): deploying is not something a pipeline may do here | the same files                                                            |
-| `--subscription <guid>` is required; the CLI's default subscription is never used                                                  | `release-flow.test.ts` ("requires an explicit subscription")              |
-| The subscription must pass the same naming guard as provisioning, and the group must carry the tag `app=swarm-lab`                 | `release-flow.test.ts`                                                    |
-| The app must be in multiple-revision mode and `Succeeded`                                                                          | `release-flow.test.ts`                                                    |
-| Building needs a clean working tree that **is** `--commit` (HEAD); otherwise `--skip-build` and an image that exists               | `release-flow.test.ts`                                                    |
-| A commit whose schema is **older** than the database's is refused (no build can use it)                                            | `release-flow.test.ts` ("schema migrations only go forward")              |
-| A commit that carries a migration is refused until `--accept-schema-change` is given                                               | the same describe block                                                   |
-| Traffic that is split or unset is refused: finish or roll back the release in progress first                                       | `release-flow.test.ts`                                                    |
-| A release record that does not hold together (not a commit hash, not a digest, a credential-shaped value) is **not written**       | `release-flow.test.ts` ("the release record")                             |
+| Rule                                                                                                                                                                   | Where it is tested                                                        |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| No `--execute` means no change: every mutating command is printed, none is run, and no record is written                                                               | `release-flow.test.ts`, `drill-flow.test.ts` ("a dry run is the default") |
+| A live run needs `--execute` **and** `--confirm-resource-group <the group's exact name>`, checked before any call                                                      | `release-flow.test.ts`, `drill-flow.test.ts`                              |
+| A live run is **refused when `CI` is set** (anything but empty, `0` or `false`): deploying is not something a pipeline may do here                                     | the same files                                                            |
+| `--subscription <guid>` is required; the CLI's default subscription is never used                                                                                      | `release-flow.test.ts` ("requires an explicit subscription")              |
+| The subscription must pass the same naming guard as provisioning, and the group must carry the tag `app=swarm-lab`                                                     | `release-flow.test.ts`                                                    |
+| The app must be in multiple-revision mode and `Succeeded`                                                                                                              | `release-flow.test.ts`                                                    |
+| Building needs a clean working tree that **is** `--commit` (HEAD); otherwise `--skip-build` and an image that exists                                                   | `release-flow.test.ts`                                                    |
+| A commit whose schema is **older** than the database's is refused (no build can use it)                                                                                | `release-flow.test.ts` ("schema migrations only go forward")              |
+| A commit that carries a migration is refused until `--accept-schema-change` is given                                                                                   | the same describe block                                                   |
+| Traffic that is split or unset is refused: finish or roll back the release in progress first                                                                           | `release-flow.test.ts`                                                    |
+| A release record that does not hold together (not a commit hash, not a digest, a credential-shaped value) is **not written**                                           | `release-flow.test.ts` ("the release record")                             |
+| The record is written **before the first change**, and again when the release ends, so a step that fails leaves evidence                                               | `release-flow.test.ts` ("what the live pilot exposed")                    |
+| `Running` **and `RunningAtMaxScale`** both mean the replicas run; `Failed`, `Degraded` and `ActivationFailed` mean it will not                                         | `release-flow.test.ts` ("a revision that runs at its maximum scale")      |
+| An app that is not on port 3001, or has no startup, liveness and readiness probes, is **refused** as the base of a release                                             | `release-flow.test.ts`, `deployed-config.test.ts`                         |
+| A new revision that is not on port 3001 or has no probes is stopped **before it takes traffic**                                                                        | `release-flow.test.ts`                                                    |
+| A tag that is already locked is **reused**, not rebuilt (a locked tag cannot be written, so the same commit could not be released)                                     | `release-flow.test.ts`, `release-extras.test.ts`                          |
+| A failed new revision is never deactivated when it is the only one running, and `finalize` never retires the previous revision when the one that serves is not running | `release-flow.test.ts`                                                    |
+| A revision that does not start prints the console-log and system-log queries (Log Analytics) that say why                                                              | `release-flow.test.ts`, `deployed-config.test.ts`                         |
+| The app is never released over while it still runs the **placeholder**: the first real image goes on through the template                                              | `release-flow.test.ts`                                                    |
 
 The exit code of both commands: **0** done (or a dry run); **1** a step failed, the release was rolled back, or a drill
 criterion failed; **2** refused or misused before anything was changed (and "`az` is not installed").
@@ -86,19 +99,21 @@ npm run azure:release -- release  …the same…  --execute --confirm-resource-g
 
 What a live release does, in order (each step is written into the record as it happens):
 
-| #   | Step                | Command (abridged)                                                                                                  | If it fails                                                                            |
-| --- | ------------------- | ------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| 1   | Read and refuse     | `az account show`, `az group show`, `az containerapp show`, `az containerapp revision list`                         | Nothing was changed                                                                    |
-| 2   | Build               | `az acr build --registry … --image swarm:<sha> --file Dockerfile .`                                                 | Nothing serves it                                                                      |
-| 3   | Read the digest     | `az acr repository show … --query digest`                                                                           | Refused: "no image swarm:<sha>"                                                        |
-| 4   | Lock the tag        | `az acr repository update … --write-enabled false --delete-enabled false`                                           | The tag stays writable; the record says `tagLocked: false`                             |
-| 5   | Pin traffic         | `az containerapp ingress traffic set --revision-weight <serving>=100` (only if traffic named "the newest revision") | Nothing else has run yet                                                               |
-| 6   | Create the revision | `az containerapp update --image <registry>/swarm@sha256:… --revision-suffix r<12 hex>`                              | Nothing serves it                                                                      |
-| 7   | Wait                | polls `az containerapp revision list` up to `--ready-timeout-minutes` (default 10)                                  | The new revision is **deactivated**; traffic never moved                               |
-| 8   | Prove it dark       | `GET https://<revision address>/api/health/ready` while it has 0% (`--no-revision-precheck` skips)                  | The new revision is deactivated; traffic never moved                                   |
-| 9   | Shift               | `az containerapp ingress traffic set --revision-weight <new>=100 <previous>=0`                                      | Traffic stays where the failed command left it: run `status`                           |
-| 10  | Smoke test          | the existing [`pilot-smoke`](../azure/pilot-plan.md) checks against the public address                              | **Traffic goes back to the previous revision by itself** (unless `--no-auto-rollback`) |
-| 11  | Record              | writes `.azure/releases/<id>.json`                                                                                  | the record is written first as `in-progress`, so a crash leaves evidence               |
+| #   | Step                | Command (abridged)                                                                                                                            | If it fails                                                                                                               |
+| --- | ------------------- | --------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Read and refuse     | `az account show`, `az group show`, `az containerapp show`, `az containerapp revision list`; refuses a placeholder, a wrong port or no probes | Nothing was changed                                                                                                       |
+| 1b  | Write the record    | `.azure/releases/<id>.json` as `in-progress`, **before the first change**                                                                     | A failing step below marks it `failed`, with the step that failed                                                         |
+| 2   | Build, or reuse     | `az acr build --registry … --image swarm:<sha> --file Dockerfile .` (skipped when the tag exists and is locked)                               | Nothing serves it                                                                                                         |
+| 3   | Read the digest     | `az acr repository show … --query digest`                                                                                                     | Refused: "no image swarm:<sha>"                                                                                           |
+| 4   | Lock the tag        | `az acr repository update … --write-enabled false --delete-enabled false`                                                                     | The tag stays writable; the record says `tagLocked: false`                                                                |
+| 5   | Pin traffic         | `az containerapp ingress traffic set --revision-weight <serving>=100` (only if traffic named "the newest revision")                           | Nothing else has run yet                                                                                                  |
+| 6   | Create the revision | `az containerapp update --image <registry>/swarm@sha256:… --revision-suffix r<12 hex>`                                                        | Nothing serves it                                                                                                         |
+| 7   | Wait                | polls `az containerapp revision list` up to `--ready-timeout-minutes` (default 10) for `Running` or `RunningAtMaxScale`                       | The new revision is **deactivated** (unless it is the only one running); traffic never moved; the log queries are printed |
+| 7b  | Check its config    | port 3001, `PORT`, the three probes, read from the new revision                                                                               | The new revision is deactivated; traffic never moved                                                                      |
+| 8   | Prove it dark       | `GET https://<revision address>/api/health/ready` while it has 0% (`--no-revision-precheck` skips)                                            | The new revision is deactivated; traffic never moved                                                                      |
+| 9   | Shift               | `az containerapp ingress traffic set --revision-weight <new>=100 <previous>=0`                                                                | Traffic stays where the failed command left it: run `status`                                                              |
+| 10  | Smoke test          | the existing [`pilot-smoke`](../azure/pilot-plan.md) checks against the public address                                                        | **Traffic goes back to the previous revision by itself** (unless `--no-auto-rollback`)                                    |
+| 11  | Record              | writes `.azure/releases/<id>.json`                                                                                                            | the record is written first as `in-progress`, so a crash leaves evidence                                                  |
 
 A first step that must not be skipped when reading the output: **a failed smoke test exits 1 and says the release was
 rolled back**. A passing one prints when the previous revision's warm window ends.
@@ -213,8 +228,51 @@ release that carries a migration, `finalize` as soon as the smoke test and the d
 ## The first release
 
 The first deployment of `infra/pilot` starts a **placeholder image** (a public Microsoft sample on port 80, without
-probes). The first `release` replaces it: there is **no last known good and nothing to roll back to**, no schema flag is
-needed (the database is empty), and a failing first smoke test exits 1 without an automatic rollback. The tool says so.
+probes, and with **no `PORT`**: the application refuses 80). **`release` refuses to make a revision over it**, because a
+revision copies the configuration it is made from: the ingress would stay on port 80, and `az containerapp update` has no
+flag for a probe. That is exactly how the live pilot's first real image crashed on `Invalid server configuration: PORT`
+and then ran without probes. The first real image goes on **through the template**, which sets port 3001, `PORT`, the
+three probes and the rest; every later release is made by `release`.
+
+```bash
+# 1. Build the image, lock its tag, and print the image reference and the template command for step 2.
+#    Nothing in the app changes and no record is written. Dry run until --execute.
+npm run azure:release -- build   --subscription <guid> --resource-group <group> --app <app> --registry <registry> \
+  --execute --confirm-resource-group <group>
+
+# 2. Run the template command step 1 printed: first as what-if (read it), then with `create`.
+#    (SERVICE_SWARM_RESOURCE_EXISTS=true, SWARM_CONTAINER_IMAGE=<reference>, SWARM_REVISION_SUFFIX, SWARM_BUILD_SHA)
+
+# 3. Prove the revision and write its release record (also the way to record a revision made by hand).
+npm run azure:release -- record  --subscription <guid> --resource-group <group> --app <app> --registry <registry> \
+  --commit <40 hex> --revision <app>--r<12 hex> --digest sha256:<64 hex> --execute --confirm-resource-group <group>
+```
+
+There is **no last known good** after step 3 unless `--previous <revision>` names one, no schema flag is needed for the
+next release (the record keeps the schema version of the commit), and a failing smoke test refuses the record.
+
+## Recording a revision that was made by hand
+
+`record` is also for a revision somebody created with `az containerapp update` (the live pilot's `r7c4effd465e9b`): it
+writes the release record the next release and a rollback read. It proves, from what Azure says and changes nothing:
+
+- the revision exists, **runs and is healthy**, and **serves all the traffic** (a last known good is what serves);
+- it runs **an image with the digest given**, and the registry's tag `swarm:<commit>` has **that same digest**
+  (so the digest, the commit and the revision belong together), and its `BUILD_SHA`, if set, is that commit;
+- the public smoke test passes (four read-only requests).
+
+What is wrong with its configuration (no probe, a wrong port) is **written into the record and printed, not hidden**, and
+does not stop the record. The record is marked `origin: "by-hand"`. `--previous <revision>` names the revision a rollback
+returns to (leave it out when the previous revision is the placeholder, which is not a version to return to).
+
+## The deployed-configuration check
+
+`npm run azure:release -- check --subscription <guid> --resource-group <group> --app <app>` is read-only and exits **1**
+when a revision that serves, or the newest one, is not configured as the template configures a real image: the ingress
+on **3001**, `PORT` unset or 3001 (anything below 1024 is refused by the application), and the **startup, liveness and
+readiness probes** on `/api/health/live` and `/api/health/ready` at 3001. `status` prints the same finding. It reads
+configuration; whether the container answers is what the smoke test is for. The remedy it prints is the template command
+with the image that runs now pinned, so that the what-if shows the image unchanged.
 
 ## The rollback drill
 

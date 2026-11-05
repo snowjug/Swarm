@@ -253,11 +253,19 @@ $env:SWARM_AI_DEPLOYMENT_NAME     = '<model deployment name, for example swarm-c
 $env:SWARM_AUTH_CLIENT_ID         = '<application (client) id of the app registration>'
 $env:SWARM_SOURCE_URL             = '<public https address of the exact source version>'
 $env:SWARM_ALERT_EMAIL            = '<address that receives the alerts and the budget notices>'
+$env:SERVICE_SWARM_RESOURCE_EXISTS = 'false'   # REQUIRED. false: the first deployment. true: every later one (see below)
 ```
 
-An unset required value (the AI account, the client ID, the alert address) stops the run **before anything is created**
-(the parameter file fails to compile). `SWARM_ALERT_EMAIL` is required on purpose: a deployment with nobody to tell is
-refused.
+An unset required value (the AI account, the client ID, the alert address, **`SERVICE_SWARM_RESOURCE_EXISTS`**) stops the
+run **before anything is created** (the parameter file fails to compile; for the last one with `BCP427, Environment
+variable "SERVICE_SWARM_RESOURCE_EXISTS" does not exist`). `SWARM_ALERT_EMAIL` is required on purpose: a deployment with
+nobody to tell is refused.
+
+**Why `SERVICE_SWARM_RESOURCE_EXISTS` has no default.** A template cannot tell whether the container app exists. Answering
+`false` for an app that runs the real image would reset it to the placeholder: port 80, no `PORT`, no probes. So the
+question is asked every time. `false` is for the very first deployment only; **after it, set it to `true`**, which keeps
+the image that runs, the traffic, and the `BUILD_SHA`, and gives the container the port, the `PORT` and the probes that
+follow from that image. (azd sets this variable; with `az`, export it.)
 
 Everything else has a default and is changed with `--parameters name=value` (for azd, add a `param name = value`
 line to [`main.bicepparam`](../../infra/pilot/main.bicepparam)). A second parameter file,
@@ -310,41 +318,46 @@ azd provision --preview
 azd provision
 ```
 
-The first provision starts a **placeholder image** (it listens on port 80, not 3001), so the app shows as
-unhealthy until the first real image is deployed. That is expected. Re-running a provision keeps the image
-that is running: azd sets `SERVICE_SWARM_RESOURCE_EXISTS`, and with plain `az` pass `SWARM_CONTAINER_IMAGE`
-or `appExists=true` ([`main.bicepparam`](../../infra/pilot/main.bicepparam)).
+The first provision starts a **placeholder image** (it listens on port 80, not 3001, and is given no `PORT` and no
+probes), so the app shows as unhealthy until the first real image is on it. That is expected. **Do not put the real
+image on it with `az containerapp update`:** a revision copies the configuration it is made from, so the ingress would
+stay on port 80 and `az containerapp update` has no flag for a probe. Put it on through the template, below. Re-applying
+the template later (`SERVICE_SWARM_RESOURCE_EXISTS=true`) keeps the image that runs; name it as well
+(`SWARM_CONTAINER_IMAGE`) so that `what-if` shows it unchanged, because Azure cannot evaluate "keep what runs" before it
+deploys and prints that part as an expression.
 
 The outputs you need next: `AZURE_CONTAINER_APP_FQDN`, `ENTRA_REDIRECT_URI`,
 `AZURE_USER_ASSIGNED_IDENTITY_PRINCIPAL_ID`, `AZURE_USER_ASSIGNED_IDENTITY_NAME`,
 `AZURE_CONTAINER_REGISTRY_ENDPOINT`, `AZURE_CONTAINER_REGISTRY_NAME` and `AZURE_CONTAINER_APP_NAME`. (`az` may
 return an output's name with a different case from the one in the template, so match names case-insensitively.)
 
-### 3. Finish the Entra setup, then release the image
+### 3. Finish the Entra setup, then put the first image on the app
 
-Do the [Entra steps that need the address](#entra-app-registration) now. Then make the **first release** with the
-release tool, which builds the image in the registry from a clean checkout of one commit, tags it with the **full commit
-hash** and locks the tag, starts a new revision at no traffic, proves it, shifts traffic, runs the smoke test, and writes a
-release record ([release-process.md](../production/release-process.md)). It is a dry run until `--execute` and the exact
-group name are given, and it refuses to run in CI:
-
-```powershell
-npm run azure:release -- release --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name>
-# read it, then:
-npm run azure:release -- release --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name> --execute --confirm-resource-group <pilot group>
-```
-
-The by-hand equivalent for a first image (no record, no lock, no proof before traffic moves; **prefer the tool**):
+Do the [Entra steps that need the address](#entra-app-registration) now. Then make the **first image**. The release tool
+builds it in the registry from a clean checkout of one commit, tags it with the **full commit hash**, locks the tag, and
+prints the template command that puts it on the app; the template sets port 3001, `PORT` and the probes; and the tool
+then proves the revision and writes its release record ([release-process.md](../production/release-process.md#the-first-release)).
+Each step is a dry run until `--execute` and the exact group name are given, and the tool refuses to run in CI:
 
 ```powershell
-$sha = git rev-parse HEAD
-az acr build --registry <registry name> --image swarm:$sha --file Dockerfile .
-az containerapp update --name <app name> --resource-group <pilot group> --image <registry login server>/swarm:$sha --revision-suffix r$($sha.Substring(0,12))
+# 1. Build, lock, print the template command. Changes nothing in the app.
+npm run azure:release -- build --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name> --execute --confirm-resource-group <pilot group>
+
+# 2. The command it printed: export SERVICE_SWARM_RESOURCE_EXISTS=true, SWARM_CONTAINER_IMAGE, SWARM_REVISION_SUFFIX and
+#    SWARM_BUILD_SHA, then `az deployment group what-if ... --parameters infra/pilot/main.bicepparam`, read it, and
+#    run the same with `create`.
+
+# 3. Prove the revision, run the smoke test, write the release record.
+npm run azure:release -- record --subscription <subscription id> --resource-group <pilot group> --app <app name> --registry <registry name> --commit <sha> --revision <app name>--r<12 hex of the sha> --digest sha256:<digest the build printed> --execute --confirm-resource-group <pilot group>
 ```
 
-`azd deploy` still works, but it tags the image with a timestamp, skips the lock and the record, and does not pin traffic
-first: it is not the release path for anything that matters. The first deployment of the template leaves traffic on the
-newest revision; every later release names its revisions and traffic explicitly.
+Every later version is `npm run azure:release -- release …` (a dry run first). `npm run azure:release -- check …` reads
+the deployed configuration and fails when the container is not on port 3001 or has no probes.
+
+`az containerapp update --image` by hand is **not** the way for the first image (see above), and `azd deploy` tags the
+image with a timestamp, skips the lock and the record, and does not pin traffic first: neither is the release path for
+anything that matters. The first deployment of the template leaves traffic on the newest revision; every later release
+names its revisions and traffic explicitly.
 
 ### 4. Check it
 
