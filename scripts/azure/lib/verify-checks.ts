@@ -274,8 +274,14 @@ export function checkChatReply(
   return `${reply.content.length} characters, ${cited}${grounding}, ${plural(newCalls, 'real round trip')}.`;
 }
 
-/** The server's counters cover its whole process lifetime, so a verification run reports differences. */
-export type ProviderCounters = ProviderStatus['counters'];
+/**
+ * The server's counters cover its whole process lifetime, so a verification run reports differences. Only
+ * the counters that were always there are read, so that a server of an earlier build can still be verified.
+ */
+export type ProviderCounters = Pick<
+  ProviderStatus['counters'],
+  'calls' | 'repairCalls' | 'failures' | 'inputTokens' | 'outputTokens' | 'tokensReported'
+>;
 
 export function checkTelemetry(
   status: ProviderStatus,

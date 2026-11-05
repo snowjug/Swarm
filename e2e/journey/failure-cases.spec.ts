@@ -623,10 +623,10 @@ test.describe('failure cases: the model', () => {
     ).toBeGreaterThan(0);
     expect(
       gained(before, after, 'swarm.model.calls', {
-        'swarm.model.outcome': 'failed',
+        'swarm.model.outcome': 'schema-invalid',
         'swarm.error.code': 'MODEL_OUTPUT_INVALID',
       }),
-      'the give-ups were counted',
+      'the whole replies that were refused were counted, apart from the calls that failed',
     ).toBeGreaterThan(0);
   });
 });

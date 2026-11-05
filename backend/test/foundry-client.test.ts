@@ -3,10 +3,13 @@ import { z } from 'zod';
 import { AppError } from '../src/errors.js';
 import type { CallReport } from '../src/models/call.js';
 import { CapabilityMemory } from '../src/models/capabilities.js';
+import { ModelReplyError } from '../src/models/diagnostics.js';
 import { ModelClient, type ModelUsageSink } from '../src/models/client.js';
 import { createModelFactory } from '../src/models/factory.js';
 import { ModelRefusedError } from '../src/models/safety.js';
+import { runStructuredTask } from '../src/models/task.js';
 import {
+  modelCallOutcome,
   ProviderTelemetry,
   type ModelCallEvent,
   type ModelObserver,
@@ -594,8 +597,14 @@ describe('output that thinking can use up', () => {
     expect(fake.requests).toHaveLength(3);
     expect(seen.calls.map((event) => [event.ok, event.repair])).toEqual([
       [false, false],
-      [true, false],
+      // Whole, but refused by the server's own check: a call that gave no answer.
+      [false, false],
       [true, true],
+    ]);
+    expect(seen.calls.map((event) => event.errorCode)).toEqual([
+      'MODEL_TRUNCATED',
+      'MODEL_OUTPUT_INVALID',
+      null,
     ]);
     expect(fake.requests[2]?.body?.messages?.at(-1)?.content).toContain(
       'The answer must be right.',
@@ -741,6 +750,104 @@ describe('output that thinking can use up', () => {
     await client.json(answer, 'Return JSON.', {}, signal(), 800, { route });
     expect(efforts()).toEqual(['low', 'low']);
     expect(sizes()).toEqual([1_800, 3_600]);
+  });
+});
+
+describe('what a reply that could not be used says about itself', () => {
+  const cutOff = (completion: number, reasoning: number) =>
+    ({
+      kind: 'truncated',
+      partial: 'PARTIAL-REPLY-CANARY',
+      usage: { prompt: 40, completion, reasoning },
+    }) as const;
+
+  it('says a reply was cut off, with the counts that show why, and nothing it or the data said', async () => {
+    const { client } = made();
+    // Cut off twice, both times after thinking: the second is asked for with twice the room and less thinking.
+    fake.script(cutOff(1_500, 1_450), cutOff(3_000, 2_950));
+    const failure = await client
+      .json(answer, 'Return JSON.', { note: 'UNTRUSTED-CANARY-TEXT' }, signal(), 500)
+      .catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: 'MODEL_TRUNCATED' });
+    const message = (failure as Error).message;
+    expect(message).toContain('cut off at its output limit');
+    expect(message).toContain('finish_reason length');
+    expect(message).toContain('3,000 of 3,000 output tokens, 2,950 of them hidden reasoning');
+    expect(message).toContain('reasoning effort minimal');
+    expect(message).toContain('asked for again once');
+    expect(message).toContain('Almost all of the limit went on hidden reasoning');
+    expect(message).not.toContain('CANARY');
+    expect((failure as ModelReplyError).diagnostics).toEqual({
+      role: null,
+      finishReason: 'length',
+      outputTokens: 3_000,
+      reasoningTokens: 2_950,
+      maxOutputTokens: 3_000,
+      effort: 'minimal',
+      retried: true,
+    });
+  });
+
+  it('says a whole reply was refused, as a different failure from a cut-off one', async () => {
+    const { client } = made();
+    fake.respond(() => ({ kind: 'text', text: 'REPLY-CANARY this is not JSON' }));
+    const failure = await client
+      .json(answer, 'Return JSON.', {}, signal(), 500, { repairs: 1 })
+      .catch((error: unknown) => error);
+    expect(failure).toMatchObject({ code: 'MODEL_OUTPUT_INVALID' });
+    const message = (failure as Error).message;
+    expect(message).toContain('failed validation after 1 bounded repair attempt');
+    expect(message).toContain(
+      'Last reply was complete but was not accepted: it was not one JSON object; finish_reason stop;',
+    );
+    expect(message).not.toContain('cut off');
+    expect(message).not.toContain('CANARY');
+    expect((failure as ModelReplyError).diagnostics).toMatchObject({
+      finishReason: 'stop',
+      rejection: 'not_json',
+      effort: 'low',
+    });
+  });
+
+  it('puts the same facts in the stored failure of a task, within what a stored failure may hold', async () => {
+    const { client } = made();
+    fake.script(cutOff(1_500, 1_450), cutOff(3_000, 2_950));
+    const outcome = await runStructuredTask(client, {
+      role: 'actor',
+      name: 'participant-proposal.v1',
+      schema: answer,
+      instructions: 'Return JSON.',
+      data: { note: 'UNTRUSTED-CANARY-TEXT' },
+      signal: signal(),
+      maxTokens: 500,
+      fallback: () => ({ answer: 'from rules' }),
+    });
+    expect(outcome.source).toBe('fallback');
+    expect(outcome.failure?.code).toBe('MODEL_TRUNCATED');
+    const detail = outcome.failure?.detail ?? '';
+    expect(detail).toContain('The model’s answer was cut short, so rules were used.');
+    expect(detail).toContain(
+      'cut off at its limit, asked again once; 3,000 of 3,000 output tokens, 2,950 of them hidden reasoning; reasoning effort minimal; role actor',
+    );
+    expect(detail.length).toBeLessThanOrEqual(300);
+    expect(detail).not.toContain('CANARY');
+  });
+
+  it('records the role, the finish reason, the effort and the tokens of every call, used or not', async () => {
+    const { client, seen } = made({ model: 'think-dep' });
+    fake.script(
+      { kind: 'reply', value: { answer: 'ok' } },
+      { kind: 'reply', value: { answer: 'ok' } },
+    );
+    await client.json(answer, 'Return JSON.', {}, signal(), 500, {
+      route: { role: 'critic', task: 'critic-review.v1', reasoningEffort: 'medium' },
+    });
+    expect(seen.calls.map((event) => event.role)).toEqual(['critic', 'critic']);
+    expect(seen.calls.map((event) => modelCallOutcome(event))).toEqual(['truncated', 'ok']);
+    expect(seen.calls.map((event) => event.finishReason)).toEqual(['length', 'stop']);
+    expect(seen.calls.map((event) => event.effort)).toEqual(['medium', 'low']);
+    expect(seen.calls.map((event) => event.reasoningTokens)).toEqual([2_500, 600]);
+    expect(seen.calls.map((event) => event.outputTokens)).toEqual([2_500, 604]);
   });
 });
 

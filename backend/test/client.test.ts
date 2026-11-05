@@ -566,7 +566,15 @@ describe('real model transport contract (mock HTTP, not live inference)', () => 
       expect(repair).not.toMatch(/[\u0000-\u0008\u000b-\u001f]/u);
       expect(repair).not.toContain('TAIL');
       expect(repair.length).toBeLessThan(3_300);
-      expect((failure as Error).message.length).toBeLessThan(330);
+      // What a person is told: the validator's reason is still cut to 200 characters, and the rest of the
+      // message is fixed text and the counts of the last reply (never any of its words).
+      const message = (failure as Error).message;
+      expect(/\(([^)]*)\)\. No local fallback/u.exec(message)?.[1]?.length).toBeLessThanOrEqual(
+        200,
+      );
+      expect(message.length).toBeLessThan(480);
+      expect(message).toContain('Last reply was complete but was not accepted');
+      expect(message).not.toContain('TAIL');
     });
 
     it('echoes the whole rejected reply back, up to 12,000 characters', async () => {

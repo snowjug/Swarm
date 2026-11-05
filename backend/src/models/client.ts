@@ -6,6 +6,12 @@ import { AppError, throwIfAborted } from '../errors.js';
 import type { CallGate, CallReport, CallTicket, ModelCallRoute, ReasoningEffort } from './call.js';
 import { CapabilityMemory } from './capabilities.js';
 import { estimateTokens } from './cost.js';
+import {
+  ModelReplyError,
+  rejectionLine,
+  truncationMessage,
+  type ReplyDiagnostics,
+} from './diagnostics.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
 import { echoesInjection, findInjectionPayloads, INJECTION_ECHO_PROBLEM } from './injection.js';
 import {
@@ -156,6 +162,8 @@ interface CallPlan extends RequestPlan {
   blamedEffort: ReasoningEffort | null;
   /** The lowest effort the deployment takes: `low` once it has refused `minimal`. */
   effortFloor: ReasoningEffort;
+  /** Set once a reply that was cut off at its limit has been asked for again: that is done once. */
+  retried: boolean;
   /** Refusals seen on this call. They are remembered only once a reply shows the call went through without them. */
   refused: {
     schema: 'deployment' | 'schema' | null;
@@ -429,14 +437,15 @@ export class ModelClient implements ModelGateway {
     if (options.report) options.report.deployment = plan.deployment;
     let problem = '';
     let adjustments = 0;
-    let retriedLength = false;
+    // What the last whole reply that was refused looked like, for the failure if no correction mends it.
+    let last: ReplyDiagnostics | null = null;
     for (let attempt = 0; attempt <= repairs; attempt += 1) {
-      let completion: Completion | null = null;
+      let answered: { reply: Completion; event: ModelCallEvent } | null = null;
       // One attempt is one reply to judge. A parameter the deployment refuses is left out, and a reply
       // that was cut off at its limit is asked for again with more room and less thinking: each is a round
       // trip that is admitted and counted like any other, but none of them uses up a repair, because a
       // repair is for a reply that was read and found wrong, and these never were.
-      while (completion === null) {
+      while (answered === null) {
         throwIfAborted(signal);
         this.onUsage.admit?.();
         this.calls += 1;
@@ -492,13 +501,13 @@ export class ModelClient implements ModelGateway {
           // A reasoning model can spend its whole output budget thinking and write no JSON. A reply that
           // ended at its limit is never read, even if it parses; it is asked for once more, with twice the
           // room and less thinking, and if that one is cut off too the call fails as truncated.
-          if (error instanceof AppError && error.code === 'MODEL_TRUNCATED' && !retriedLength) {
+          if (error instanceof AppError && error.code === 'MODEL_TRUNCATED' && !plan.retried) {
             const next = retryAfterLength(
               { maxTokens: plan.maxTokens, effort: plan.reasoningEffort },
               plan.effortFloor,
             );
             if (next) {
-              retriedLength = true;
+              plan.retried = true;
               plan.maxTokens = next.maxTokens;
               plan.reasoningEffort = next.effort;
               continue;
@@ -506,7 +515,6 @@ export class ModelClient implements ModelGateway {
           }
           throw error;
         }
-        completion = reply;
         const event: ModelCallEvent = {
           ok: true,
           repair: attempt > 0,
@@ -523,29 +531,51 @@ export class ModelClient implements ModelGateway {
           reasoningTokens: reply.reasoningTokens,
           ...asked,
         };
-        this.observe(event);
+        answered = { reply, event };
+        // The provider answered, and what it used is spent whatever becomes of the reply: the allowance
+        // is told now. The call is recorded for the operators once the reply has been judged.
         ticket?.end(event, {
           inputTokens: estimateTokens(inputChars),
           outputTokens: estimateTokens(reply.answer.length),
         });
         this.remember(plan);
       }
+      const { reply: completion, event: answeredEvent } = answered;
       throwIfAborted(signal);
-      const checked = checkReply(schema, completion.answer, options.validate, injected, {
-        normalize: plan.mode === 'json_schema' ? plan.strict?.normalize : undefined,
-        // Foundry replies are one JSON document or they are not used; older providers keep the fence strip.
-        unfence: this.config.name !== 'foundry',
-      });
+      let checked: Checked<T>;
+      try {
+        checked = checkReply(schema, completion.answer, options.validate, injected, {
+          normalize: plan.mode === 'json_schema' ? plan.strict?.normalize : undefined,
+          // Foundry replies are one JSON document or they are not used; older providers keep the fence strip.
+          unfence: this.config.name !== 'foundry',
+        });
+      } catch (error) {
+        this.observe({ ...answeredEvent, ok: false, errorCode: 'MODEL_UNEXPECTED' });
+        throw error;
+      }
       if (checked.ok) {
+        this.observe(answeredEvent);
         if (options.report) options.report.repairs = attempt;
         return checked.value;
       }
+      // A whole reply that was refused is a call that did not give an answer: it is recorded as
+      // schema-invalid, with the tokens it used, and not as a call that went well.
+      this.observe({ ...answeredEvent, ok: false, errorCode: 'MODEL_OUTPUT_INVALID' });
       this.deps.observer?.onReject?.({
         reason: checked.reason,
         repair: attempt > 0,
         deployment: plan.deployment,
         role: plan.role,
       });
+      last = {
+        role: plan.role,
+        finishReason: completion.finishReason,
+        outputTokens: completion.outputTokens,
+        reasoningTokens: completion.reasoningTokens,
+        maxOutputTokens: answeredEvent.maxOutputTokens ?? plan.maxTokens,
+        effort: answeredEvent.effort ?? null,
+        rejection: checked.reason,
+      };
       problem = checked.problem;
       if (attempt < repairs) {
         messages.push(
@@ -554,21 +584,19 @@ export class ModelClient implements ModelGateway {
         );
       }
     }
-    this.observe({
-      ok: false,
-      repair: false,
-      latencyMs: 0,
-      inputTokens: 0,
-      outputTokens: 0,
-      tokensReported: false,
-      errorCode: 'MODEL_OUTPUT_INVALID',
-      deployment: plan.deployment,
+    const diagnostics: ReplyDiagnostics = last ?? {
       role: plan.role,
-    });
-    throw new AppError(
+      finishReason: null,
+      outputTokens: 0,
+      reasoningTokens: null,
+      maxOutputTokens: plan.maxTokens,
+      effort: plan.reasoningEffort,
+    };
+    throw new ModelReplyError(
       502,
       'MODEL_OUTPUT_INVALID',
-      `The model output failed validation after ${repairs} bounded repair attempt${repairs === 1 ? '' : 's'} (${safeReason(problem)}). No local fallback was used.`,
+      `The model output failed validation after ${repairs} bounded repair attempt${repairs === 1 ? '' : 's'} (${safeReason(problem)}). No local fallback was used. ${rejectionLine(diagnostics)}`,
+      diagnostics,
     );
   }
 
@@ -613,6 +641,7 @@ export class ModelClient implements ModelGateway {
       blame: 'open',
       blamedEffort: null,
       effortFloor,
+      retried: false,
       timeoutMs: route?.timeoutMs ?? this.config.timeoutMs,
       retry: route?.retry ?? { transient: MAX_TRANSIENT_RETRIES, throttle: MAX_THROTTLE_RETRIES },
       refused: { schema: null, temperature: false, reasoningEffort: false, minimalEffort: false },
@@ -769,12 +798,7 @@ export class ModelClient implements ModelGateway {
         parsed.data.prompt_eval_count !== undefined || parsed.data.eval_count !== undefined;
       Object.assign(meter, { inputTokens, outputTokens, finishReason, reported: tokensReported });
       this.onUsage({ inputTokens, outputTokens });
-      if (finishReason === 'length')
-        throw new AppError(
-          502,
-          'MODEL_TRUNCATED',
-          'The model output was truncated. Use a model capable of concise JSON output.',
-        );
+      if (finishReason === 'length') throw truncated(plan, outputTokens, null);
       answer = parsed.data.message.content;
     } else {
       const parsed = openAiResponse.safeParse(raw);
@@ -811,12 +835,7 @@ export class ModelClient implements ModelGateway {
       safety = reading.findings;
       if (reading.blocked) throw refusalFor(reading.findings);
       // Whatever ended at the limit is not an answer, however much of one it looks like.
-      if (finishReason === 'length')
-        throw new AppError(
-          502,
-          'MODEL_TRUNCATED',
-          'The model output was truncated. Use a model capable of concise JSON output.',
-        );
+      if (finishReason === 'length') throw truncated(plan, outputTokens, reasoningTokens);
       answer = choice.message.content || '';
     }
     return {
@@ -836,6 +855,24 @@ type Checked<T> =
 
 /** What a deployment's refusal of one schema is remembered under: the name alone could be shared. */
 const schemaKey = (strict: StrictSchema): string => `${strict.name}.${strict.fingerprint}`;
+
+/** The failure of a reply that ended at the limit it was given, with what that limit and the reply were. */
+function truncated(
+  plan: CallPlan,
+  outputTokens: number,
+  reasoningTokens: number | null,
+): ModelReplyError {
+  const diagnostics: ReplyDiagnostics = {
+    role: plan.role,
+    finishReason: 'length',
+    outputTokens,
+    reasoningTokens,
+    maxOutputTokens: plan.maxTokens,
+    effort: plan.reasoningEffort,
+    retried: plan.retried,
+  };
+  return new ModelReplyError(502, 'MODEL_TRUNCATED', truncationMessage(diagnostics), diagnostics);
+}
 
 /** Changes the effort a call asks at, and with it the room for thinking that this client made for it. */
 function withEffort(plan: CallPlan, effort: ReasoningEffort | null): void {

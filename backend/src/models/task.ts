@@ -2,6 +2,7 @@ import type { z } from 'zod';
 import { AppError, throwIfAborted } from '../errors.js';
 import type { CallReport } from './call.js';
 import type { ModelGateway } from './client.js';
+import { failureClause, ModelReplyError } from './diagnostics.js';
 import { traceTask } from './task-telemetry.js';
 
 /**
@@ -98,11 +99,21 @@ const DETAIL: Record<string, string> = {
   MODEL_CONTEXT_LIMIT: 'The request was too large for the model, so rules were used.',
 };
 const GENERIC_DETAIL = 'The model could not be used for this step, so rules were used.';
+/** What a stored failure may hold; `proposalInfoSchema` and the others limit it to this. */
+const MAX_DETAIL = 300;
 
-export const taskFailure = (code: string): TaskFailure => ({
-  code,
-  detail: DETAIL[code] ?? GENERIC_DETAIL,
-});
+/**
+ * The failure of a step the model could not do, as it may be stored and shown: fixed text for the class
+ * of failure, and, when the client knows what the reply looked like, a clause of counts and closed-set
+ * words about it (a cut-off reply and a whole one that was refused read differently). Nothing the model
+ * said, and nothing a person put in the data, is ever in it.
+ */
+export const taskFailure = (code: string, error?: unknown): TaskFailure => {
+  const base = DETAIL[code] ?? GENERIC_DETAIL;
+  if (!(error instanceof ModelReplyError)) return { code, detail: base };
+  const detail = `${base} (${failureClause(error.diagnostics)})`;
+  return { code, detail: detail.length <= MAX_DETAIL ? detail : base };
+};
 
 function checked<T>(task: StructuredTask<T>, value: T): T {
   const parsed = task.schema.parse(value);
@@ -202,6 +213,7 @@ export async function executeStructuredTask<T>(
     return rules(
       taskFailure(
         code === 'MODEL_UNEXPECTED' && isValidation(error) ? 'MODEL_OUTPUT_INVALID' : code,
+        error,
       ),
     );
   }

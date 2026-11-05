@@ -38,6 +38,7 @@ interface Instruments {
   modelCalls: Counter;
   modelLatency: Histogram;
   modelTokens: Counter;
+  modelReasoningTokens: Counter;
   modelTaskDuration: Histogram;
   modelCost: Counter;
   modelSchemaFailures: Counter;
@@ -133,14 +134,20 @@ function createInstruments(meter: Meter): Instruments {
       description: 'Queue events: retries, lease expiries, expiry, hand-backs, lost leases',
     }),
     modelCalls: meter.createCounter('swarm.model.calls', {
-      description: 'Model provider calls, by provider, model and outcome',
+      description:
+        'Model provider round trips, by provider, model, role and outcome (ok, repaired, truncated, schema-invalid, failed), with the provider’s finish reason',
     }),
     modelLatency: meter.createHistogram('swarm.model.latency', {
       description: 'Time a model call took',
       unit: 'ms',
     }),
     modelTokens: meter.createCounter('swarm.model.tokens', {
-      description: 'Tokens the provider reported, by direction, role and deployment',
+      description:
+        'Tokens the provider reported, by direction, role and deployment, for every call whether or not its reply was used',
+    }),
+    modelReasoningTokens: meter.createCounter('swarm.model.reasoning_tokens', {
+      description:
+        'Hidden thinking tokens a reasoning deployment reported, by role and deployment. Part of the output tokens, not added to them',
     }),
     modelTaskDuration: meter.createHistogram('swarm.model.task.duration', {
       description:
@@ -210,9 +217,23 @@ export interface ModelCallSignal {
   model: string;
   ok: boolean;
   repair: boolean;
+  /**
+   * How the round trip ended: `ok`, `repaired`, `truncated` (a reply that ended at its output limit),
+   * `schema-invalid` (a whole reply that was not accepted) or `failed` (anything else). The first two
+   * are replies that were used; the other three are not, and are not the same problem.
+   */
+  outcome: 'ok' | 'repaired' | 'truncated' | 'schema-invalid' | 'failed';
   latencyMs: number;
   inputTokens: number;
   outputTokens: number;
+  /** Whether the provider reported what the call used. Only reported tokens are counted. */
+  tokensReported: boolean;
+  /** Hidden thinking tokens, part of `outputTokens`; null when the provider does not say. */
+  reasoningTokens?: number | null;
+  /** Why the provider ended its reply, as one of a closed set (`stop`, `length`, ...). */
+  finishReason?: string | null;
+  /** The reasoning effort the request asked at, when it asked at one. */
+  effort?: string | null;
   errorCode: string | null;
   /** The task's role, when the call was made for one. */
   role?: string | null;
@@ -288,13 +309,15 @@ export const signals = {
   },
 
   modelCall(input: ModelCallSignal): void {
-    const outcome = input.ok ? (input.repair ? 'repaired' : 'ok') : 'failed';
+    const outcome = input.outcome;
     const attributes = safeAttributes({
       'swarm.model.provider': input.provider,
       'swarm.model.name': input.model,
       'swarm.model.outcome': outcome,
       ...(input.role ? { 'swarm.model.role': input.role } : {}),
       ...(input.structured ? { 'swarm.model.structured': input.structured } : {}),
+      ...(input.finishReason ? { 'swarm.model.finish_reason': input.finishReason } : {}),
+      ...(input.effort ? { 'swarm.model.effort': input.effort } : {}),
       ...(input.errorCode ? { 'swarm.error.code': input.errorCode } : {}),
     });
     const set = instruments();
@@ -303,7 +326,9 @@ export const signals = {
       input.latencyMs,
       safeAttributes({ 'swarm.model.provider': input.provider, 'swarm.model.outcome': outcome }),
     );
-    if (input.ok) {
+    // What the provider reported was spent whether or not the reply could be used: a reply cut off after
+    // a long think is billed as much as a good one, and is the call that most needs to be seen.
+    if (input.tokensReported) {
       const base = {
         'swarm.model.provider': input.provider,
         'swarm.model.name': input.model,
@@ -317,6 +342,10 @@ export const signals = {
         input.outputTokens,
         safeAttributes({ ...base, 'swarm.model.direction': 'output' }),
       );
+      // Part of the output tokens already counted above, so it has a counter of its own and is not a direction.
+      if (typeof input.reasoningTokens === 'number') {
+        set.modelReasoningTokens.add(input.reasoningTokens, safeAttributes(base));
+      }
       if (typeof input.estimatedUsd === 'number') {
         set.modelCost.add(input.estimatedUsd, safeAttributes(base));
       }

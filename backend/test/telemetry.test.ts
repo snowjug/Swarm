@@ -407,6 +407,107 @@ describe('model calls and the ledger', () => {
     expect(await everythingExported()).not.toContain('canary-api-key');
   });
 
+  it('keep a reply that was cut off, and a whole one that was refused, apart from a call that failed', async () => {
+    const config = testConfig({
+      AI_PROVIDER: 'openai',
+      AI_MODEL: 'diagnosed-model',
+      OPENAI_API_KEY: 'canary-api-key-0123456789',
+      OPENAI_BASE_URL: 'https://api.openai.example/v1',
+    });
+    const provider = new ProviderTelemetry(config.provider);
+    const reply = {
+      repair: false,
+      latencyMs: 700,
+      tokensReported: true,
+      role: 'actor',
+      effort: 'low',
+      maxOutputTokens: 1_050,
+      structured: 'json_schema',
+    } as const;
+    // Cut off at its limit after thinking: every token went on reasoning, and none was an answer.
+    provider.onCall({
+      ...reply,
+      ok: false,
+      inputTokens: 200,
+      outputTokens: 1_050,
+      reasoningTokens: 1_050,
+      finishReason: 'length',
+      errorCode: 'MODEL_TRUNCATED',
+    });
+    // Whole, and not accepted.
+    provider.onCall({
+      ...reply,
+      ok: false,
+      inputTokens: 210,
+      outputTokens: 300,
+      reasoningTokens: 40,
+      finishReason: 'stop',
+      errorCode: 'MODEL_OUTPUT_INVALID',
+    });
+    // The provider answered both, so it is reachable and it took the credentials.
+    expect(provider.snapshot().connectivity).toBe('ok');
+    provider.onCall({
+      ok: false,
+      repair: false,
+      latencyMs: 90,
+      inputTokens: 0,
+      outputTokens: 0,
+      tokensReported: false,
+      errorCode: 'MODEL_AUTH',
+    });
+    const points = await measurements();
+    const calls = (outcome: string) =>
+      named(points, 'swarm.model.calls', {
+        'swarm.model.name': 'diagnosed-model',
+        'swarm.model.outcome': outcome,
+      });
+    expect(calls('truncated')[0]).toMatchObject({
+      value: 1,
+      attributes: {
+        'swarm.model.role': 'actor',
+        'swarm.model.finish_reason': 'length',
+        'swarm.model.effort': 'low',
+        'swarm.error.code': 'MODEL_TRUNCATED',
+      },
+    });
+    expect(calls('schema-invalid')[0]).toMatchObject({
+      value: 1,
+      attributes: {
+        'swarm.model.finish_reason': 'stop',
+        'swarm.error.code': 'MODEL_OUTPUT_INVALID',
+      },
+    });
+    // Only what was neither is a failed call, so that the provider alert is about the provider.
+    expect(calls('failed')).toHaveLength(1);
+    expect(calls('failed')[0]?.attributes['swarm.error.code']).toBe('MODEL_AUTH');
+    const tokens = (direction: string) =>
+      named(points, 'swarm.model.tokens', {
+        'swarm.model.name': 'diagnosed-model',
+        'swarm.model.direction': direction,
+      })[0]?.value;
+    // Both were billed, so both are in the tokens; the thinking is counted on its own and not added again.
+    expect(tokens('input')).toBe(410);
+    expect(tokens('output')).toBe(1_350);
+    expect(
+      named(points, 'swarm.model.reasoning_tokens', { 'swarm.model.name': 'diagnosed-model' })[0]
+        ?.value,
+    ).toBe(1_090);
+    expect(provider.snapshot()).toMatchObject({
+      connectivity: 'failing',
+      counters: {
+        calls: 0,
+        failures: 3,
+        truncated: 1,
+        schemaInvalid: 1,
+        inputTokens: 410,
+        outputTokens: 1_350,
+        reasoningTokens: 1_090,
+        tokensReported: true,
+      },
+    });
+    expect(await everythingExported()).not.toContain('canary-api-key');
+  });
+
   it('count the support class of every statement the grounding review judged', async () => {
     const { repository } = await start();
     const { id } = repository.create(

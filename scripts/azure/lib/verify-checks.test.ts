@@ -226,8 +226,11 @@ describe('verification checks', () => {
       calls: 100,
       repairCalls: 5,
       failures: 1,
+      truncated: 0,
+      schemaInvalid: 0,
       inputTokens: 90_000,
       outputTokens: 12_000,
+      reasoningTokens: 0,
       tokensReported: true,
     };
     const after = (counters: Partial<typeof baseline>, connectivity: ProviderConnectivity = 'ok') =>

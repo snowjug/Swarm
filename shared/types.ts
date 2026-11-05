@@ -363,11 +363,20 @@ export interface ProviderStatus {
   lastError: { code: string; message: string } | null;
   /** Counters since the server started: every real provider round trip, including repairs. */
   counters: {
+    /** Round trips whose reply was used. */
     calls: number;
     repairCalls: number;
+    /** Round trips that gave no answer, for any reason: `truncated` and `schemaInvalid` are among them. */
     failures: number;
+    /** Of `failures`: replies cut off at their output limit, so that nothing could be read. */
+    truncated: number;
+    /** Of `failures`: whole replies that were not accepted (not the JSON asked for, or failed a check). */
+    schemaInvalid: number;
+    /** Every token the provider reported, whatever became of the reply: a cut-off reply is billed too. */
     inputTokens: number;
     outputTokens: number;
+    /** Of `outputTokens`, the hidden thinking tokens of a reasoning deployment. */
+    reasoningTokens: number;
     /** False until the provider has reported usage; zero tokens then does not mean zero cost. */
     tokensReported: boolean;
   };

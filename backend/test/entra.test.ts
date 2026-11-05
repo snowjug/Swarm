@@ -275,12 +275,16 @@ describe('provider telemetry and the status API', () => {
       observer: telemetry,
     });
     await client.json(answer, 'Return JSON.', {}, signal());
+    // The first reply was whole but was not JSON: it is a call that gave no answer, recorded as
+    // schema-invalid, and not one that went well. Both replies were billed, so both are in the tokens.
     expect(telemetry.snapshot()).toMatchObject({
       connectivity: 'ok',
       counters: {
-        calls: 2,
+        calls: 1,
         repairCalls: 1,
-        failures: 0,
+        failures: 1,
+        truncated: 0,
+        schemaInvalid: 1,
         inputTokens: 60,
         outputTokens: 24,
         tokensReported: true,
@@ -291,7 +295,7 @@ describe('provider telemetry and the status API', () => {
     expect(failed).toMatchObject({
       connectivity: 'failing',
       lastError: { code: 'MODEL_AUTH' },
-      counters: { failures: 1 },
+      counters: { failures: 2, schemaInvalid: 1 },
     });
     const serialized = JSON.stringify(failed);
     expect(serialized).not.toContain(TOKEN);

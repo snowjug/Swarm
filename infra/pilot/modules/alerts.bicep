@@ -98,7 +98,7 @@ param modelFailurePercent int = 20
 @minValue(1)
 param modelMinimumCalls int = 10
 
-@description('Model answers that failed the output schema even after the correction round, in an hour.')
+@description('Model replies that could not be used in an hour: cut off at their output limit, or whole and not accepted. Each is counted per round trip, so one operation that is corrected once counts twice.')
 @minValue(1)
 param invalidModelOutputsPerHour int = 5
 
@@ -613,7 +613,7 @@ resource modelFailures 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = {
   kind: 'LogAlert'
   properties: {
     displayName: '${baseName}: model calls failing'
-    description: 'More than the threshold share of swarm.model.calls ended with outcome failed in the last 30 minutes (provider auth, quota, timeout, refusal). Signal exists today. Runbook: the model provider is failing.'
+    description: 'More than the threshold share of swarm.model.calls ended with outcome failed in the last 30 minutes (provider auth, quota, timeout, refusal). A reply that arrived but was cut off at its output limit (outcome truncated) or was whole and not accepted (outcome schema-invalid) is a different problem with a different remedy, and is read by the model-schema-failures rule. Runbook: the model provider is failing.'
     severity: 2
     enabled: true
     scopes: [appInsightsResourceId]
@@ -662,8 +662,8 @@ resource schemaValidation 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = 
   tags: tags
   kind: 'LogAlert'
   properties: {
-    displayName: '${baseName}: model output failing validation'
-    description: 'Model answers that failed the strict output schema (error code MODEL_OUTPUT_INVALID) or needed the correction round (outcome repaired) in the last hour. Both exist today on swarm.model.calls; a dedicated fallback counter for the rules path is still to be emitted (docs/production/observability.md).'
+    displayName: '${baseName}: model output unusable (cut off or failing validation)'
+    description: 'Model replies that could not be used in the last hour: cut off at their output limit (outcome truncated: a reasoning deployment spends its limit thinking) or whole but not accepted (outcome schema-invalid: not the JSON asked for, or failing the server checks), or answers that needed the correction round (outcome repaired). All three exist on swarm.model.calls, with the finish reason and the reasoning effort as attributes and the hidden thinking tokens on swarm.model.reasoning_tokens. Runbook: docs/TROUBLESHOOTING.md, model replies cut off.'
     severity: 3
     enabled: true
     scopes: [appInsightsResourceId]
@@ -680,9 +680,9 @@ resource schemaValidation 'Microsoft.Insights/scheduledQueryRules@2023-12-01' = 
                   '''
 customMetrics
 | where timestamp > ago(1h) and name == 'swarm.model.calls' and cloud_RoleName == '{{ROLE}}'
-| extend outcome = tostring(customDimensions['swarm.model.outcome']), code = tostring(customDimensions['swarm.error.code'])
-| summarize calls = sum(valueSum), invalid = sumif(valueSum, code == 'MODEL_OUTPUT_INVALID'), repaired = sumif(valueSum, outcome == 'repaired')
-| where invalid >= {{INVALID}} or (calls >= {{MIN}} and repaired * 100.0 / calls > {{PERCENT}})
+| extend outcome = tostring(customDimensions['swarm.model.outcome'])
+| summarize calls = sum(valueSum), unusable = sumif(valueSum, outcome in ('truncated', 'schema-invalid')), repaired = sumif(valueSum, outcome == 'repaired')
+| where unusable >= {{INVALID}} or (calls >= {{MIN}} and repaired * 100.0 / calls > {{PERCENT}})
 ''',
                   '{{ROLE}}',
                   telemetryRoleName

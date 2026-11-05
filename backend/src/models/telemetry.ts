@@ -31,6 +31,23 @@ export interface ModelCallEvent {
   maxOutputTokens?: number | null;
 }
 
+/**
+ * How a round trip to the provider ended, for the operators. `truncated` and `schema-invalid` are
+ * kept apart from `failed` because they are different problems with different remedies: the first is
+ * a limit that was too small for what the model spent (thinking included), the second is a reply that
+ * was whole and was not what was asked for, and neither says anything is wrong with the connection.
+ */
+export type ModelCallOutcome = 'ok' | 'repaired' | 'truncated' | 'schema-invalid' | 'failed';
+
+export function modelCallOutcome(
+  event: Pick<ModelCallEvent, 'ok' | 'repair' | 'errorCode'>,
+): ModelCallOutcome {
+  if (event.ok) return event.repair ? 'repaired' : 'ok';
+  if (event.errorCode === 'MODEL_TRUNCATED') return 'truncated';
+  if (event.errorCode === 'MODEL_OUTPUT_INVALID') return 'schema-invalid';
+  return 'failed';
+}
+
 /** A reply the schema or the server's checks refused: a class of problem, never the reply. */
 export interface ModelRejectEvent {
   reason: 'not_json' | 'schema' | 'validation' | 'injection_echo';
@@ -64,8 +81,11 @@ export class ProviderTelemetry implements ModelObserver {
   private calls = 0;
   private repairCalls = 0;
   private failures = 0;
+  private truncated = 0;
+  private schemaInvalid = 0;
   private inputTokens = 0;
   private outputTokens = 0;
+  private reasoningTokens = 0;
   private tokensReported = false;
   private connectivity: ProviderConnectivity;
   private lastCheckedAt: string | null = null;
@@ -93,19 +113,26 @@ export class ProviderTelemetry implements ModelObserver {
 
   onCall(event: ModelCallEvent): void {
     const deployment = event.deployment ?? this.config.model;
+    const outcome = modelCallOutcome(event);
     const cost = estimateCostUsd(event, deployment, this.prices);
     signals.modelCall({
       provider: this.config.name,
       model: deployment ?? '',
       ok: event.ok,
       repair: event.repair,
+      outcome,
       latencyMs: event.latencyMs,
       inputTokens: event.inputTokens,
       outputTokens: event.outputTokens,
+      tokensReported: event.tokensReported,
+      reasoningTokens: event.reasoningTokens ?? null,
+      finishReason: event.finishReason ?? null,
+      effort: event.effort ?? null,
       errorCode: event.errorCode,
       role: event.role ?? null,
       structured: event.structured ?? null,
-      estimatedUsd: event.ok && event.tokensReported ? cost.usd : null,
+      // What the provider reported was spent, so it is priced whether or not the reply could be used.
+      estimatedUsd: event.tokensReported ? cost.usd : null,
     });
     for (const finding of event.safety ?? []) {
       signals.modelSafety({
@@ -118,21 +145,28 @@ export class ProviderTelemetry implements ModelObserver {
     this.lastCheckedAt = new Date().toISOString();
     this.lastLatencyMs = Math.round(event.latencyMs);
     if (event.repair) this.repairCalls += 1;
-    if (event.ok) {
-      this.calls += 1;
+    if (event.tokensReported) {
+      this.tokensReported = true;
       this.inputTokens += event.inputTokens;
       this.outputTokens += event.outputTokens;
-      if (event.tokensReported) this.tokensReported = true;
+      this.reasoningTokens += event.reasoningTokens ?? 0;
+    }
+    if (event.ok) {
+      this.calls += 1;
       this.connectivity = 'ok';
       this.lastError = null;
       return;
     }
     this.failures += 1;
+    if (outcome === 'truncated') this.truncated += 1;
+    if (outcome === 'schema-invalid') this.schemaInvalid += 1;
     if (event.errorCode && CONNECTIVITY_CODES.has(event.errorCode)) {
       this.connectivity = 'failing';
       this.lastError = { code: event.errorCode, message: describe(event.errorCode) };
     } else if (event.errorCode) {
-      // The provider answered; the content failed validation. Connectivity is unaffected.
+      // A reply that was cut off, or whole and refused, is the provider answering: it was reached and it
+      // took the credentials. What was wrong is the reply, and the last error says which.
+      if (outcome === 'truncated' || outcome === 'schema-invalid') this.connectivity = 'ok';
       this.lastError = { code: event.errorCode, message: describe(event.errorCode) };
     }
   }
@@ -153,8 +187,11 @@ export class ProviderTelemetry implements ModelObserver {
         calls: this.calls,
         repairCalls: this.repairCalls,
         failures: this.failures,
+        truncated: this.truncated,
+        schemaInvalid: this.schemaInvalid,
         inputTokens: this.inputTokens,
         outputTokens: this.outputTokens,
+        reasoningTokens: this.reasoningTokens,
         tokensReported: this.tokensReported,
       },
       startedAt: this.startedAt,
@@ -177,7 +214,7 @@ function describe(code: string): string {
     case 'MODEL_PROTOCOL':
       return 'The provider response did not match the expected API.';
     case 'MODEL_OUTPUT_INVALID':
-      return 'The model returned output that failed validation after bounded repair.';
+      return 'The model replied in full, but the reply was not accepted: it was not the JSON asked for or it failed the server’s checks.';
     case 'MODEL_REFUSED':
       return 'The provider declined a request.';
     case 'MODEL_PARAMETER_UNSUPPORTED':
@@ -185,7 +222,7 @@ function describe(code: string): string {
     case 'MODEL_CONTEXT_LIMIT':
       return 'A request exceeded the model context window.';
     case 'MODEL_TRUNCATED':
-      return 'A model answer was truncated.';
+      return 'A model reply was cut off at its output limit, so it was not used.';
     case 'MODEL_CALL_BUDGET':
       return 'The per-operation model call budget was reached.';
     case 'MODEL_TOKEN_BUDGET':

@@ -93,7 +93,8 @@ their sessions on the next request), and escalate.
 
 `swarm.model.tokens` by day, and the per-project execution records (`modelCalls`, tokens). A single
 project with unusually many calls is a person running large scenarios; a rise in `repaired` and `failed`
-calls is the model returning invalid output and Swarm retrying.
+calls is the model returning invalid output and Swarm retrying, and a rise in `truncated` is a deployment
+that spends its output limit thinking (`swarm.model.reasoning_tokens` shows how much).
 
 Each project is held to a model budget of calls and tokens ([ADR 0013](../adr/0013-per-project-model-budget.md)).
 Read it with `GET /api/projects/:id/budget` or the project's **Model budget** button, and look for

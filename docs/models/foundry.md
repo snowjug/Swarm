@@ -131,6 +131,26 @@ or not (`backend/src/models/output-policy.ts`, applied in `ModelClient`):
 - **Keeps the strict schema** wherever the deployment takes it (`response_format: json_schema`). Only
   `key-actor-refinement.v1` still asks for plain JSON, because its `traits` object has free keys.
 
+### What a reply that could not be used says about itself
+
+A reply that ended at its limit and a whole reply that was refused are different failures with different
+remedies, and are kept apart everywhere (`backend/src/models/diagnostics.ts`):
+
+- **`swarm.model.calls`** has one record per round trip, with the outcome `ok`, `repaired`, `truncated`,
+  `schema-invalid` or `failed` (auth, quota, timeout), the task `role`, the provider's `finish_reason` and the
+  effort asked. Tokens and the estimated cost are counted for every call whose usage was reported, used or
+  not, and the hidden thinking is on `swarm.model.reasoning_tokens` (part of the output tokens, not added).
+- **The failure message** says which it was, in numbers. For a cut-off reply:
+  `finish_reason length; 9,000 of 9,000 output tokens, 8,900 of them hidden reasoning; reasoning effort minimal`,
+  and that it was already asked for again once. For a whole reply that was refused: which kind of check it
+  failed (not one JSON object, did not match the schema, failed the server's checks, repeated an instruction)
+  and the same counts. The stored failure of a task carries the same facts in one short clause.
+- **What is never in any of it:** a prompt, a passage, a name, or a word the model wrote. It is counts and
+  closed-set words only, and the test of it (`model-diagnostics.test.ts`, `foundry-client.test.ts`) plants
+  canaries in the data and in the reply and asserts that none comes out.
+- **The provider panel** counts `truncated` and `schemaInvalid` apart from `failures`, and a cut-off or refused
+  reply leaves the connection `ok`: the provider answered, and the connection is not what was wrong.
+
 ## How a deployment is chosen
 
 `createRouter(config.routing).route(request)` is configuration and arithmetic: no network, no randomness,

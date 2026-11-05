@@ -35,6 +35,10 @@ export const ALLOWED_ATTRIBUTES: ReadonlySet<string> = new Set([
   'swarm.model.safety',
   'swarm.model.reason',
   'swarm.model.structured',
+  // The provider's own `finish_reason` reduced to a closed set (stop, length, content_filter, tool_calls,
+  // other), and the reasoning effort the request asked at (minimal, low, medium, high): neither is text.
+  'swarm.model.finish_reason',
+  'swarm.model.effort',
   // Derived from a prompt or a reply, so only set when TELEMETRY_TRACE_CONTENT=redacted: a size and a hash, never text.
   'swarm.model.input_chars',
   'swarm.model.output_chars',

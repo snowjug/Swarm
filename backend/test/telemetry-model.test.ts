@@ -112,6 +112,18 @@ const named = (points: Point[], name: string, attributes: Record<string, unknown
       Object.entries(attributes).every(([key, value]) => point.attributes[key] === value),
   );
 
+/** What a counter went up by between two readings, over the points that carry these attributes. */
+function rose(
+  before: Point[],
+  after: Point[],
+  name: string,
+  attributes: Record<string, unknown> = {},
+): number {
+  const total = (points: Point[]) =>
+    named(points, name, attributes).reduce((sum, point) => sum + Number(point.value), 0);
+  return total(after) - total(before);
+}
+
 async function everythingExported(): Promise<string> {
   return JSON.stringify({
     spans: spanExporter.getFinishedSpans().map((span) => ({
@@ -209,6 +221,7 @@ describe('the measurements of a task', () => {
     const { run } = runner();
     const wrong = { kind: 'text', text: '{"items":[]}' } as const;
     fake.script(wrong, wrong);
+    const before = await measurements();
     const outcome = await run.run(task());
     expect(outcome.source).toBe('fallback');
     const points = await measurements();
@@ -226,6 +239,62 @@ describe('the measurements of a task', () => {
         'swarm.model.role': 'extraction',
         'swarm.error.code': 'MODEL_OUTPUT_INVALID',
       })[0]?.value,
+    ).toBe(1);
+    // Each whole reply that was refused is a call of its own that gave no answer, kept apart from one
+    // that failed and from one that was cut off; none of them is counted as a call that went well.
+    const calls = (outcome: string) =>
+      rose(before, points, 'swarm.model.calls', {
+        'swarm.model.outcome': outcome,
+      });
+    expect(calls('schema-invalid')).toBe(2);
+    expect(
+      named(points, 'swarm.model.calls', { 'swarm.model.outcome': 'schema-invalid' })[0]
+        ?.attributes,
+    ).toMatchObject({
+      'swarm.model.role': 'extraction',
+      'swarm.model.finish_reason': 'stop',
+      'swarm.error.code': 'MODEL_OUTPUT_INVALID',
+    });
+    expect(calls('ok')).toBe(0);
+    expect(calls('failed')).toBe(0);
+    expect(calls('truncated')).toBe(0);
+  });
+
+  it('count a reply that was cut off at its limit as truncated, with what it used, and not as a failed call', async () => {
+    const { run } = runner();
+    fake.script(
+      { kind: 'truncated', usage: { prompt: 500, completion: 1_300, reasoning: 1_300 } },
+      { kind: 'truncated', usage: { prompt: 500, completion: 2_600, reasoning: 2_500 } },
+    );
+    const before = await measurements();
+    const outcome = await run.run(task());
+    expect(outcome).toMatchObject({
+      source: 'fallback',
+      failure: { code: 'MODEL_TRUNCATED', detail: expect.stringContaining('asked again once') },
+    });
+    const points = await measurements();
+    const calls = (outcome: string) =>
+      rose(before, points, 'swarm.model.calls', {
+        'swarm.model.outcome': outcome,
+        'swarm.model.role': 'extraction',
+      });
+    expect(calls('truncated')).toBe(2);
+    expect(calls('failed')).toBe(0);
+    expect(
+      named(points, 'swarm.model.calls', { 'swarm.model.outcome': 'truncated' })[0]?.attributes,
+    ).toMatchObject({
+      'swarm.model.finish_reason': 'length',
+      'swarm.model.effort': 'low',
+      'swarm.error.code': 'MODEL_TRUNCATED',
+    });
+    // Both were billed: the tokens are counted, and so is the thinking, on a counter of its own.
+    const spent = (name: string, attributes: Record<string, unknown> = {}) =>
+      rose(before, points, name, { 'swarm.model.role': 'extraction', ...attributes });
+    expect(spent('swarm.model.tokens', { 'swarm.model.direction': 'output' })).toBe(3_900);
+    expect(spent('swarm.model.tokens', { 'swarm.model.direction': 'input' })).toBe(1_000);
+    expect(spent('swarm.model.reasoning_tokens')).toBe(3_800);
+    expect(
+      rose(before, points, 'swarm.model.fallbacks', { 'swarm.error.code': 'MODEL_TRUNCATED' }),
     ).toBe(1);
   });
 
