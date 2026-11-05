@@ -1,6 +1,7 @@
 import type { ProviderConfig } from '../config.js';
 import { signals } from '../telemetry/signals.js';
-import type { ProviderConnectivity, ProviderStatus } from '../../../shared/types.js';
+import { checkSentence } from '../../../shared/provider-check.js';
+import type { ProviderCheck, ProviderConnectivity, ProviderStatus } from '../../../shared/types.js';
 import { estimateCostUsd, type PriceTable } from './cost.js';
 import type { ReasoningEffort } from './call.js';
 import type { SafetyFinding } from './safety.js';
@@ -91,10 +92,30 @@ export class ProviderTelemetry implements ModelObserver {
   private lastCheckedAt: string | null = null;
   private lastLatencyMs: number | null = null;
   private lastError: { code: string; message: string } | null = null;
+  private check: ProviderCheck | null = null;
   private prices: PriceTable = [];
 
   constructor(private readonly config: ProviderConfig) {
     this.connectivity = config.configured ? 'unverified' : 'not-applicable';
+  }
+
+  /**
+   * Keeps the result of an explicit connection check, and lets it decide what the connection is. A check
+   * is the one thing that asks for each of the four things apart, so what it found is more to be believed
+   * than the code of whichever call failed last: a provider that is throttled, or whose deployment gives
+   * cut-off replies, is still reached, signed in to and found, and is not called "failing" for that.
+   */
+  recordCheck(check: ProviderCheck): void {
+    this.check = check;
+    this.lastCheckedAt = check.checkedAt;
+    this.lastLatencyMs = Math.round(
+      check.deployments.reduce((slowest, one) => Math.max(slowest, one.latencyMs), 0),
+    );
+    // The connection is confirmed or it is not, and the chip says exactly that: there is no state in
+    // which the page says "connected" and the check says it failed.
+    this.connectivity = check.connected ? 'ok' : 'failing';
+    const code = check.deployments.find((one) => one.code !== null)?.code ?? null;
+    this.lastError = check.ok || code === null ? null : { code, message: checkSentence(check) };
   }
 
   /** The operator's price table, so that a call's estimated cost can be counted. Without one, none is. */
@@ -183,6 +204,7 @@ export class ProviderTelemetry implements ModelObserver {
       lastCheckedAt: this.lastCheckedAt,
       lastLatencyMs: this.lastLatencyMs,
       lastError: this.lastError,
+      check: this.check,
       counters: {
         calls: this.calls,
         repairCalls: this.repairCalls,

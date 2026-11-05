@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProviderStatus } from '../../../shared/types';
 import { api, ApiError } from '../api';
-import { localStatusFixture, realStatusFixture } from '../test/provider';
+import { checkFixture, localStatusFixture, realStatusFixture } from '../test/provider';
 import {
   PROVIDER_POLL_MS,
   PROVIDER_STATUS_TIMEOUT_MS,
@@ -279,9 +279,31 @@ describe('explicit connection verification', () => {
     const check = vi.spyOn(api, 'checkProvider').mockResolvedValue(connected());
     await monitor.verify();
     expect(check).toHaveBeenCalledOnce();
-    expect(latest().verification).toMatchObject({ phase: 'success', latencyMs: 412 });
+    expect(latest().verification).toMatchObject({ phase: 'checked', latencyMs: 412, check: null });
     expect(latest().status?.connectivity).toBe('ok');
     expect(latest().announcement).toBe('');
+    monitor.dispose();
+  });
+
+  it('keeps what the check found, apart for each thing, whether or not it passed', async () => {
+    const { latest, monitor } = start();
+    await tick();
+    const found = checkFixture({
+      structuredOutput: { state: 'failed', detail: 'a tiny request was cut off at its limit' },
+      code: 'MODEL_TRUNCATED',
+    });
+    vi.spyOn(api, 'checkProvider').mockResolvedValue(
+      realStatusFixture({ connectivity: 'ok', lastLatencyMs: 300, check: found }),
+    );
+    await monitor.verify();
+    // It ran, so it is a result and not an error; the chip and the check are read from the same answer.
+    expect(latest().verification).toMatchObject({
+      phase: 'checked',
+      at: found.checkedAt,
+      latencyMs: 300,
+      check: { ok: false, connected: true },
+    });
+    expect(latest().status).toMatchObject({ connectivity: 'ok', check: { connected: true } });
     monitor.dispose();
   });
 
@@ -294,7 +316,7 @@ describe('explicit connection verification', () => {
     expect(latest().verification).toEqual({ phase: 'pending' });
     request.resolve(connected());
     await running;
-    expect(latest().verification.phase).toBe('success');
+    expect(latest().verification.phase).toBe('checked');
     monitor.dispose();
   });
 
@@ -337,7 +359,7 @@ describe('explicit connection verification', () => {
     expect(latest().verification.phase).toBe('error');
     await monitor.verify();
     expect(check).toHaveBeenCalledTimes(2);
-    expect(latest().verification.phase).toBe('success');
+    expect(latest().verification.phase).toBe('checked');
     monitor.dispose();
   });
 

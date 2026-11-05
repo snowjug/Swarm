@@ -1,5 +1,10 @@
 import { expect } from 'vitest';
-import type { ProviderStatus } from '../../../shared/types';
+import type {
+  CheckStage,
+  DeploymentCheck,
+  ProviderCheck,
+  ProviderStatus,
+} from '../../../shared/types';
 
 /** Text a person reads: markup removed and whitespace collapsed. */
 export function visibleText(html: string): string {
@@ -68,4 +73,34 @@ export function realStatusFixture(overrides: Partial<ProviderStatus> = {}): Prov
     connectivity: 'unverified',
     ...overrides,
   });
+}
+
+/**
+ * What a connection check found: all four things confirmed unless a stage is replaced. `connected` and `ok`
+ * follow from the stages as the server works them out, so that a fixture cannot say what the stages do not.
+ */
+export function checkFixture(found: Partial<DeploymentCheck> = {}): ProviderCheck {
+  const ok: CheckStage = { state: 'ok', detail: null };
+  const deployment: DeploymentCheck = {
+    deployment: 'swarm-dev-deployment',
+    reachable: ok,
+    authenticated: ok,
+    deploymentFound: ok,
+    structuredOutput: { state: 'ok', detail: 'strict JSON schema' },
+    structuredMode: 'json_schema',
+    code: null,
+    latencyMs: 140,
+    ...found,
+  };
+  const connected = [
+    deployment.reachable,
+    deployment.authenticated,
+    deployment.deploymentFound,
+  ].every((stage) => stage.state === 'ok');
+  return {
+    checkedAt: '2026-01-01T00:00:10.000Z',
+    connected,
+    ok: connected && deployment.structuredOutput.state === 'ok',
+    deployments: [deployment],
+  };
 }

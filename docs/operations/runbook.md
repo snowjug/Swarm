@@ -77,7 +77,8 @@ _Alert: model provider failing._ `swarm.model.calls` by error code:
 - `MODEL_NOT_FOUND`: the deployment name (`AI_MODEL`) is wrong or the deployment was removed.
 - `MODEL_TIMEOUT`, `MODEL_UNREACHABLE`: the service or the network. Check the provider's status.
 
-`GET /api/provider/status` shows the same without a model call; `POST /api/provider/check` makes one.
+`GET /api/provider/status` shows the same without a model call; `POST /api/provider/check` makes one, and
+answers (HTTP 200) with what it found about reachability, sign-in, the deployment and structured output, apart.
 
 ## A spike of refused requests
 

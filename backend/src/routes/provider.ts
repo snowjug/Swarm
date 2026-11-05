@@ -1,14 +1,13 @@
 import type { FastifyInstance } from 'fastify';
-import { z } from 'zod';
+import type { DeploymentCheck } from '../../../shared/types.js';
 import { AppError } from '../errors.js';
+import { CHECK_ANSWER_TOKENS, checkDeployment, summarizeChecks } from '../models/check.js';
 import type { ModelFactory } from '../models/factory.js';
+import { MINIMAL_EFFORT } from '../models/output-policy.js';
 import { createRouter } from '../models/router.js';
 import { MODEL_ROLES, type ModelRole } from '../models/task.js';
 import type { ProviderTelemetry } from '../models/telemetry.js';
 import type { ServerConfig } from '../config.js';
-
-const pingSchema = z.object({ status: z.string().min(1).max(40) });
-const PING = 'Connectivity check. Reply with the JSON object {"status":"ok"} and nothing else.';
 
 /**
  * The deployments a Foundry configuration uses, each with the role that names it, so that a check
@@ -44,7 +43,11 @@ export function providerRoutes(
   app.get('/api/provider/status', async () => telemetry.snapshot());
 
   // An explicit, user-triggered real round trip. It never runs automatically and never falls back.
-  // For Foundry it asks every deployment that a task could be routed to, once each.
+  // For Foundry it asks every deployment that a task could be routed to, once each. A check that ran is
+  // always an answer (HTTP 200) that says what it found about each of the four things, apart: reached,
+  // signed in to, deployment found, structured output. Only a check that could not be made (no model is
+  // configured, no deployment may serve a task) is an error, so that "connected" and "the check failed"
+  // are never said of the same thing.
   app.post(
     '/api/provider/check',
     { config: { rateLimit: { max: 6 * rateScale, timeWindow: '1 minute' } } },
@@ -58,11 +61,15 @@ export function providerRoutes(
       });
       const within = () =>
         AbortSignal.any([controller.signal, AbortSignal.timeout(config.provider.timeoutMs)]);
+      const credentials = config.provider.auth !== 'none';
       if (config.provider.name !== 'foundry') {
         const model = createModel(() => undefined, { maxCalls: 2 });
-        await model.json(pingSchema, PING, { purpose: 'connectivity-check' }, within(), 50, {
-          repairs: 1,
-        });
+        const result = await checkDeployment(
+          model,
+          { deployment: config.provider.model, route: {} },
+          { signal: within(), credentials },
+        );
+        telemetry.recordCheck(summarizeChecks([result]));
         return telemetry.snapshot();
       }
       const checks = foundryChecks(config);
@@ -74,37 +81,39 @@ export function providerRoutes(
         );
       }
       const router = createRouter(config.routing);
-      // Room for what a deployment may need before it answers: up to three refused parameters and a repair.
+      // Room for what a deployment may need before it answers: refused parameters, and a cut-off reply asked again.
       const model = createModel(() => undefined, { maxCalls: checks.length * 5 });
+      const results: DeploymentCheck[] = [];
       for (const { role, deployment } of checks) {
         const route = router.route({
           role,
           contextChars: 300,
-          maxTokens: 50,
+          maxTokens: CHECK_ANSWER_TOKENS,
           available: [deployment],
         });
-        await model.json(
-          pingSchema,
-          PING,
-          { purpose: 'connectivity-check' },
-          within(),
-          route.maxTokens,
-          {
-            repairs: 1,
-            route: {
-              role,
-              task: 'connectivity-check',
+        results.push(
+          await checkDeployment(
+            model,
+            {
               deployment: route.deployment,
-              temperature: route.temperature,
-              reasoningEffort: route.reasoningEffort,
-              roomForReasoning: route.reasoningEffort !== null,
-              timeoutMs: route.timeoutMs,
-              retry: route.retry,
-              strictSchema: route.strictSchema,
+              // The same deployment and sampling that a task would be sent with, but at the lowest
+              // effort and with room to finish: the check is not a task that can afford to think.
+              route: {
+                role,
+                deployment: route.deployment,
+                temperature: route.temperature,
+                reasoningEffort: MINIMAL_EFFORT,
+                roomForReasoning: false,
+                timeoutMs: route.timeoutMs,
+                retry: route.retry,
+                strictSchema: route.strictSchema,
+              },
             },
-          },
+            { signal: within(), credentials },
+          ),
         );
       }
+      telemetry.recordCheck(summarizeChecks(results));
       return telemetry.snapshot();
     },
   );

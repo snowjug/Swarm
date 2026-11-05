@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import type { ProviderStatus } from '../../../shared/types';
+import type { ProviderCheck, ProviderStatus } from '../../../shared/types';
 import { api, errorMessage, isAbort } from '../api';
 import { PROVIDER_BADGE_ID, providerChangeAnnouncement } from '../lib/provider';
 
@@ -9,7 +9,12 @@ export const PROVIDER_STATUS_TIMEOUT_MS = 15_000;
 export type ProviderVerification =
   | { phase: 'idle' }
   | { phase: 'pending' }
-  | { phase: 'success'; at: string; latencyMs: number | null }
+  /**
+   * A check ran, and what it found is the result, whether or not it passed. `check` says what was found about
+   * each thing apart; it is null for a server of an earlier build, which said only whether the call worked.
+   */
+  | { phase: 'checked'; at: string; latencyMs: number | null; check: ProviderCheck | null }
+  /** The check could not be made at all: nothing was reached, or the server would not run it. */
   | { phase: 'error'; at: string; message: string };
 
 export interface ProviderMonitorState {
@@ -144,9 +149,10 @@ export function createProviderMonitor(
       revision += 1;
       accept(next, false, {
         verification: {
-          phase: 'success',
-          at: new Date().toISOString(),
+          phase: 'checked',
+          at: next.check?.checkedAt ?? new Date().toISOString(),
           latencyMs: next.lastLatencyMs,
+          check: next.check ?? null,
         },
       });
     } catch (failure) {

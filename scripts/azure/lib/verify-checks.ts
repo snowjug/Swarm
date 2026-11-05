@@ -1,6 +1,7 @@
 import { findQuote } from '../../../backend/src/grounding/text.js';
 import { SUPPORT_VERDICTS, SUPPORT_VERDICT_LABELS } from '../../../shared/grounding.js';
 import type { RunComparison } from '../../../shared/guided.js';
+import { checkProblem } from '../../../shared/provider-check.js';
 import type {
   ChatMessage,
   EvidenceChunk,
@@ -58,7 +59,14 @@ export function checkProviderConnection(status: ProviderStatus): string {
     const reason = status.lastError ? `: ${status.lastError.code} ${status.lastError.message}` : '';
     throw new CheckFailure(`Connectivity is "${status.connectivity}"${reason}.`);
   }
-  return `Connected${status.lastLatencyMs === null ? '' : `; latency ${status.lastLatencyMs} ms`}.`;
+  // A check can be connected and still not give what every step needs. A server of this build says what
+  // it confirmed apart, and a run that needs structured output does not go on without all four things.
+  const problem = checkProblem(status.check);
+  if (problem) throw new CheckFailure(problem);
+  const confirmed = status.check
+    ? '; reached, signed in to, deployment found and structured output confirmed'
+    : '';
+  return `Connected${status.lastLatencyMs === null ? '' : `; latency ${status.lastLatencyMs} ms`}${confirmed}.`;
 }
 
 export function checkRealCalls(

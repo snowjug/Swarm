@@ -259,6 +259,67 @@
     color: var(--c-favor);
     animation: sw-scale-in var(--dur-base) var(--ease-spring-snappy) both;
   }
+  /*
+   * What a connection check found, with the four things apart. The words carry the state ("confirmed", "failed",
+   * "not confirmed"); the glyph and its colour only repeat them.
+   */
+  .sw-provider-check {
+    display: grid;
+    gap: 0.6rem;
+    width: 100%;
+  }
+  .sw-provider-check__name {
+    margin: 0;
+    font-size: var(--fs-small);
+    color: var(--ink-2);
+  }
+  .sw-provider-check__list {
+    display: grid;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-provider-check__stage {
+    display: grid;
+    grid-template-columns: auto 9.5rem 1fr;
+    gap: 0.1rem var(--s-2);
+    align-items: baseline;
+    padding: 0.4rem 0;
+    border-top: 1px solid var(--hairline);
+    font-size: var(--fs-small);
+  }
+  .sw-provider-check__icon {
+    display: inline-flex;
+    align-self: start;
+    padding-top: 0.15rem;
+    color: var(--ink-3);
+  }
+  .sw-provider-check__stage[data-state='ok'] .sw-provider-check__icon {
+    color: var(--c-favor);
+  }
+  .sw-provider-check__stage[data-state='failed'] .sw-provider-check__icon {
+    color: var(--c-against);
+  }
+  .sw-provider-check__label {
+    color: var(--ink);
+  }
+  .sw-provider-check__state {
+    color: var(--ink-2);
+  }
+  .sw-provider-check__detail {
+    grid-column: 2 / -1;
+    color: var(--ink-3);
+    overflow-wrap: anywhere;
+  }
+  @media (max-width: 26rem) {
+    .sw-provider-check__stage {
+      grid-template-columns: auto 1fr;
+    }
+    .sw-provider-check__state,
+    .sw-provider-check__detail {
+      grid-column: 2;
+    }
+  }
   .sw-provider-pop__dl {
     display: grid;
     margin: 0;

@@ -28,7 +28,8 @@ AI_MODEL=<the name of a deployment of that resource>
 Sign in with Microsoft Entra ID: run `az login` locally, or give the hosted workload a managed identity
 (set `AZURE_CLIENT_ID` for a user-assigned one). The identity needs the **Cognitive Services OpenAI User**
 role on the resource. No API key exists or is read. Then call `POST /api/provider/check`, which asks every
-deployment a task could be routed to, once each.
+deployment a task could be routed to, once each, and reports apart whether it was reachable, signed in to, found and
+gave structured output ([the connection check](#the-connection-check)).
 
 ## Environment variables
 
@@ -130,6 +131,40 @@ or not (`backend/src/models/output-policy.ts`, applied in `ModelClient`):
   which is for a reply that was read and found wrong.
 - **Keeps the strict schema** wherever the deployment takes it (`response_format: json_schema`). Only
   `key-actor-refinement.v1` still asks for plain JSON, because its `traits` object has free keys.
+
+### The connection check
+
+`POST /api/provider/check` (the **Verify connection** button in the engine chip's popover) makes one tiny real
+request to every deployment a task could be routed to, and says what it found about **four things, apart**, for
+each: whether it was **reachable**, whether the provider took the credentials (**authenticated**), whether the
+**deployment was found**, and whether it gave **structured output**. Each is `ok`, `failed` or `unknown` (the
+check did not get far enough to say, which is not a pass), with a reason in fixed words or counts and never a word
+of the provider's. The request is made so that it cannot fail for a reason that is not a finding: one fixed word as
+strict JSON (`{"status":"ok"}`), at the lowest reasoning effort, with 1,024 tokens to write and the room to think
+that effort is given, and a cut-off reply is asked for once more with twice the room. A live pilot's check asked for
+50 tokens, was cut off by the deployment's own thinking, and said "failed" while the chip said "connected".
+
+| What the request ended in                     | Reachable | Authenticated | Deployment found | Structured output                                   |
+| --------------------------------------------- | --------- | ------------- | ---------------- | --------------------------------------------------- |
+| the JSON asked for                            | ok        | ok            | ok               | ok (strict schema, or plain JSON if strict refused) |
+| cannot be reached, or does not answer in time | failed    | unknown       | unknown          | unknown                                             |
+| an error status, or not the OpenAI chat API   | failed    | unknown       | unknown          | unknown                                             |
+| credentials refused (401/403)                 | ok        | **failed**    | unknown          | unknown                                             |
+| no such deployment (404)                      | ok        | unknown       | **failed**       | unknown                                             |
+| throttled (429), or the provider declined     | ok        | ok            | ok               | unknown (not tested)                                |
+| cut off at its limit, twice                   | ok        | ok            | ok               | **failed** (the counts of the reply)                |
+| whole, but not the JSON asked for             | ok        | ok            | ok               | **failed** (which kind of check it failed)          |
+| a request parameter refused                   | ok        | ok            | ok               | **failed**                                          |
+
+**The connection is the first three, and it is confirmed or it is not.** The chip says `connected` exactly when all
+three are confirmed for every deployment, and `failing` when they are not; it is read from the same result, so the
+page cannot say "connected" and "the check failed" of the same check. A connection that works but whose deployment
+gives cut-off or invalid replies is _connected, and structured output is not working_, and says which. A check
+that ran is always an answer (**HTTP 200**) whatever it found, with `check` in the status (`ProviderCheck`, in
+`shared/types.ts`; `shared/provider-check.ts` reads it the same way for the page and for the scripts). Only a check
+that could not be made is an error: `503 MODEL_NOT_CONFIGURED`, or `503 MODEL_ROUTE_UNAVAILABLE` when no deployment
+may serve a task. A script that must not go on without structured output reads `check.ok` (see `checkProblem`);
+`npm run azure:verify`, the demo recorder and the live journey's preflight do.
 
 ### What a reply that could not be used says about itself
 

@@ -48,7 +48,7 @@ for (const viewport of viewports) {
       await expectSound(page, 'provider panel');
 
       await panel.getByRole('button', { name: 'Verify connection' }).click();
-      await expect(panel).toContainText('Connection verified: one real round trip completed');
+      await expect(panel).toContainText('Connection verified: the provider was reached');
       await expect(panel).toContainText('Connected');
       await expectSound(page, 'provider panel after verification');
     });

@@ -349,6 +349,52 @@ export interface ChatMessage {
 
 export type ProviderConnectivity = 'not-applicable' | 'unverified' | 'ok' | 'failing';
 
+/**
+ * What a connection check found out about one thing. `unknown` is not a failure: the check did not get
+ * far enough to say (a request that never reached the provider cannot say whether the credentials are
+ * good), and it is shown as that and not as a pass.
+ */
+export type CheckState = 'ok' | 'failed' | 'unknown';
+
+export interface CheckStage {
+  state: CheckState;
+  /** What was found, in fixed words or counts: never a word the provider or the model wrote. */
+  detail: string | null;
+}
+
+/**
+ * The four things a connection check reports, separately, for one deployment, so that "connected" and
+ * "the check failed" cannot be said of the same thing: the first three are the connection, and the fourth
+ * is whether the deployment gives the structured JSON that every model step needs.
+ */
+export interface DeploymentCheck {
+  /** The deployment asked, or null for a provider that has none. */
+  deployment: string | null;
+  /** The request reached the endpoint and something answered. */
+  reachable: CheckStage;
+  /** The provider took the credentials this server signs in with. */
+  authenticated: CheckStage;
+  /** The provider has a deployment of this name. */
+  deploymentFound: CheckStage;
+  /** A tiny request, at the lowest effort and with room to finish, came back as the JSON it asked for. */
+  structuredOutput: CheckStage;
+  /** How the structured output was asked for when it worked: a strict schema, or plain JSON because strict output was refused. */
+  structuredMode: 'json_schema' | 'json_object' | null;
+  /** The machine code of what stopped the check, when something did. */
+  code: string | null;
+  latencyMs: number;
+}
+
+/** The result of one explicit connection check, of every deployment a task could be sent to. */
+export interface ProviderCheck {
+  checkedAt: string;
+  /** All four confirmed for every deployment. */
+  ok: boolean;
+  /** The first three confirmed for every deployment: the provider is reached, signed in to, and has them. */
+  connected: boolean;
+  deployments: DeploymentCheck[];
+}
+
 /** Safe, credential-free view of the model provider for the UI and operators. */
 export interface ProviderStatus {
   /** What the server can run: the offline rules engine only, or a configured real model. */
@@ -361,6 +407,11 @@ export interface ProviderStatus {
   lastCheckedAt: string | null;
   lastLatencyMs: number | null;
   lastError: { code: string; message: string } | null;
+  /**
+   * The last explicit connection check, with what it confirmed apart: reachable, authenticated, deployment
+   * found, structured output. Null until one has been made; absent from a server of an earlier build.
+   */
+  check?: ProviderCheck | null;
   /** Counters since the server started: every real provider round trip, including repairs. */
   counters: {
     /** Round trips whose reply was used. */

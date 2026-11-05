@@ -83,9 +83,11 @@ test.describe('a question is read by a model only when the person chose Model as
     await expect(options.getByRole('radio', { name: /Local rules/u })).toBeChecked();
     await expect(options).toContainText('Rules run on this machine. Nothing is sent anywhere.');
     await page.keyboard.press('Escape');
-    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toHaveCount(
-      0,
-    );
+    // With the options closed, the first screen still says which engine the press will use.
+    await expect(page.getByRole('main').getByRole('radio', { name: /Rules only/u })).toBeChecked();
+    await expect(
+      page.getByRole('main').getByRole('radio', { name: /Model-assisted/u }),
+    ).not.toBeChecked();
 
     await questionBox(page).fill(QUESTION);
     await pasteSource(page, HARBOUR_NOTES.name, HARBOUR_NOTES.content);
@@ -122,7 +124,9 @@ test.describe('a question is read by a model only when the person chose Model as
     expect(await fake.stats()).toMatchObject({ calls: 0, requests: 0 });
     await page.keyboard.press('Escape');
     // With the options closed, the way forward still says that pressing it asks a model.
-    await expect(page.getByRole('main').getByText('Model assisted', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('main').getByRole('radio', { name: /Model-assisted/u }),
+    ).toBeChecked();
 
     const { sent, answer } = await explore(page);
     expect(sent.useModel).toBe(true);

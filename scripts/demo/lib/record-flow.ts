@@ -1,4 +1,5 @@
 import { DEMO_PROJECTS } from '../../../shared/demo.js';
+import { checkProblem } from '../../../shared/provider-check.js';
 import type { Intervention } from '../../../shared/types.js';
 import type { RunComparison } from '../../../shared/guided.js';
 import type { ChatMessage, ProjectDetail, ProviderStatus } from '../../../shared/types.js';
@@ -91,7 +92,15 @@ export async function recordDemo(api: Api, options: RecordOptions): Promise<Reco
     );
   }
   if (real) {
-    await api.post('/api/provider/check');
+    // A check that ran is an answer whatever it found, so what it found is read: a recording made against a model
+    // that cannot give structured output would be a recording of the fallback.
+    const checked = await api.post<ProviderStatus>('/api/provider/check');
+    const problem = checkProblem(checked.check);
+    if (checked.connectivity !== 'ok' || problem) {
+      throw new Error(
+        problem ?? `The real model did not answer (connectivity ${checked.connectivity}).`,
+      );
+    }
     log(
       `Provider: ${status.provider}, deployment ${status.model}, ${status.auth} sign-in. A real round trip succeeded.`,
     );

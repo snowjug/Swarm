@@ -10,9 +10,11 @@ import {
 } from '../../../../shared/guided.js';
 import type {
   ChatMessage,
+  CheckStage,
   EvidenceChunk,
   Intervention,
   ProjectDetail,
+  ProviderCheck,
   ProviderStatus,
 } from '../../../../shared/types.js';
 import type { ScenarioSize } from '../verify-scenario.js';
@@ -22,6 +24,35 @@ import { EVIDENCE, MARKDOWN, buildProject, buildStatus } from './verify-world.js
 const reply = (status: number, body: unknown): HttpResult => ({ status, body });
 const refusal = (status: number, code: string, message: string): HttpResult =>
   reply(status, { error: { code, message } });
+
+/** What a server of this build says a connection check found: every thing confirmed, but for those named. */
+function checkOf(found: {
+  authenticated?: 'failed';
+  structuredOutput?: 'failed';
+  code?: string;
+}): ProviderCheck {
+  const ok: CheckStage = { state: 'ok', detail: null };
+  const unknown: CheckStage = { state: 'unknown', detail: null };
+  const failed: CheckStage = { state: 'failed', detail: 'The identity has no access.' };
+  const rejected = found.authenticated === 'failed';
+  return {
+    checkedAt: '2026-01-01T00:00:10.000Z',
+    ok: !found.authenticated && !found.structuredOutput,
+    connected: !rejected,
+    deployments: [
+      {
+        deployment: 'swarm-chat',
+        reachable: ok,
+        authenticated: rejected ? failed : ok,
+        deploymentFound: rejected ? unknown : ok,
+        structuredOutput: found.structuredOutput ? failed : rejected ? unknown : ok,
+        structuredMode: rejected ? null : 'json_schema',
+        code: found.code ?? null,
+        latencyMs: 120,
+      },
+    ],
+  };
+}
 
 function stepsOf(project: ProjectDetail): Record<ConsoleStep, StepStatus> {
   if (!project.console) throw new Error('The fixture project has no console state.');
@@ -105,13 +136,16 @@ export class FakeApp implements Http {
 
   private check(): HttpResult {
     if (this.checkError) {
+      // A check that ran is an answer (HTTP 200) that says what it found; here it found a rejected sign-in.
       this.status.connectivity = 'failing';
       this.status.lastError = this.checkError;
-      return refusal(502, this.checkError.code, this.checkError.message);
+      this.status.check = checkOf({ authenticated: 'failed', code: this.checkError.code });
+      return reply(200, structuredClone(this.status));
     }
     this.status.connectivity = 'ok';
     this.status.lastLatencyMs = 120;
     this.status.lastError = null;
+    this.status.check = checkOf({});
     if (this.countCalls) this.status.counters.calls += 1;
     return reply(200, structuredClone(this.status));
   }

@@ -137,7 +137,8 @@ start and names the variable, never its value.
 allowance and the cache are done by the task runner (`backend/src/models/runner.ts`), and the only caller of the runner is
 the planning of a research run. The other steps that use a model (participants, constraints, the question reading, the
 review and the rest) send to the default deployment, `AI_MODEL`, through the same client, which does ask for strict
-structured output from a Foundry deployment. `POST /api/provider/check` asks every deployment a task could be routed to.
+structured output from a Foundry deployment. `POST /api/provider/check` asks every deployment a task could be routed to,
+and says apart whether it was reachable, signed in to, found and gave structured output.
 
 ## Sign-in and tenants
 
@@ -251,8 +252,10 @@ tells you exactly which permission is missing if you cannot deploy.
 
 Verify with a real round trip, never an assumption: `POST /api/provider/check` or the
 **Verify connection** in the popover of the engine chip in the top bar. The chip reads
-`connected` only after a real request has succeeded (that check, or any model
-operation since the server started) and `failing` after one has failed. To prove the whole journey (per-proxy calls, grounding, branch,
+`connected` only after a real request has succeeded (a check, or any model
+operation since the server started) and `failing` after one has failed; after a check it reads exactly what that
+check found about the connection (reachable, signed in to, deployment found), and the check says apart whether
+structured output works. To prove the whole journey (per-proxy calls, grounding, branch,
 chats, injection probe, no credential leakage) run `npm run azure:verify`; it exits `0`
 only if every check passes against the configured provider
 ([details](./AZURE.md#verifying-the-live-integration)). Legacy key authentication remains available with
@@ -272,7 +275,8 @@ output, a router, allowances, an optional per-tenant cache and safety signals ad
 ([Foundry models](./models/foundry.md) has all of it). Three settings give a working server with one deployment serving
 every role: `AI_PROVIDER=foundry`, `FOUNDRY_ENDPOINT` and `AI_MODEL` (a deployment name). Sign in with `az login`, or give
 the hosted workload a managed identity (`AZURE_CLIENT_ID` for a user-assigned one); the identity needs the **Cognitive
-Services OpenAI User** role. `POST /api/provider/check` then asks every deployment a task could be routed to, once each.
+Services OpenAI User** role. `POST /api/provider/check` then asks every deployment a task could be routed to, once each,
+and reports apart whether it was reachable, signed in to, found and gave structured output.
 
 > **Status:** proved against an in-process fake of the endpoint (`backend/test/support/fake-foundry.ts`) and **never run
 > against a live resource**. The live evidence in [AZURE.md](./AZURE.md#live-evidence) was gathered with `AI_PROVIDER=azure`

@@ -2,7 +2,13 @@ import type { ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it } from 'vitest';
 import type { BudgetView } from '../../../shared/budget';
-import type { AuditEntry, ProjectSummary } from '../../../shared/types';
+import type {
+  AuditEntry,
+  CheckStage,
+  CheckState,
+  ProjectSummary,
+  ProviderCheck,
+} from '../../../shared/types';
 import { ErrorBoundary } from '../app/ErrorBoundary';
 import { MotionRoot } from '../design/motion';
 import { TooltipProvider } from '../design/ui';
@@ -12,6 +18,7 @@ import type { BudgetState } from '../hooks/useBudget';
 import type { MembersState } from '../hooks/useMembers';
 import type { ProjectRole } from '../lib/members';
 import {
+  checkFixture,
   expectNoSecretLikeText,
   localStatusFixture,
   realStatusFixture,
@@ -383,6 +390,162 @@ describe('the provider popover', () => {
 
   it('says when the status could not be read', () => {
     expect(body(realStatusFixture(), 'The server did not answer.')).toContain('Status unavailable');
+  });
+
+  describe('what a connection check found', () => {
+    const stage = (state: CheckState, detail: string | null = null): CheckStage => ({
+      state,
+      detail,
+    });
+    const after = (check: ProviderCheck, status = realStatusFixture()) =>
+      words(
+        <ProviderPanelBody
+          state={{
+            ...INITIAL_PROVIDER_STATE,
+            status: { ...status, check },
+            verification: { phase: 'checked', at: check.checkedAt, latencyMs: 140, check },
+          }}
+          onVerify={noop}
+          onRetry={noop}
+        />,
+      );
+
+    it('says all four things, apart, when it passed', () => {
+      const text = after(checkFixture(), realStatusFixture({ connectivity: 'ok' }));
+      expect(text).toContain('Connection verified');
+      for (const label of ['Reachable', 'Authenticated', 'Deployment found', 'Structured output']) {
+        expect(text).toContain(`${label} confirmed`);
+      }
+      expect(text).toContain('strict JSON schema');
+      expect(text).not.toContain('Connection check failed');
+    });
+
+    it('does not call a working connection a failed check: it says what failed, which is the structured output', () => {
+      const cut = checkFixture({
+        structuredOutput: stage(
+          'failed',
+          'a tiny request was cut off at its limit, asked again once',
+        ),
+        code: 'MODEL_TRUNCATED',
+      });
+      const text = after(cut, realStatusFixture({ connectivity: 'ok' }));
+      // The chip's heading and the check agree: connected, and structured output is what is not working.
+      expect(text).toContain('Connected');
+      expect(text).toContain('Connected, but structured output is not working');
+      expect(text).toContain('Structured output failed');
+      expect(text).toContain('Reachable confirmed');
+      expect(text).toContain('Authenticated confirmed');
+      expect(text).toContain('Deployment found confirmed');
+      expect(text).toContain('cut off at its limit');
+      expect(text).not.toContain('Connection check failed');
+      expect(text).not.toContain('Connection verified');
+    });
+
+    it('says a connection that failed failed, with the thing that did and what was not checked after it', () => {
+      const rejected = checkFixture({
+        authenticated: stage('failed', 'The provider rejected the API key.'),
+        deploymentFound: stage(
+          'unknown',
+          'not checked: the provider did not accept the credentials',
+        ),
+        structuredOutput: stage(
+          'unknown',
+          'not checked: the provider did not accept the credentials',
+        ),
+        code: 'MODEL_AUTH',
+      });
+      const text = after(rejected, realStatusFixture({ connectivity: 'failing' }));
+      expect(text).toContain('Connection check failed');
+      expect(text).toContain('Authenticated failed');
+      expect(text).toContain('The provider rejected the API key');
+      expect(text).toContain('Reachable confirmed');
+      expect(text).toContain('Deployment found not confirmed');
+      expect(text).toContain('Structured output not confirmed');
+      expect(text).not.toContain('Connection verified');
+    });
+
+    it('names each deployment when there are several, and shows the last check again after a reload', () => {
+      const first = checkFixture();
+      const check: ProviderCheck = {
+        ...first,
+        deployments: [
+          ...first.deployments,
+          { ...first.deployments[0]!, deployment: 'critic-deployment' },
+        ],
+      };
+      const text = words(
+        <ProviderPanelBody
+          state={{
+            ...INITIAL_PROVIDER_STATE,
+            status: realStatusFixture({ connectivity: 'ok', check }),
+          }}
+          onVerify={noop}
+          onRetry={noop}
+        />,
+      );
+      expect(text).toContain('swarm-dev-deployment');
+      expect(text).toContain('critic-deployment');
+      expect(text).toContain('Connection verified');
+    });
+
+    it('says a check that could not be made is that, and not a failed connection', () => {
+      const text = words(
+        <ProviderPanelBody
+          state={{
+            ...INITIAL_PROVIDER_STATE,
+            status: realStatusFixture(),
+            verification: {
+              phase: 'error',
+              at: '2026-01-01T00:00:10.000Z',
+              message: 'No model is configured.',
+            },
+          }}
+          onVerify={noop}
+          onRetry={noop}
+        />,
+      );
+      expect(text).toContain('The connection check could not be made');
+      expect(text).toContain('No model is configured.');
+      expect(text).not.toContain('Connection check failed');
+    });
+
+    it('keeps saying one real round trip completed for a server that sent no check', () => {
+      const text = words(
+        <ProviderPanelBody
+          state={{
+            ...INITIAL_PROVIDER_STATE,
+            status: realStatusFixture({ connectivity: 'ok' }),
+            verification: {
+              phase: 'checked',
+              at: '2026-01-01T00:00:10.000Z',
+              latencyMs: 90,
+              check: null,
+            },
+          }}
+          onVerify={noop}
+          onRetry={noop}
+        />,
+      );
+      expect(text).toContain('Connection verified: one real round trip completed in 90 ms');
+    });
+
+    it('counts a reply that was cut off, and one that was not accepted, apart from failures', () => {
+      const status = realStatusFixture({
+        connectivity: 'ok',
+        counters: {
+          ...realStatusFixture().counters,
+          failures: 5,
+          truncated: 3,
+          schemaInvalid: 2,
+          tokensReported: true,
+          reasoningTokens: 7_400,
+        },
+      });
+      const text = body(status);
+      expect(text).toContain('Cut off at the output limit 3');
+      expect(text).toContain('Whole replies not accepted 2');
+      expect(text).toContain('Hidden reasoning tokens 7,400');
+    });
   });
 });
 

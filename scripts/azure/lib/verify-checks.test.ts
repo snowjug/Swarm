@@ -6,6 +6,7 @@ import {
   createProjectSchema,
   documentInputSchema,
   type ProviderConnectivity,
+  type ProviderStatus,
 } from '../../../shared/types.js';
 import { parseVerifyArgs, UsageError } from './args.js';
 import { buildProject, buildStatus, EVIDENCE, MARKDOWN, MODEL } from './fixtures/verify-world.js';
@@ -19,6 +20,7 @@ import {
   checkNoSecrets,
   checkPerActor,
   checkProviderConfig,
+  checkProviderConnection,
   checkRealCalls,
   checkTelemetry,
   minimumCalls,
@@ -219,6 +221,65 @@ describe('verification checks', () => {
     expect(failure(() => checkRealCalls(project, status, size))).toContain(
       'server is configured for azure',
     );
+  });
+
+  describe('the connection check', () => {
+    const stage = (state: 'ok' | 'failed' | 'unknown', detail: string | null = null) => ({
+      state,
+      detail,
+    });
+    const checked = (structuredOutput: ReturnType<typeof stage>): ProviderStatus =>
+      buildStatus({
+        connectivity: 'ok',
+        lastLatencyMs: 140,
+        check: {
+          checkedAt: '2026-01-01T00:00:10.000Z',
+          connected: true,
+          ok: structuredOutput.state === 'ok',
+          deployments: [
+            {
+              deployment: 'swarm-chat',
+              reachable: stage('ok'),
+              authenticated: stage('ok'),
+              deploymentFound: stage('ok'),
+              structuredOutput,
+              structuredMode: 'json_schema',
+              code: null,
+              latencyMs: 140,
+            },
+          ],
+        },
+      });
+
+    it('is connected when the server says all four things were confirmed', () => {
+      expect(checkProviderConnection(checked(stage('ok', 'strict JSON schema')))).toBe(
+        'Connected; latency 140 ms; reached, signed in to, deployment found and structured output confirmed.',
+      );
+    });
+
+    it('stops a run that needs structured output when the connection is good and the output is not', () => {
+      const message = failure(() =>
+        checkProviderConnection(
+          checked(stage('failed', 'a tiny request was cut off at its limit, asked again once')),
+        ),
+      );
+      expect(message).toContain('Connected, but structured output is not working');
+      expect(message).toContain('cut off at its limit');
+    });
+
+    it('stops on a connection that is not, with the code the server gave', () => {
+      const status = buildStatus({
+        connectivity: 'failing',
+        lastError: { code: 'MODEL_AUTH', message: 'The provider rejected the API key.' },
+      });
+      expect(failure(() => checkProviderConnection(status))).toContain('MODEL_AUTH');
+    });
+
+    it('takes the word of a server of an earlier build, which sent no check, that the call worked', () => {
+      expect(checkProviderConnection(buildStatus({ connectivity: 'ok', lastLatencyMs: 90 }))).toBe(
+        'Connected; latency 90 ms.',
+      );
+    });
   });
 
   describe('the server counters', () => {

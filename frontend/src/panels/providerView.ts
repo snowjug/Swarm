@@ -2,6 +2,7 @@ import type { ProviderStatus } from '../../../shared/types';
 import type { Tone } from '../design/ui';
 import { count } from '../lib/format';
 import {
+  TOKENS_NOT_REPORTED,
   authText,
   connectivityChip,
   connectivityText,
@@ -133,7 +134,17 @@ export function detailRows(status: ProviderStatus, unavailable: boolean): Detail
         : 'none since the server started',
     },
     { label: 'Repair calls', value: count(status.counters.repairCalls) },
+    // A reply that ended at its output limit, and a whole one that was not accepted, are not connection
+    // failures and are not counted with them.
+    { label: 'Cut off at the output limit', value: count(status.counters.truncated ?? 0) },
+    { label: 'Whole replies not accepted', value: count(status.counters.schemaInvalid ?? 0) },
     { label: 'Input / output tokens', value: tokensText(status) },
+    {
+      label: 'Hidden reasoning tokens',
+      value: status.counters.tokensReported
+        ? count(status.counters.reasoningTokens ?? 0)
+        : TOKENS_NOT_REPORTED,
+    },
     {
       label: 'Last error',
       value: status.lastError ? `${status.lastError.code}: ${status.lastError.message}` : 'none',

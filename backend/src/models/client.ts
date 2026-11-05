@@ -555,7 +555,10 @@ export class ModelClient implements ModelGateway {
       }
       if (checked.ok) {
         this.observe(answeredEvent);
-        if (options.report) options.report.repairs = attempt;
+        if (options.report) {
+          options.report.repairs = attempt;
+          options.report.structured = plan.mode;
+        }
         return checked.value;
       }
       // A whole reply that was refused is a call that did not give an answer: it is recorded as

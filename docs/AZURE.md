@@ -332,7 +332,7 @@ runs the whole journey. Expect on the order of 60 small model calls.
 | Check                            | What has to hold                                                                                                    |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
 | Server set up for a real model   | Status reports `real-model`, the expected provider and authentication (a keyless Azure setup reports `entra`)       |
-| Real round trip                  | `POST /api/provider/check` succeeds against the endpoint; it never falls back to local mode                         |
+| Real round trip                  | `POST /api/provider/check` confirms all four things (reached, signed in, deployment, structured output)             |
 | Pipeline                         | Graph, proxies, simulation and report all reach `ready`; a failed stage is reported with its recorded error         |
 | Real calls recorded              | The project records the expected provider/model and at least one call per proxy, platform and round                 |
 | One decision per proxy per round | Both platforms, every round, every proxy: one decision with a stated reason and a 0-1 confidence                    |
@@ -406,8 +406,9 @@ resource and the resource needs quota. No key belongs in Git, browser variables,
 chat message or an image. Credentials are required only for actual Azure inference,
 never for the rules-based local engine.
 
-Then verify with a real round trip (it makes exactly one tiny model call and never
-falls back to local mode): `POST /api/provider/check`, or **Verify connection** in the popover of the engine
+Then verify with a real round trip (it makes one tiny model call per deployment, never falls back to local mode,
+and reports apart whether the provider was reached, signed in to, had the deployment and gave structured output):
+`POST /api/provider/check`, or **Verify connection** in the popover of the engine
 chip in the top bar.
 
 Validate a small four-agent/three-round scenario first. Check actual JSON

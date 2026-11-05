@@ -1,5 +1,7 @@
 // Runs once before the live journey. It refuses to start when the server is not the one the
 // presentation needs, so that a journey never "passes" against something else.
+import { checkProblem } from '../../shared/provider-check';
+import type { ProviderStatus as ServerProviderStatus } from '../../shared/types';
 
 interface ProviderStatus {
   mode: string;
@@ -35,13 +37,16 @@ export default async function preflight(): Promise<void> {
     );
   }
   if (status.mode === 'real-model' && process.env.JOURNEY_ASK !== '0') {
-    // One tiny real request, so that an expired sign-in fails here and not eight minutes in.
-    const checked = await get<{ connectivity: string }>(base, '/api/provider/check', {
+    // One tiny real request, so that an expired sign-in fails here and not eight minutes in. A check that ran is
+    // an answer whatever it found, so what it found is read: the journey needs structured output too.
+    const checked = await get<ServerProviderStatus>(base, '/api/provider/check', {
       method: 'POST',
     });
     if (checked.connectivity !== 'ok') {
       throw new Error(`The real model did not answer (${checked.connectivity}).`);
     }
+    const problem = checkProblem(checked.check);
+    if (problem) throw new Error(problem);
     console.log('Live journey: a real round trip to the model succeeded.');
   }
 }

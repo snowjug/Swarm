@@ -40,6 +40,8 @@ export interface CallReport {
   deployment?: string | null;
   /** The correction rounds the accepted reply needed: 0 when the first reply was. Set only on success. */
   repairs?: number;
+  /** How the accepted reply was asked for: a strict schema, or plain JSON where strict output was refused. Set only on success. */
+  structured?: 'json_schema' | 'json_object';
 }
 
 export interface CallRequestInfo {

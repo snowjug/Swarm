@@ -10,6 +10,7 @@ import {
   WifiOff,
 } from 'lucide-react';
 import type { ProviderMonitorState } from '../hooks/useProviderStatus';
+import type { ProviderCheck } from '../../../shared/types';
 import {
   Button,
   Disclosure,
@@ -31,6 +32,7 @@ import {
   realModelLabel,
 } from '../lib/provider';
 import { PRIVACY_REAL, chipModel, detailRows, headline, type Lamp } from './providerView';
+import { CheckResult } from './CheckResult';
 // The shell loads this module with the page, and the panels that open later need to have been watching the focus.
 import './shared/place';
 import './provider.css';
@@ -80,11 +82,22 @@ function LampIcon({ lamp, size = 16 }: { lamp: Lamp; size?: number }) {
   }
 }
 
+/**
+ * The connection check that is shown: the one that just ran, or, before any has in this page, the last one the
+ * server kept (so a reload does not lose what was found). A check that could not be made shows none.
+ */
+function shownCheck({ status, verification }: ProviderMonitorState): ProviderCheck | null {
+  if (verification.phase === 'checked') return verification.check;
+  return verification.phase === 'idle' ? (status?.check ?? null) : null;
+}
+
 /** The connection check: one real request, and what came of it, told in words that a screen reader gets too. */
 function VerifyBlock({ state, onVerify }: { state: ProviderMonitorState; onVerify: () => void }) {
   const { status, verification } = state;
   const real = status?.mode === 'real-model';
   const verifying = verification.phase === 'pending';
+  // What a check found is shown whichever way it went.
+  const found = shownCheck(state);
   return (
     <div className="sw-provider-pop__verify">
       {real && (
@@ -106,7 +119,14 @@ function VerifyBlock({ state, onVerify }: { state: ProviderMonitorState; onVerif
         {verification.phase === 'pending' && (
           <p className="sw-caption">Verifying: sending one real request to the provider…</p>
         )}
-        {verification.phase === 'success' && (
+        {found && (
+          <CheckResult
+            check={found}
+            latencyMs={verification.phase === 'checked' ? verification.latencyMs : null}
+          />
+        )}
+        {/* A server of an earlier build says only that the call worked, and that is all that is said of it. */}
+        {verification.phase === 'checked' && !verification.check && (
           <p className="sw-provider-pop__ok">
             <CircleCheck size={15} aria-hidden="true" />
             <span>
@@ -118,7 +138,7 @@ function VerifyBlock({ state, onVerify }: { state: ProviderMonitorState; onVerif
         )}
       </div>
       {verification.phase === 'error' && (
-        <Notice tone="error" title="Connection check failed">
+        <Notice tone="error" title="The connection check could not be made">
           {verification.message}
         </Notice>
       )}
@@ -176,11 +196,17 @@ export function ProviderPanelBody({
         </div>
       )}
 
-      {status && real && !error && status.connectivity === 'failing' && status.lastError && (
-        <Notice tone="error" title="The last request failed">
-          {status.lastError.message}
-        </Notice>
-      )}
+      {status &&
+        real &&
+        !error &&
+        status.connectivity === 'failing' &&
+        status.lastError &&
+        // A failure that a check has just told in full is not told a second time above it.
+        shownCheck(state)?.checkedAt !== status.lastCheckedAt && (
+          <Notice tone="error" title="The last request failed">
+            {status.lastError.message}
+          </Notice>
+        )}
 
       {status && real && (
         <>

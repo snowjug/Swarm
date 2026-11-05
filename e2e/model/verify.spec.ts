@@ -45,6 +45,7 @@ test.describe('the connection check in the page, against a protocol-faithful fak
           lastCheckedAt: null,
           lastLatencyMs: null,
           lastError: null,
+          check: null,
         },
       });
     });
@@ -66,7 +67,11 @@ test.describe('the connection check in the page, against a protocol-faithful fak
     await test.step('verifying makes one request, and says what came of it', async () => {
       checked = true;
       await panel.getByRole('button', { name: 'Verify connection' }).click();
-      await expect(panel).toContainText('Connection verified: one real round trip completed');
+      await expect(panel).toContainText('Connection verified: the provider was reached');
+      // The four things are told apart, not as one pass.
+      for (const label of ['Reachable', 'Authenticated', 'Deployment found', 'Structured output']) {
+        await expect(panel).toContainText(`${label} confirmed`);
+      }
       await expect(panel.getByRole('heading', { name: 'Connected' })).toBeVisible();
       await expect(chip(page)).toContainText('connected');
       expect(await pings()).toBe(1);
@@ -90,14 +95,14 @@ test.describe('the connection check in the page, against a protocol-faithful fak
 
       await fake.post('/__control', { data: { failKind: null } });
       await panel.getByRole('button', { name: 'Verify connection' }).click();
-      await expect(panel).toContainText('Connection verified: one real round trip completed');
+      await expect(panel).toContainText('Connection verified: the provider was reached');
       await expect(panel.getByRole('heading', { name: 'Connected' })).toBeVisible();
     });
 
     await fake.post('/__reset');
     await fake.dispose();
-    // The failed check is provoked, and the browser logs its refusal.
-    expect(problems.filter((problem) => !/status of 502/u.test(problem))).toEqual([]);
+    // A check that ran is an answer, so a failed one is no refusal in the browser either.
+    expect(problems).toEqual([]);
   });
 
   test('when the server cannot say how the provider is, the chip says so and one press reads it again', async ({
