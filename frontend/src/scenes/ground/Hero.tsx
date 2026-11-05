@@ -43,6 +43,7 @@ import {
 } from './model';
 import { useMoment } from './useMoment';
 import { useNow } from './useNow';
+import { subjectCoverage, subjectCoverageWords } from './subject';
 import { ConstellationGraph } from './ConstellationGraph';
 
 const STATUS: Record<Moment, { tone: Tone; dot?: boolean }> = {
@@ -143,6 +144,9 @@ export function Hero() {
   // A figure is a dash while the engine has not said, and a number once it has: a saved record that holds
   // no graph says none, since nothing more will arrive for it.
   const settled = stage === 'ready' || stage === 'record';
+  // The sources may be about something near the question and not about it: say so, once they are read.
+  const coverage = settled ? subjectCoverage(project.question, project.documents) : null;
+  const subject = coverage ? subjectCoverageWords(coverage) : null;
   const all = conflictsKnown && ledger.ledger ? ledger.ledger.contradictions : null;
   const open = all ? openConflicts(all).length : settled && documents.length === 0 ? 0 : null;
   const conflictNote =
@@ -312,6 +316,12 @@ export function Hero() {
               </p>
             )}
           </div>
+        )}
+
+        {settled && !takeover && subject && (
+          <Notice tone="caution" title={subject.title}>
+            {subject.body}
+          </Notice>
         )}
 
         {(stage === 'failed' || stage === 'stopped') && !takeover && (

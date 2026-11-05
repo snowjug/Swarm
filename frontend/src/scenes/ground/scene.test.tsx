@@ -227,6 +227,32 @@ describe('the first screen', () => {
     expect(text).toContain('Map the stakeholders');
   });
 
+  it('says when no source mentions a name the question uses, and what to do about it', () => {
+    const asked = project('ready');
+    asked.question = 'What could happen if Microsoft integrates Copilot more deeply into Teams?';
+    asked.documents = [
+      {
+        id: 'D1',
+        name: 'channels.md',
+        content: 'Shared channels in Teams let people from other teams collaborate.',
+      },
+      {
+        id: 'D2',
+        name: 'licences.md',
+        content: 'Microsoft Teams admins assign a licence to users.',
+      },
+    ];
+    const text = words(render(<Hero />, asked));
+    expect(text).toContain('No source mentions “Copilot”');
+    expect(text).toContain('Name a more specific page in your question, such as one about Copilot');
+    // A question that names nothing the sources lack is left alone.
+    expect(words(render(<Hero />, project('ready')))).not.toContain('No source mentions');
+    // So is a page that is still being read: nothing is known of it yet.
+    expect(
+      words(render(<Hero />, { ...asked, console: project('running').console })),
+    ).not.toContain('No source mentions');
+  });
+
   it('shows a saved record as it is: read-only, with nothing to run', () => {
     const legacy = project('ready');
     legacy.console = null;
