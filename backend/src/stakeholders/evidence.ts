@@ -1,14 +1,17 @@
-import type { EvidenceRef } from '../../../shared/evidence.js';
+import {
+  boundEvidenceRef,
+  clipQuote,
+  MAX_EVIDENCE_QUOTE_CHARS,
+  type EvidenceRef,
+} from '../../../shared/evidence.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
 import { hashText } from '../grounding/ledger.js';
 import { verbatimStart } from '../grounding/quotes.js';
 import { findQuote } from '../grounding/text.js';
 
-const MAX_QUOTE_CHARS = 600;
-
 export interface VerifiedEvidence {
   ref: EvidenceRef;
-  /** True when the quote ran past the passage and was cut back to the part that is verbatim in it. */
+  /** True when the quote ran past the passage and was cut back to the part that is verbatim in it, or past the limit and was clipped. */
   shortened: boolean;
 }
 
@@ -16,6 +19,8 @@ export interface VerifiedEvidence {
  * Turns a passage id and a quote into evidence, or null when it cannot be checked: the passage is not
  * one of this project's, or no start of the quote is verbatim in it. A quote that is only partly
  * verbatim is cut back to its verbatim start, never extended; the check is the one the report uses.
+ * A quote longer than an evidence reference may hold is clipped with a visible ellipsis, which the
+ * check reads as an omission, and the clipped quote must pass it too.
  */
 export function verifiedEvidence(
   passages: ReadonlyMap<string, EvidenceChunk>,
@@ -33,14 +38,14 @@ export function verifiedEvidence(
     shortened = true;
   }
   if (verbatim === null) return null;
-  if (verbatim.length > MAX_QUOTE_CHARS) {
-    verbatim = verbatim.slice(0, MAX_QUOTE_CHARS).replace(/\s+\S*$/u, '');
+  if (verbatim.length > MAX_EVIDENCE_QUOTE_CHARS) {
+    verbatim = clipQuote(verbatim);
     shortened = true;
     if (!findQuote(verbatim, cited).found) return null;
   }
   return {
     shortened,
-    ref: {
+    ref: boundEvidenceRef({
       passageId: passage.id,
       documentId: passage.documentId,
       documentName: passage.documentName,
@@ -49,7 +54,7 @@ export function verifiedEvidence(
       quote: verbatim,
       contentHash: passage.contentHash ?? hashText(passage.text),
       role: 'supports',
-    },
+    }),
   };
 }
 

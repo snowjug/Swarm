@@ -110,6 +110,24 @@ describe('the model critic', () => {
     expect(gateway.calls).toHaveLength(1);
   });
 
+  it('clips the quotation of a passage it cites, which a stakeholder stored whole, to what a critique may hold', async () => {
+    const row = `| Teams Premium add-on $12 | ${'webinars | meeting protection | '.repeat(220)}|`;
+    const given = withStakeholder(input(), 'provider', {
+      evidence: [ref('d9', 1, { quote: row })],
+    });
+    const { critiques } = await review(
+      new ScriptedCritic({
+        critiques: [offered({ evidencePassageIds: ['d9-p1'], role: 'evidence' })],
+      }),
+      given,
+    );
+    expect(critiques).toHaveLength(1);
+    const [cited] = critiques[0]!.evidence;
+    expect(cited?.quote?.length).toBeLessThanOrEqual(600);
+    expect(cited?.quote?.endsWith('…')).toBe(true);
+    expect(critiqueSchema.safeParse(critiques[0]).success).toBe(true);
+  });
+
   it('gives a critique the same id when it is offered again, so that a response can be kept', async () => {
     const reply = { critiques: [offered()] };
     const first = await review(new ScriptedCritic(reply));

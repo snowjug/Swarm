@@ -5,7 +5,7 @@ import {
   type Critique,
   type CritiqueSeverity,
 } from '../../../shared/critique.js';
-import type { EvidenceRef } from '../../../shared/evidence.js';
+import { boundEvidenceRef, type EvidenceRef } from '../../../shared/evidence.js';
 
 /** Collapses whitespace and cuts to `max` characters, marking the cut. */
 export function clip(text: string, max: number): string {
@@ -88,7 +88,12 @@ export interface Draft {
   action?: string;
 }
 
-/** A rules critique: every one is `origin: 'rules'`, open, and with no response. */
+/**
+ * A rules critique: every one is `origin: 'rules'`, open, and with no response. Whatever evidence a critic
+ * is given is cut to what the schema allows (`boundEvidenceRef`), so that no critic, present or added later,
+ * can make the whole review unwritable with a long quotation (the live pilot's "independent review" failed
+ * that way on a table row of a source page).
+ */
 export function draft(now: string, fields: Draft): Critique {
   return {
     id: fields.id,
@@ -97,7 +102,7 @@ export function draft(now: string, fields: Draft): Critique {
     severity: fields.severity,
     objection: clip(fields.objection, 800),
     basis: fields.basis.slice(0, 6).map((line) => clip(line, 200)),
-    evidence: (fields.evidence ?? []).slice(0, 5),
+    evidence: (fields.evidence ?? []).slice(0, 5).map(boundEvidenceRef),
     origin: 'rules',
     status: 'open',
     response: null,

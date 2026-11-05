@@ -1,5 +1,5 @@
 import { z } from 'zod';
-import type { EvidenceRef } from './evidence.js';
+import { EVIDENCE_REF_LIMITS, type EvidenceRef } from './evidence.js';
 
 /**
  * A lens for asking "who else?", not a list of answers. Discovery proposes stakeholders from the
@@ -66,17 +66,21 @@ export const idSchema = z
   .string()
   .regex(/^[a-z0-9][a-z0-9-]{0,47}$/u, 'Use lower-case letters, digits and hyphens.');
 
-/** The same shape as `EvidenceRef` in evidence.ts, so a stakeholder cites the passages the ledger does. */
+/**
+ * The same shape as `EvidenceRef` in evidence.ts, so a stakeholder cites the passages the ledger does. The
+ * limits are `EVIDENCE_REF_LIMITS`, which whoever builds a reference clips to (`boundEvidenceRef`): the schema
+ * rejects what is too long, and nothing that is built from a source should ever reach it that way.
+ */
 export const evidenceRefSchema: z.ZodType<EvidenceRef> = z.object({
-  passageId: z.string().min(1).max(40),
-  documentId: z.string().min(1).max(80),
-  documentName: z.string().min(1).max(200),
+  passageId: z.string().min(1).max(EVIDENCE_REF_LIMITS.passageId),
+  documentId: z.string().min(1).max(EVIDENCE_REF_LIMITS.documentId),
+  documentName: z.string().min(1).max(EVIDENCE_REF_LIMITS.documentName),
   start: z.int().min(0),
   end: z.int().min(0),
-  quote: z.string().max(600).nullable(),
-  contentHash: z.string().min(1).max(100),
+  quote: z.string().max(EVIDENCE_REF_LIMITS.quote).nullable(),
+  contentHash: z.string().min(1).max(EVIDENCE_REF_LIMITS.contentHash),
   role: z.enum(['supports', 'contradicts']),
-  conflictId: z.string().max(80).optional(),
+  conflictId: z.string().max(EVIDENCE_REF_LIMITS.conflictId).optional(),
 });
 
 /**

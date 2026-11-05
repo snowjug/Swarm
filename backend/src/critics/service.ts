@@ -10,7 +10,7 @@ import type {
   CritiquesView,
   RunCritiquesBody,
 } from '../../../shared/critique.js';
-import { isOpenConflict } from '../../../shared/evidence.js';
+import { boundEvidenceRef, isOpenConflict } from '../../../shared/evidence.js';
 import { AppError, publicFailure } from '../errors.js';
 import { changedInputs, inputRevisionsNow, type Revisions } from '../lab/lineage.js';
 import type { ModelFactory } from '../models/factory.js';
@@ -207,10 +207,12 @@ export class CritiqueService {
         evidenceSummary: {
           documents,
           openConflicts: built ? open.length : null,
+          // A conflict that the ledger stored before quotes were clipped may carry a whole table row.
           conflictEvidence: open
             .slice(0, 3)
             .flatMap((conflict) => [conflict.left, conflict.right])
-            .slice(0, 5),
+            .slice(0, 5)
+            .map(boundEvidenceRef),
         },
       },
       notes,

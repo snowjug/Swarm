@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import {
+  boundEvidenceRef,
   emptySupportCounts,
   statementTypeOfKind,
   type ClaimHistoryEntry,
@@ -286,7 +287,7 @@ function refFor(
   role: EvidenceRef['role'],
   quote: string | null,
 ): EvidenceRef {
-  return {
+  return boundEvidenceRef({
     passageId: passage.id,
     documentId: passage.documentId,
     documentName: passage.documentName,
@@ -295,7 +296,7 @@ function refFor(
     quote,
     contentHash: passage.contentHash ?? hashText(passage.text),
     role,
-  };
+  });
 }
 
 function supportingRefs(

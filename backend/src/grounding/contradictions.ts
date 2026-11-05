@@ -1,7 +1,9 @@
-import type {
-  ContradictionKind,
-  ContradictionRecord,
-  EvidenceRef,
+import {
+  boundEvidenceRef,
+  clipQuote,
+  type ContradictionKind,
+  type ContradictionRecord,
+  type EvidenceRef,
 } from '../../../shared/evidence.js';
 import type { EvidenceChunk } from '../../../shared/types.js';
 import { tokenize } from '../knowledge/retrieval.js';
@@ -258,8 +260,14 @@ function singlesOf(measurements: readonly Measurement[]): Indexed['singles'] {
   return [only('percent'), only('currency'), only('count')];
 }
 
+/**
+ * The evidence for one side of a conflict. A "sentence" is whatever sits between two stops, and a markdown
+ * table row has none: it can be several thousand characters. The quote is clipped here, at the source, with a
+ * visible ellipsis, to what every record that holds an evidence reference allows; otherwise the first review
+ * or brief that cites the conflict is refused ("critiques.1.evidence.1.quote: Too big").
+ */
 function refOf(sentence: SourceSentence): EvidenceRef {
-  return {
+  return boundEvidenceRef({
     passageId: sentence.passageId,
     documentId: sentence.documentId,
     documentName: sentence.documentName,
@@ -268,7 +276,7 @@ function refOf(sentence: SourceSentence): EvidenceRef {
     quote: sentence.text,
     contentHash: sentence.passageHash,
     role: 'contradicts',
-  };
+  });
 }
 
 function sharesPeriod(left: Set<string>, right: Set<string>): boolean {
@@ -733,10 +741,14 @@ export function detectContradictions(
 /** The number in the id of a conflict ("X12" is 12), or 0. */
 const numberOfId = (id: string): number => Number(/^X(\d+)$/u.exec(id)?.[1] ?? 0);
 
-/** Two conflicts are one pair of statements when they quote the same two sentences of the same documents, whichever comes first. */
+/**
+ * Two conflicts are one pair of statements when they quote the same two sentences of the same documents,
+ * whichever comes first. A conflict that a ledger already holds may carry the whole sentence, and a new scan
+ * clips it (`refOf`), so both are compared as clipped.
+ */
 const pairKey = (record: ContradictionRecord): string =>
   [record.left, record.right]
-    .map((side) => `${side.documentId}\u0000${side.quote ?? ''}`)
+    .map((side) => `${side.documentId}\u0000${clipQuote(side.quote ?? '')}`)
     .sort()
     .join('\u0001');
 

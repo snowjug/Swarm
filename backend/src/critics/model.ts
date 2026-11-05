@@ -4,7 +4,7 @@ import {
   CRITIQUE_SEVERITIES,
   type Critique,
 } from '../../../shared/critique.js';
-import type { EvidenceRef } from '../../../shared/evidence.js';
+import { boundEvidenceRef, type EvidenceRef } from '../../../shared/evidence.js';
 import { z } from 'zod';
 import { AppError } from '../errors.js';
 import type { ModelGateway } from '../models/client.js';
@@ -200,7 +200,7 @@ export function acceptModelCritiques(
       severity: item.severity === 'blocking' ? 'major' : item.severity,
       objection: clip(item.objection, 800),
       basis: item.basis.map((line) => clip(line, 200)),
-      evidence,
+      evidence: evidence.map(boundEvidenceRef),
       origin: 'model',
       status: 'open',
       response: null,

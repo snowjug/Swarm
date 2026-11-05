@@ -19,6 +19,7 @@ import { buildApp } from '../src/app.js';
 import { TokenVerifier } from '../src/auth/tokens.js';
 import { CritiqueService } from '../src/critics/service.js';
 import { AppError } from '../src/errors.js';
+import { detectContradictions } from '../src/grounding/contradictions.js';
 import type { JsonOptions, ModelGateway } from '../src/models/client.js';
 import type { ModelFactory } from '../src/models/factory.js';
 import { Repository } from '../src/storage/repository.js';
@@ -371,6 +372,81 @@ describe('running the review', () => {
     expect(view.critiques?.notes?.join(' ') ?? '').not.toContain(
       'Conflicts between sources were not',
     );
+  });
+
+  it('reviews a ledger whose conflicts quote a markdown table row of 5,000 characters, and clips the quote with an ellipsis', async () => {
+    // The live pilot: "Run the independent review" failed with "critiques.1.evidence.1.quote: Too big: expected
+    // string to have <=600 characters". A table row has no sentence stop, so one "sentence" of a source page was a
+    // whole row, and it became the quote of a conflict, then of a critique.
+    const { run, repository, project, seed: plant } = await world();
+    plant();
+    const row = `| Teams Premium licence per user per month $12 | ${'feature included | '.repeat(300)}|`;
+    expect(row.length).toBeGreaterThan(5_000);
+    const longRef = (document: string) => ref(document, 1, { quote: row });
+    const stored: ContradictionRecord = {
+      id: 'X1',
+      kind: 'numeric',
+      topic: 'a figure',
+      left: longRef('d1'),
+      right: longRef('d2'),
+      leftValue: '12',
+      rightValue: '7',
+      confidence: 0.8,
+      status: 'detected',
+      note: null,
+      detectedBy: 'deterministic-v1',
+      createdAt: '2026-01-01T00:00:00.000Z',
+      updatedAt: '2026-01-01T00:00:00.000Z',
+    };
+    repository.ledger.replace(
+      project.id,
+      { claims: [], contradictions: [stored], reviewedAt: null },
+      new Date(),
+    );
+    const response = await run();
+    expect(response.statusCode, response.body).toBe(200);
+    const view = response.json() as CritiquesView;
+    const found = view.critiques?.critiques.find(
+      (critique) => critique.id === 'evidence-open-conflicts',
+    );
+    expect(found?.evidence).toHaveLength(2);
+    for (const evidence of found?.evidence ?? []) {
+      expect(evidence.quote?.length).toBeLessThanOrEqual(600);
+      expect(evidence.quote?.endsWith('…')).toBe(true);
+      expect(row.startsWith(evidence.quote?.slice(0, 40) ?? '')).toBe(true);
+    }
+  });
+
+  it('reviews a conflict that the scan itself found in a table row, which the scan clips at the source', async () => {
+    const { run, repository, project, seed: plant } = await world();
+    plant();
+    const long = `| Teams Premium licence price per user per month is $12 | ${Array.from({ length: 300 }, (_, i) => `feature${i % 7} included`).join(' | ')} |`;
+    const text = `Teams Premium pricing\n\n| Plan | Monthly price |\n| --- | --- |\n${long}\n`;
+    const detected = detectContradictions(
+      [
+        { id: 'S1', documentId: 'D1', documentName: 'D1.md', text, start: 0, end: text.length },
+        {
+          id: 'S2',
+          documentId: 'D2',
+          documentName: 'D2.md',
+          text: 'The Teams Premium licence price per user per month is $7 for education customers.',
+          start: 0,
+          end: 81,
+        },
+      ],
+      new Date('2026-10-29T10:00:00.000Z'),
+    );
+    expect(detected).toHaveLength(1);
+    for (const side of [detected[0]!.left, detected[0]!.right]) {
+      expect(side.quote?.length).toBeLessThanOrEqual(600);
+    }
+    repository.ledger.replace(
+      project.id,
+      { claims: [], contradictions: detected, reviewedAt: null },
+      new Date(),
+    );
+    const response = await run();
+    expect(response.statusCode, response.body).toBe(200);
   });
 
   it('challenges the brief of this analysis, and leaves alone one made from another', async () => {

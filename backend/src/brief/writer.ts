@@ -7,7 +7,7 @@ import {
   type StatementOrigin,
   type VisualKind,
 } from '../../../shared/brief.js';
-import type { EvidenceRef } from '../../../shared/evidence.js';
+import { EVIDENCE_REF_LIMITS, type EvidenceRef } from '../../../shared/evidence.js';
 import { uniqueRefs } from './evidence.js';
 import { lintStatement } from './lint.js';
 import { refsSatisfyOrigin, type Reliance } from './rules.js';
@@ -18,12 +18,14 @@ export const MAX_STATEMENTS = 40;
 /** An evidence reference cut to what the schema allows, so that a long quotation cannot make a brief unwritable. */
 const boundRef = (ref: EvidenceRef): EvidenceRef => ({
   ...ref,
-  passageId: clip(ref.passageId, 40),
-  documentId: clip(ref.documentId, 80),
-  documentName: clip(ref.documentName, 200),
-  quote: ref.quote === null ? null : clip(ref.quote, 600),
-  contentHash: clip(ref.contentHash, 100),
-  ...(ref.conflictId === undefined ? {} : { conflictId: clip(ref.conflictId, 80) }),
+  passageId: clip(ref.passageId, EVIDENCE_REF_LIMITS.passageId),
+  documentId: clip(ref.documentId, EVIDENCE_REF_LIMITS.documentId),
+  documentName: clip(ref.documentName, EVIDENCE_REF_LIMITS.documentName),
+  quote: ref.quote === null ? null : clip(ref.quote, EVIDENCE_REF_LIMITS.quote),
+  contentHash: clip(ref.contentHash, EVIDENCE_REF_LIMITS.contentHash),
+  ...(ref.conflictId === undefined
+    ? {}
+    : { conflictId: clip(ref.conflictId, EVIDENCE_REF_LIMITS.conflictId) }),
 });
 
 /** Fills in and bounds a set of references to what the schema allows. */

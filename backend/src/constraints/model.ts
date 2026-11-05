@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { CONSTRAINT_CATEGORIES, type ConstraintCategory } from '../../../shared/constraints.js';
+import { clipQuote } from '../../../shared/evidence.js';
 import { AppError } from '../errors.js';
 import { selectContext } from '../knowledge/retrieval.js';
 import type { ModelGateway } from '../models/client.js';
@@ -45,7 +46,13 @@ export const proposedConstraintsSchema = z
                 z
                   .object({
                     passageId: z.string().min(1).max(40),
-                    quote: z.string().min(1).max(600),
+                    // The model is told to copy a short excerpt; one that runs past the limit is clipped with an
+                    // ellipsis instead of refusing the whole reply, and the verbatim check that follows reads the
+                    // ellipsis as an omission (`findQuote`).
+                    quote: z
+                      .string()
+                      .min(1)
+                      .transform((quote) => clipQuote(quote)),
                   })
                   .strict(),
               )

@@ -124,6 +124,77 @@ export interface EvidenceRef {
   conflictId?: string;
 }
 
+/**
+ * The longest each text field of an evidence reference may be, as the schemas of the records that hold one
+ * (a stakeholder, a constraint, a critique, a brief statement) enforce it. A quote is source text, and source
+ * text has no length: a markdown table row of several thousand characters is one "sentence". Whoever builds a
+ * reference from a source clips it with these numbers, at the source, so that a long page can never make a
+ * record unwritable ("critiques.1.evidence.1.quote: Too big: expected string to have <=600 characters").
+ */
+export const EVIDENCE_REF_LIMITS = {
+  passageId: 40,
+  documentId: 80,
+  documentName: 200,
+  quote: 600,
+  contentHash: 100,
+  conflictId: 80,
+} as const;
+
+export const MAX_EVIDENCE_QUOTE_CHARS = EVIDENCE_REF_LIMITS.quote;
+
+/**
+ * Text cut to `max` characters with a visible ellipsis, at a word where one is close. Text that fits is
+ * returned unchanged. Whitespace is collapsed only when something has to be cut (a table row's padding is
+ * most of its length), never otherwise. The result is never longer than `max`.
+ *
+ * An ellipsis marks an omission in a quote, and the check that a quote is verbatim (`findQuote`) reads it as
+ * one: the part before it must appear in the passage, so a clipped quote is still a checked one.
+ */
+export function clipText(text: string, max: number): string {
+  if (text.length <= max) return text;
+  const clean = text.replace(/\s+/gu, ' ').trim();
+  if (clean.length <= max) return clean;
+  if (max < 2) return '…'.slice(0, Math.max(0, max));
+  let end = max - 1;
+  // Never leave half of a surrogate pair in front of the ellipsis.
+  const last = clean.charCodeAt(end - 1);
+  if (last >= 0xd800 && last <= 0xdbff) end -= 1;
+  let cut = clean.slice(0, end);
+  const space = cut.lastIndexOf(' ');
+  if (space >= end * 0.6) cut = cut.slice(0, space);
+  return `${cut.trimEnd()}…`;
+}
+
+/** A quote cut to what an evidence reference may hold. */
+export const clipQuote = (quote: string): string => clipText(quote, MAX_EVIDENCE_QUOTE_CHARS);
+
+/**
+ * An evidence reference cut to what its schema allows. The same object comes back when nothing is too long,
+ * so a reference that is already right is never copied or changed.
+ */
+export function boundEvidenceRef(ref: EvidenceRef): EvidenceRef {
+  const limits = EVIDENCE_REF_LIMITS;
+  const fits =
+    ref.passageId.length <= limits.passageId &&
+    ref.documentId.length <= limits.documentId &&
+    ref.documentName.length <= limits.documentName &&
+    (ref.quote === null || ref.quote.length <= limits.quote) &&
+    ref.contentHash.length <= limits.contentHash &&
+    (ref.conflictId === undefined || ref.conflictId.length <= limits.conflictId);
+  if (fits) return ref;
+  return {
+    ...ref,
+    passageId: clipText(ref.passageId, limits.passageId),
+    documentId: clipText(ref.documentId, limits.documentId),
+    documentName: clipText(ref.documentName, limits.documentName),
+    quote: ref.quote === null ? null : clipText(ref.quote, limits.quote),
+    contentHash: clipText(ref.contentHash, limits.contentHash),
+    ...(ref.conflictId === undefined
+      ? {}
+      : { conflictId: clipText(ref.conflictId, limits.conflictId) }),
+  };
+}
+
 export interface SimulationRef {
   memoryId: string;
   platform: string;
