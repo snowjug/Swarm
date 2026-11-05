@@ -1,13 +1,19 @@
 # Hosted pilot on Azure: plan
 
-> **Status: planned and authored, not deployed.** The Bicep in [`infra/pilot`](../../infra/pilot/main.bicep) compiles,
-> lints against a strict rule set and **evaluates offline** (`npm run iac:validate`: a pinned Bicep CLI builds every
-> template and parameter file, `bicep snapshot` predicts the resources, and a test asserts the security invariants on the
-> compiled output). The post-deployment check, the release and rollback tooling and the pre-flight have unit tests against
-> fakes. **No resource has been created, no deployment or what-if has been run, no rollback or restore drill has been
-> run, and nothing here has been seen working in Azure.** Read [What is not validated](#what-is-not-validated) before
-> relying on any step. The cost of the plan is in [pilot-cost.md](./pilot-cost.md) and, with current list prices and
-> the arithmetic, in [azure-preflight.md](../production/azure-preflight.md).
+> **Status: deployed once, live, and corrected afterwards.** The pilot runs on Azure Container Apps in Central India. The
+> first deployment needed several things done by hand (an environment created with `az`, a port and `PORT` fixed after the
+> real image crashed, a release recorded by hand, a database tier and a model quota worked around, and the Entra steps);
+> the template and the release tool were then changed so that none of them has to be repeated blindly, and the sequence
+> that worked is in [The first live deployment, and what it taught](#the-first-live-deployment-and-what-it-taught).
+> What is **checked offline**: `npm run iac:validate` (a pinned Bicep CLI builds every template and parameter file, a
+> check refuses a resource declared twice, `bicep snapshot` predicts the resources, and a test asserts the security
+> invariants on the compiled output), `az deployment group what-if` against the live group (read-only), and unit tests of
+> the release and check tooling against fakes. What is **not** yet seen working: the template's own probes on the live app
+> (it has none until the template is applied, see [Putting the probes on](#putting-the-probes-on-the-running-app)), a
+> rollback drill, a restore drill, and a model call from the live app (its owner proves that with **Verify connection**,
+> below). Read [What is not validated](#what-is-not-validated) before relying on any step. The cost of the plan is in
+> [pilot-cost.md](./pilot-cost.md) and, with current list prices and the arithmetic, in
+> [azure-preflight.md](../production/azure-preflight.md).
 
 > **Since this plan was first written** the template gained: **multiple-revision mode** with blue/green releases
 > and a one-command rollback ([release-process.md](../production/release-process.md)); an **action group, nine metric and
@@ -24,6 +30,178 @@ they need. It is the Option B of the [pilot plan](../pitch/pilot-plan.md), built
 [ADR 0008](../adr/0008-browser-sign-in.md) (browser sign-in), [ADR 0009](../adr/0009-postgres-through-a-synchronous-bridge.md)
 (PostgreSQL) and [ADR 0010](../adr/0010-durable-jobs-leased-from-the-database.md) (durable jobs). The existing
 Azure AI resource is **referenced, not recreated**: its model deployment and quota are not touched.
+
+## The first live deployment, and what it taught
+
+The first real deployment (Central India, a Visual Studio subscription with a spending limit) worked, but only after
+several steps were done by hand and one failed deployment was understood. The template and the release tool were changed
+afterwards so that none of those steps has to be repeated blindly. This is the sequence that worked, with what is now in
+the repository and what is still yours to do. Commands are for Azure Cloud Shell (bash); the PowerShell forms elsewhere in
+this page do the same. Nothing here holds a subscription ID, a tenant ID or a secret: placeholders are in `<angle brackets>`.
+
+**1. Register the resource providers, once per subscription** (a person with Contributor on the subscription; the
+deploying identity usually cannot). A new subscription fails the first deployment with `MissingSubscriptionRegistration`:
+
+```bash
+PROVIDERS="Microsoft.App Microsoft.OperationalInsights Microsoft.ContainerRegistry Microsoft.DBforPostgreSQL Microsoft.Insights Microsoft.ManagedIdentity Microsoft.CognitiveServices Microsoft.Consumption"
+for ns in $PROVIDERS; do az provider register --namespace "$ns"; done     # add Microsoft.KeyVault if you switch the vault on
+for ns in $PROVIDERS; do echo "$ns $(az provider show --namespace "$ns" --query registrationState -o tsv)"; done
+```
+
+The second loop prints each provider's state; wait until every one says `Registered` (a minute or two). These are the
+providers the live subscription had registered when the deployment succeeded (`Microsoft.Network` and
+`Microsoft.Authorization` are registered by default).
+
+**2. Give the deploying identity the roles it needs, at the narrowest scope that works.** On **the pilot resource group
+only**: **Contributor** (create everything) and **User Access Administrator** (the template writes the application
+identity's roles: AcrPull on the registry, Monitoring Metrics Publisher on Application Insights, and Cognitive Services
+OpenAI User on the AI account). If the AI account is in another group, the role assignment on **that account** needs a
+person who can write role assignments there. What a deploying identity still cannot do: register providers, edit the Entra
+app registration, or read billing, so those stay with a person (steps 1, 7 and the cost section).
+
+**3. The model: a quota workaround.** In this subscription the Standard deployment type (`DataZoneStandard`) had **0
+quota** for `gpt-5-mini` in `eastus2`. A **Global Standard** deployment worked: account `<account>` (kind `AIServices`,
+keys disabled, region `eastus2`) with deployment `swarm-chat` (model `gpt-5-mini` version `2025-08-07`, 50K tokens per
+minute). It was made with the provisioning script, which reads live quota and lets you pick a candidate, and without the
+role assignment (the template assigns it):
+
+```bash
+npm run azure:provision -- --subscription <subscription id> --preflight-only      # read-only: lists candidates and says what is missing
+npm run azure:provision -- --subscription <subscription id> --pick 2 --skip-role-assignment
+```
+
+Pick the candidate whose deployment type has quota, read what it prints, and give the template the account's resource ID
+(`SWARM_AI_ACCOUNT_RESOURCE_ID`) and the deployment name (`SWARM_AI_DEPLOYMENT_NAME`). A Global deployment may process
+requests in any region: that is a data-residency decision, and it is yours.
+
+**4. The database: a tier fallback, and a name that is busy for a while.** Burstable (`Standard_B1ms`, then
+`Standard_B2s`) answered `SkuNotAvailable` in Central India for this subscription, although the SKU is listed. What worked
+was General Purpose, which costs more ([pilot-cost.md](./pilot-cost.md)):
+
+```bash
+export SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4
+export SWARM_DATABASE_SKU_TIER=GeneralPurpose
+```
+
+A failed server keeps its name while it is **Dropping**; a retry in that time fails with `ServerNameAlreadyExists`. It
+clears in a few minutes: check with `az postgres flexible-server list -g <pilot group> -o table`, wait until the failed one
+is gone, and apply again. Do not rename anything. The two variables are **ignored** when `SWARM_EXISTING_POSTGRES_SERVER_ID`
+is set, and they must **stay set on every later apply**: leaving them out would ask Azure to change the running server to
+Burstable.
+
+**5. The Container Apps environment.** The template declared it twice, which Azure refuses
+(`The resource ... is defined multiple times`), and the environment was made by hand. It is now one module for a new
+environment and one for an existing one, and `npm run iac:validate` fails on any resource declared twice. A fresh
+deployment needs nothing by hand. To reuse an environment that exists, set `SWARM_EXISTING_CONTAINER_APPS_ENVIRONMENT_ID`
+to its resource ID.
+
+**6. The first real image goes on through the template, never through `az containerapp update`.** The placeholder listens
+on port 80 and gets no `PORT` and no probes; the real image needs port 3001, `PORT=3001` and the three probes, and
+`az containerapp update` has no flag for a probe and copies the port it finds. Three inputs decide what the app runs:
+
+| `SERVICE_SWARM_RESOURCE_EXISTS` | `SWARM_CONTAINER_IMAGE`     | The app runs                                                          | Port, `PORT`, probes                     | `BUILD_SHA`                  |
+| ------------------------------- | --------------------------- | --------------------------------------------------------------------- | ---------------------------------------- | ---------------------------- |
+| `false` (first deployment)      | empty                       | The public placeholder                                                | 80, none, none (the app shows unhealthy) | none                         |
+| `false`                         | `<registry>/swarm@sha256:…` | That image, from the start                                            | 3001, `PORT=3001`, all three probes      | `SWARM_BUILD_SHA`            |
+| `true` (every later apply)      | empty                       | The image that runs now (Azure resolves it **during** the deployment) | Follow from that image                   | Kept from the running app    |
+| `true`                          | `<registry>/swarm@sha256:…` | That image                                                            | 3001, `PORT=3001`, all three probes      | `SWARM_BUILD_SHA`, else kept |
+
+The variable has no default: an unset one stops the deployment before anything is created (`BCP427`). `what-if` cannot
+evaluate "keep what runs" and prints that part as an expression, so **name the running image too** to see a concrete diff.
+`npm run azure:release -- build …` builds and locks the tag and prints the whole command; `npm run azure:release -- record …`
+writes the release record for a revision that already exists. The lock on a tag means the same commit is **not rebuilt**:
+the tool reuses the locked tag.
+
+### Putting the probes on the running app
+
+The live app was fixed by hand (ingress port 3001, `PORT=3001`) and has **no probes**; `npm run azure:release -- check …`
+(and `status`) say so and exit 1. Applying the template adds them. This is the one change the repository could not make for
+you, because it is a change to a live resource. Reading it first changes nothing:
+
+```bash
+export SERVICE_SWARM_RESOURCE_EXISTS=true
+export SWARM_CONTAINER_IMAGE="$(az containerapp show -g <pilot group> -n <app> --query 'properties.template.containers[0].image' -o tsv)"
+export SWARM_BUILD_SHA=<the commit that image was built from>
+export SWARM_EXISTING_CONTAINER_APPS_ENVIRONMENT_ID="$(az containerapp env show -g <pilot group> -n <environment> --query id -o tsv)"
+export SWARM_DATABASE_SKU_NAME=Standard_D2ds_v4 SWARM_DATABASE_SKU_TIER=GeneralPurpose     # as in step 4
+# and the same values you gave the first deployment: SWARM_AI_ACCOUNT_RESOURCE_ID, SWARM_AI_DEPLOYMENT_NAME,
+# SWARM_AUTH_CLIENT_ID, SWARM_ALERT_EMAIL, SWARM_SOURCE_URL, AZURE_ENV_NAME
+az deployment group what-if -g <pilot group> --parameters infra/pilot/main.bicepparam
+```
+
+Read the output before you apply it. **Proceed only if** the image, `PORT` and the ingress port are unchanged, the three
+probes are **added**, and the database, the registry and the identity show no change. A new revision is created: it takes
+traffic once it is ready, because the ingress sends traffic to the latest revision. Then `az deployment group create`
+with the same parameters (name it, for example, `swarm-pilot-d`), and prove it:
+
+```bash
+npm run azure:release -- check --subscription <subscription id> --resource-group <pilot group> --app <app>
+npx tsx scripts/azure/pilot-smoke.ts https://<app fqdn>
+```
+
+### Deactivate the placeholder revision
+
+The app is in multiple-revision mode, and the first (placeholder) revision stays **active** at 0% traffic, which costs
+compute for nothing. Once the real revision serves 100%:
+
+```bash
+az containerapp revision list -g <pilot group> -n <app> --query "[].{name:name,active:properties.active,traffic:properties.trafficWeight}" -o table
+az containerapp revision deactivate -g <pilot group> -n <app> --revision <placeholder revision name>
+```
+
+Deactivate only the one with 0 traffic that runs the placeholder; never the one that serves people.
+
+### Entra, as it was done (Cloud Shell)
+
+The same values as [Entra app registration](#entra-app-registration), in bash. The federated credential's **subject is the
+identity's principal (object) ID**, the **issuer** is `https://login.microsoftonline.com/<tenant id>/v2.0`, and the
+**audience** is `api://AzureADTokenExchange`:
+
+```bash
+APP_ID=<application (client) id>   # SWARM_AUTH_CLIENT_ID
+OBJ_ID=$(az ad app show --id "$APP_ID" --query id -o tsv)
+az ad app update --id "$APP_ID" --web-redirect-uris "https://<app fqdn>/auth/callback"
+az ad app federated-credential create --id "$APP_ID" --parameters '{"name":"swarm-pilot-mi","issuer":"https://login.microsoftonline.com/<tenant id>/v2.0","subject":"<AZURE_USER_ASSIGNED_IDENTITY_PRINCIPAL_ID>","audiences":["api://AzureADTokenExchange"]}'
+az ad sp create --id "$APP_ID"                                   # the enterprise application
+SP_ID=$(az ad sp show --id "$APP_ID" --query id -o tsv)
+az ad sp update --id "$SP_ID" --set appRoleAssignmentRequired=true     # only assigned people may sign in
+# the three app roles (Swarm.User, Swarm.Admin, Swarm.PlatformAdmin) are defined as in the section below,
+# then ONE person is assigned Swarm.Admin in Enterprise applications > Swarm pilot > Users and groups
+```
+
+### Verify the model connection (the owner's click)
+
+The VM or pipeline that deploys cannot call the app's authenticated API, so the proof is a click. Everything short of the
+call was checked read-only against the live resources:
+
+- the account is `kind AIServices`, `Succeeded`, keys **disabled** (Entra only), and its deployment `swarm-chat` is `gpt-5-mini 2025-08-07`, `GlobalStandard`, `Succeeded`;
+- the container's settings are `AI_PROVIDER=foundry`, `AI_MODEL=swarm-chat`, `FOUNDRY_AUTH=entra`, `FOUNDRY_ENDPOINT` the account's own `…openai.azure.com` address, and `AZURE_CLIENT_ID` the client ID of the identity attached to the app;
+- that identity holds **Cognitive Services OpenAI User** on the account, **AcrPull** on the registry and **Monitoring Metrics Publisher** on Application Insights;
+- the server's own configuration loader, given exactly that environment, reports the provider configured and routes all six task roles to `swarm-chat`.
+
+Then, signed in as the workspace owner (the person assigned `Swarm.Admin`): open the engine chip at the right of the top bar
+and choose **Verify connection**. One real request is sent. **`connected`** is the proof. If it fails, the popover says why:
+
+| It says                                                   | It means, and what to do                                                                                                                           |
+| --------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Azure denied access … Cognitive Services OpenAI User      | The identity named by `AZURE_CLIENT_ID` lacks the role on the account, or the assignment is minutes old. Wait ten minutes; check the role (above). |
+| Microsoft Entra sign-in is unavailable                    | The container cannot get a token: `AZURE_CLIENT_ID` is not the attached identity, or the identity is not on the app.                               |
+| The endpoint or the deployment "swarm-chat" was not found | The deployment name or `FOUNDRY_ENDPOINT` is wrong: compare with `az cognitiveservices account deployment list`.                                   |
+| The provider is rate limiting requests                    | The quota of the deployment (50K tokens per minute) is spent; wait, or raise it.                                                                   |
+
+Only a workspace owner or admin, or a platform administrator, may do this; a person with another role is told so.
+
+### Choose the engine, and finding sources from a question alone
+
+- **Model-assisted by default.** A new question starts on **rules**, which send nothing anywhere. A pilot meant to show the
+  model preselects it: `SWARM_DEFAULT_ENGINE=model` (parameter `defaultEngine`) in the same apply. It is a preselection:
+  every question shows "Rules only | Model-assisted" on its card and can be changed, and a model that is not set up is
+  never preselected.
+- **Question-only research** is off (`RESEARCH_SEARCH_PROVIDER=none`): a question that names no site ends "Swarm cannot find
+  sources from a question alone". Two safe ways to turn it on, in the same apply:
+  - **Wikipedia, no key:** `SWARM_RESEARCH_SEARCH_PROVIDER=wikipedia`. It finds encyclopedia background pages, not product documentation or primary sources, and it is sent the names and topics of the question. It is English only.
+  - **Brave Search, a key:** the key is **never** an environment variable. It lives in a Key Vault secret the app reads by reference. (1) Create the vault with the template: `SWARM_ENABLE_KEY_VAULT=true` and apply (the vault has purge protection for 90 days, so it cannot be deleted early); (2) give your own account the role to write a secret into an RBAC vault (**Key Vault Secrets Officer** on the vault: `az role assignment create --role "Key Vault Secrets Officer" --assignee <you> --scope <vault resource id>`), then put your own key in, by hand, from a file rather than the command line: `az keyvault secret set --vault-name <vault> --name swarm-search-key --file <path to a file that holds only the key>` (the template gives the app identity **Key Vault Secrets User**, which can only read); (3) apply again with `SWARM_KEYVAULT_SECRET_REFERENCES='[{"envName":"RESEARCH_SEARCH_API_KEY","secretName":"swarm-search-key"}]'` and `SWARM_RESEARCH_SEARCH_PROVIDER=brave`. The key is a paid API key from Brave and a decision for you; a Key Vault is a billable resource ([pilot-cost.md](./pilot-cost.md)).
+  - Search engines' result pages are never scraped.
 
 ## Architecture
 
@@ -154,8 +332,11 @@ without an Entra token.
 | `AUTH_ENTRA_CLIENT_ASSERTION`                                                        | `managed-identity`                                                                                    | Fixed: no client secret exists               |
 | `ALLOWED_HOSTS`, `ALLOWED_ORIGINS`                                                   | `<app fqdn>`, `https://<app fqdn>`                                                                    | Derived                                      |
 | `DATABASE_URL`, `DATABASE_AUTH`                                                      | `postgres://<identity name>@<server>.postgres.database.azure.com:5432/swarm?sslmode=require`, `entra` | The server's address and the identity's name |
-| `AI_PROVIDER`, `AI_MODEL`, `AZURE_OPENAI_AUTH`                                       | `azure`, the deployment name, `entra`                                                                 | Parameter `aiDeploymentName`                 |
-| `AZURE_OPENAI_ENDPOINT`                                                              | The existing account's endpoint                                                                       | Parameter `azureOpenAiEndpoint` or derived   |
+| `AI_PROVIDER`, `AI_MODEL`, `FOUNDRY_AUTH`                                            | `foundry`, the deployment name, `entra`                                                               | Parameter `aiDeploymentName`                 |
+| `FOUNDRY_ENDPOINT`                                                                   | The existing account's endpoint                                                                       | Parameter `azureOpenAiEndpoint` or derived   |
+| `DEFAULT_ENGINE`                                                                     | `rules` or `model`: what a new question starts on (a preselection, never a requirement)               | Parameter `defaultEngine`                    |
+| `RESEARCH_SEARCH_PROVIDER`                                                           | `none`, `wikipedia` or `brave`; a Brave key is a Key Vault reference, never a value                   | Parameter `researchSearchProvider`           |
+| `PROJECT_MODEL_CALL_LIMIT`, `PROJECT_MODEL_TOKEN_LIMIT`                              | Most model calls and tokens one project may use in all                                                | Parameters `projectModel…Limit`              |
 | `AZURE_CLIENT_ID`                                                                    | The managed identity's client ID: selects it for `DefaultAzureCredential`                             | The identity                                 |
 | `APPLICATIONINSIGHTS_CONNECTION_STRING`, `APPLICATIONINSIGHTS_AUTHENTICATION_STRING` | The component's connection string, `Authorization=AAD;ClientId=<client id>`                           | The component, the identity                  |
 | `OTEL_SERVICE_NAME`, `LOG_LEVEL`                                                     | `swarm`, `info`                                                                                       | Fixed                                        |
@@ -204,7 +385,8 @@ The `Dockerfile`'s `HEALTHCHECK` is not used by Container Apps. Its request carr
 
 ## Deploy
 
-None of this has been run. Placeholders are in `<angle brackets>`; **do not commit values**. Everything
+The first deployment is described in [The first live deployment](#the-first-live-deployment-and-what-it-taught); this section is the
+reference sequence. Placeholders are in `<angle brackets>`; **do not commit values**. Everything
 environment-specific is read from environment variables by
 [`main.bicepparam`](../../infra/pilot/main.bicepparam), so no file needs editing.
 
@@ -482,8 +664,8 @@ az containerapp update --name <app name> --resource-group <pilot group> --set-en
 
 Then run the smoke test, check a project in the UI, and delete the old server when you are sure. The
 template's server name is derived, so after a restore the template and the running system differ: treat the
-restored server as the pilot's database from then on, and do not re-run the template without `appExists` and
-a deliberate look at what it would change.
+restored server as the pilot's database from then on, and do not re-run the template without
+`SERVICE_SWARM_RESOURCE_EXISTS=true` and a deliberate look at what it would change.
 
 **Do a restore drill before putting real data in**: it has not been done. The full procedure (restore to a new server,
 what to check on it, the verification queries, the cut-over, and the drill with its pass criteria) is in
@@ -618,15 +800,19 @@ That removes everything the template created, including the database and its bac
 
 ## What is not validated
 
-Nothing was deployed, so **everything that depends on Azure's behaviour is unverified**. What was checked is in
+The first deployment is live, so some of what this section used to list is now settled by what happened: Container Apps
+created the app with the placeholder; the PostgreSQL server accepted the identity as its Entra administrator and the app
+created its schema; a person signed in through Entra with the managed identity as the client credential and ran a scenario
+end to end; the real image runs on port 3001 and answers `/api/health/ready`; and `what-if` against the live group works.
+**Still unverified**, and to be read as such: whatever depends on a behaviour that has not been seen. What was checked is in
 [the last section](#what-was-checked).
 
-- **Any deployment at all:** property combinations the compiler cannot see, quotas, region offers, permissions, the order of the
-  PostgreSQL server operations (chained on purpose), and `what-if`.
-- **The first provision with a placeholder image.** The template recognises the placeholder (a public Microsoft sample
-  that listens on port 80) and gives it the ingress on port 80 and **no probes**, so that its replica can become ready;
-  Container Apps is expected to create the app without trouble. **Unverified.** The earlier workaround, provisioning with
-  `minReplicas=0` and setting it back, is gone: the template refuses a `minReplicas` below 1.
+- **The template's probes on the live app**, because it has none until the template is applied
+  ([Putting the probes on](#putting-the-probes-on-the-running-app)); and the revision stayed `Activating` for a while
+  without them while `/api/health/ready` already answered 200.
+- **A model call from the live app.** Everything short of it was read (the account, the deployment, the identity's role,
+  the container's settings); **Verify connection**, clicked by the owner, is the proof
+  ([above](#verify-the-model-connection-the-owners-click)). Nothing here says what the model will propose for a real question.
 - **That Container Apps honours the `Host` header set on a probe.** It is a documented field and standard Kubernetes
   behaviour, but untested here. The deployment does not depend on it: the app answers `/api/health/live` and
   `/api/health/ready` for any host (`backend/test/health.test.ts`), so a probe that sends the replica's address still passes.

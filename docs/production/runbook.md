@@ -20,6 +20,9 @@ do in the first fifteen minutes, how to stop, how to go back, and how to get dat
 - [Database roles: what the application needs, and what it does not yet allow](#database-roles-what-the-application-needs-and-what-it-does-not-yet-allow)
 - [Secrets in Key Vault](#secrets-in-key-vault)
 - [Reusing an existing PostgreSQL server](#reusing-an-existing-postgresql-server)
+- [The model: verify the connection, and read what fails](#the-model-verify-the-connection-and-read-what-fails)
+- [Switch on the model by default, and question-only research](#switch-on-the-model-by-default-and-question-only-research)
+- [Deactivate the placeholder revision](#deactivate-the-placeholder-revision)
 - [After an incident](#after-an-incident)
 
 ## Duties
@@ -278,6 +281,49 @@ database** on it and nothing else; it does not change the server's administrator
 3. Confirm Entra authentication is enabled on the server and `require_secure_transport` is `ON`; the template cannot
    assert either on a server it does not own.
 4. The existing server's **backup retention is whatever it has**. The `backupRetentionDays` parameter does not apply to it.
+
+## The model: verify the connection, and read what fails
+
+Who may check: a workspace **owner or admin**, or a **platform administrator** (`Swarm.PlatformAdmin`); the first person a
+pilot signs in is the workspace owner, so they can. In the app: the engine chip at the right of the top bar, then
+**Verify connection**. It sends one small request to each deployment a task could be routed to (one, for the pilot) and the
+chip reads **connected** only after it succeeds. The chip describes the **server**; the mark beside it, and the head of the
+Ground screen, say which engine the **project** uses: a project made on rules never calls the model whatever the chip says.
+
+Before the click, and when it fails, read the four things it depends on (all read-only):
+
+```bash
+az cognitiveservices account show -g <group> -n <account> --query "{state:properties.provisioningState,localAuthDisabled:properties.disableLocalAuth}" -o json
+az cognitiveservices account deployment list -g <group> -n <account> --query "[].{name:name,model:properties.model.name,sku:sku.name,state:properties.provisioningState}" -o table
+az containerapp show -g <group> -n <app> --query "properties.template.containers[0].env[?name=='AI_PROVIDER'||name=='AI_MODEL'||name=='FOUNDRY_ENDPOINT'||name=='FOUNDRY_AUTH'||name=='AZURE_CLIENT_ID']" -o table
+PRINCIPAL=$(az identity show -g <group> -n <identity> --query principalId -o tsv)
+az role assignment list --assignee-object-id "$PRINCIPAL" --assignee-principal-type ServicePrincipal --all --query "[].{role:roleDefinitionName,scope:scope}" -o table
+```
+
+Expected: the account `Succeeded` with local authentication disabled; the deployment named by `AI_MODEL` `Succeeded`;
+`AZURE_CLIENT_ID` equal to the identity's client ID; **Cognitive Services OpenAI User** on the account. The failure texts
+and what each means are in [the pilot plan](../azure/pilot-plan.md#verify-the-model-connection-the-owners-click). The
+server logs the code of a failed call (`MODEL_AUTH`, `MODEL_NOT_FOUND`, `MODEL_RATE_LIMIT`, …) and never a prompt, a
+completion or a token:
+
+```kusto
+ContainerAppConsoleLogs_CL | where ContainerAppName_s == '<app>' and Log_s has 'MODEL_' | project TimeGenerated, Log_s | order by TimeGenerated desc | take 50
+```
+
+## Switch on the model by default, and question-only research
+
+Both are settings of the template, applied with the image **named** so that `what-if` is concrete
+([the plan](../azure/pilot-plan.md#putting-the-probes-on-the-running-app)): `SWARM_DEFAULT_ENGINE=model` preselects the model
+for a new question (it is still shown, and changeable, on the question's card), and `SWARM_RESEARCH_SEARCH_PROVIDER=wikipedia`
+(no key) or `brave` (a key in Key Vault, [above](#secrets-in-key-vault)) lets a question that names no site find pages. Either
+sends the names and topics of a question to a third party, so it is the owner's decision.
+
+## Deactivate the placeholder revision
+
+The first deployment leaves the placeholder revision **active** at 0% traffic, which costs compute. After the real revision
+serves 100%: `az containerapp revision list -g <group> -n <app> -o table`, then
+`az containerapp revision deactivate -g <group> -n <app> --revision <placeholder revision>`. Never deactivate the revision
+that has traffic.
 
 ## After an incident
 

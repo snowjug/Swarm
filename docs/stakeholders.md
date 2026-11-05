@@ -48,6 +48,13 @@ A mention counts only in a line that **says something**. Text taken from a web p
 navigation boxes, tables of contents, rows of links and footers, which are made of the same words as a
 sentence about a group and say nothing about it. They are told apart by their shape, not by any word:
 
+- an **instruction** ("Configure widgets", "Manage users") is what a person does with a thing, not who: a word
+  that opens one never describes a group, and a name that begins with one is left out of a proposal. A **thing** that
+  shares a noun with a body ("content delivery network", "admin center", "notice board") and a role noun after a
+  machine word ("auto attendant") are not groups either, and neither is the **very thing the decision changes**
+  ("Acme Rooms" in a question about Rooms; unless the decision is worded as that name doing something). The same
+  check holds a model's proposal: such a name is sent back once for correction, and the rules path leaves it out
+  and says why in the list of what was left out;
 - a line of three or more words that are nearly all capitalised, with no full stop, is a **list of names**
   (a menu row, a row of a table of contents), and no group is found in it;
 - a line of up to three words with no full stop is a **heading** when it stands between sentences, which
