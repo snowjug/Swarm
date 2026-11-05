@@ -619,22 +619,17 @@ describe('every project route, for every kind of person', () => {
 describe('the other things people ask for', () => {
   it('lets only a platform administrator run the platform, and gives them no project', async () => {
     const instance = await world();
-    for (const [method, url] of [
-      ['POST', '/api/provider/check'],
-      ['GET', '/api/audit/verify'],
+    for (const actor of [
+      'owner',
+      'wsAdmin',
+      'lead',
+      'analyst',
+      'viewer',
+      'member',
+      'stranger',
     ] as const) {
-      for (const actor of [
-        'owner',
-        'wsAdmin',
-        'lead',
-        'analyst',
-        'viewer',
-        'member',
-        'stranger',
-      ] as const) {
-        const refused = await call(instance, actor, method, url);
-        expect(outcome(refused), `${actor} ${method} ${url}`).toBe('forbidden');
-      }
+      const refused = await call(instance, actor, 'GET', '/api/audit/verify');
+      expect(outcome(refused), `${actor} GET /api/audit/verify`).toBe('forbidden');
     }
     expect(outcome(await call(instance, 'platform', 'GET', '/api/audit/verify'))).toBe('allowed');
     expect((await call(instance, 'platform', 'GET', '/api/audit/verify')).statusCode).toBe(200);
@@ -645,6 +640,24 @@ describe('the other things people ask for', () => {
       projects: [],
       total: 0,
     });
+  });
+
+  // The first person a pilot signs in is a workspace owner, not a platform administrator, and the connection
+  // check is what tells them whether the model is reachable. It stays closed to everyone who only uses a project.
+  it('lets whoever runs the workspace or the platform check the model connection, and no one else', async () => {
+    const instance = await world();
+    for (const actor of ['owner', 'wsAdmin', 'platform'] as const) {
+      const answer = await call(instance, actor, 'POST', '/api/provider/check');
+      expect(outcome(answer), `${actor} POST /api/provider/check`).toBe('allowed');
+    }
+    for (const actor of ['lead', 'analyst', 'reviewer', 'viewer', 'member', 'stranger'] as const) {
+      const refused = await call(instance, actor, 'POST', '/api/provider/check');
+      expect(outcome(refused), `${actor} POST /api/provider/check`).toBe('forbidden');
+      expect(refused.json().error.message).toMatch(/workspace owner or admin/u);
+    }
+    expect(outcome(await call(instance, 'anonymous', 'POST', '/api/provider/check'))).toBe(
+      'unauthenticated',
+    );
   });
 
   it('lets only workspace members create projects or upload documents', async () => {

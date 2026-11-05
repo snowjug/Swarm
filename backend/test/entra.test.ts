@@ -126,6 +126,10 @@ describe('Microsoft Entra ID authentication for Azure', () => {
       expect(fetcher).toHaveBeenCalledTimes(1);
     }
     expect(httpFailure(404, entra()).code).toBe('MODEL_NOT_FOUND');
+    // A hosted pilot's identity is the one AZURE_CLIENT_ID names, and a new role assignment is not instant.
+    expect(httpFailure(403, entra()).message).toMatch(
+      /AZURE_CLIENT_ID.*Cognitive Services OpenAI User.*several minutes/su,
+    );
     expect(httpFailure(429, entra()).code).toBe('MODEL_RATE_LIMIT');
     expect(httpFailure(500, entra()).code).toBe('MODEL_HTTP_ERROR');
   });

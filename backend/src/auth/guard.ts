@@ -8,7 +8,13 @@ import { mayOnProject, workspaceRoleOf } from './access.js';
 import { cookieName, readCookie } from './cookies.js';
 import { policyFor } from './policy.js';
 import { LOCAL_PRINCIPAL, type Principal } from './principal.js';
-import { projectAllows, workspaceAllows, type ProjectRole, type WorkspaceRole } from './roles.js';
+import {
+  projectAllows,
+  workspaceAllows,
+  type ProjectRole,
+  type WorkspaceCapability,
+  type WorkspaceRole,
+} from './roles.js';
 import { TokenVerifier, bearerToken } from './tokens.js';
 
 /** The base name of the session cookie; a browser given the Secure attribute also gets `__Host-`. */
@@ -47,6 +53,15 @@ export function ownerOf(principal: Principal): Owner {
 
 const notFound = (): AppError =>
   new AppError(404, 'PROJECT_NOT_FOUND', 'This experiment does not exist.');
+
+/** What a member who lacks a workspace capability is told. */
+function refusalFor(capability: WorkspaceCapability): string {
+  if (capability === 'manage-members') return 'Only a workspace owner or admin can manage members.';
+  if (capability === 'check-provider') {
+    return 'Only a workspace owner or admin, or a platform administrator, can check the model connection.';
+  }
+  return 'You are not a member of this workspace.';
+}
 
 /**
  * Who owns an experiment of the caller's tenant. Another tenant's experiment is reported exactly as
@@ -188,16 +203,9 @@ export function registerAuth(
     request.membership.workspace = workspace;
     if (access.kind === 'signed-in') return;
     if (access.kind === 'workspace') {
+      if (access.orPlatform && principal.platformAdmin) return;
       if (!workspaceAllows(access.capability, workspace)) {
-        return refuse(
-          new AppError(
-            403,
-            'FORBIDDEN',
-            access.capability === 'manage-members'
-              ? 'Only a workspace owner or admin can manage members.'
-              : 'You are not a member of this workspace.',
-          ),
-        );
+        return refuse(new AppError(403, 'FORBIDDEN', refusalFor(access.capability)));
       }
       return;
     }

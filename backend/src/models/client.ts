@@ -905,7 +905,7 @@ export function httpFailure(
           ? `Azure rejected the Microsoft Entra token${tagged}. Run "az login" again and retry.`
           : `The provider rejected the API key${tagged}.`
         : entra
-          ? `Azure denied access${tagged}. Your identity needs the "Cognitive Services OpenAI User" role on this resource, and the resource network rules must allow this machine.`
+          ? `Azure denied access${tagged}. The identity this server runs as (the one named by AZURE_CLIENT_ID when hosted) needs the "Cognitive Services OpenAI User" role on this resource, a new assignment can take several minutes to apply, and the resource network rules must allow this server.`
           : `The provider denied access for this API key${tagged}.`,
     );
   }

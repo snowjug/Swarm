@@ -11,8 +11,12 @@ export type Access =
   | { kind: 'signed-in' }
   /** A platform administrator: runs the platform, and sees no workspace's projects. */
   | { kind: 'platform' }
-  /** A member of the caller's own workspace with this capability. */
-  | { kind: 'workspace'; capability: WorkspaceCapability }
+  /**
+   * A member of the caller's own workspace with this capability. `orPlatform` lets a platform
+   * administrator through as well, for what both the people who run the workspace and the people who
+   * run the platform have a reason to do.
+   */
+  | { kind: 'workspace'; capability: WorkspaceCapability; orPlatform?: true }
   /**
    * An existing project of the caller's own workspace on which they hold a role that allows this.
    * A project in another tenant, and one the caller was not added to, is reported as missing, so
@@ -36,8 +40,14 @@ export const ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/provider/status': { kind: 'signed-in' },
   'GET /api/workspace': { kind: 'signed-in' },
   'GET /api/session': { kind: 'signed-in' },
-  // A real model round trip costs money and is rate-limited by the provider, not by a person.
-  'POST /api/provider/check': { kind: 'platform' },
+  // A real model round trip is a few tokens per deployment and is rate-limited by the route. Whoever runs the
+  // workspace (an owner or an admin) or the platform may ask for one: the first person a pilot signs in
+  // is a workspace owner, and a check only they can click is one nobody can use.
+  'POST /api/provider/check': {
+    kind: 'workspace',
+    capability: 'check-provider',
+    orPlatform: true,
+  },
   'GET /api/audit/verify': { kind: 'platform' },
   'POST /api/documents/extract': { kind: 'workspace', capability: 'create-project' },
 

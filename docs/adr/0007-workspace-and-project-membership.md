@@ -19,15 +19,15 @@ token to expire or changing Entra.
 1. **Seven roles**, in three scopes. Every capability below is written out in
    `backend/src/auth/roles.ts` and again, independently, in `backend/test/membership.test.ts`.
 
-   | Role                   | Scope     | Granted by                           | May                                                                              |
-   | ---------------------- | --------- | ------------------------------------ | -------------------------------------------------------------------------------- |
-   | Platform Administrator | platform  | Entra app role `Swarm.PlatformAdmin` | Run a paid model check, verify the audit chain. Sees **no** workspace's projects |
-   | Workspace Owner        | workspace | membership                           | Everything in the workspace, including granting and removing owners              |
-   | Workspace Admin        | workspace | membership                           | Everything in the workspace except the owners                                    |
-   | Project Lead           | project   | membership                           | Read, export, review, run, chat, delete and share the project                    |
-   | Analyst                | project   | membership                           | Read, export, run, branch, ask the analyst and the actors                        |
-   | Reviewer               | project   | membership                           | Read, export, review statements and conflicts. Never runs                        |
-   | Viewer                 | project   | membership                           | Read and export                                                                  |
+   | Role                   | Scope     | Granted by                           | May                                                                                  |
+   | ---------------------- | --------- | ------------------------------------ | ------------------------------------------------------------------------------------ |
+   | Platform Administrator | platform  | Entra app role `Swarm.PlatformAdmin` | Verify the audit chain, check the model connection. Sees **no** workspace's projects |
+   | Workspace Owner        | workspace | membership                           | Everything in the workspace, including granting and removing owners                  |
+   | Workspace Admin        | workspace | membership                           | Everything in the workspace except the owners                                        |
+   | Project Lead           | project   | membership                           | Read, export, review, run, chat, delete and share the project                        |
+   | Analyst                | project   | membership                           | Read, export, run, branch, ask the analyst and the actors                            |
+   | Reviewer               | project   | membership                           | Read, export, review statements and conflicts. Never runs                            |
+   | Viewer                 | project   | membership                           | Read and export                                                                      |
 
    A workspace member who holds no project role can create projects and sees none but their own.
    Reviewing and running are kept apart: no role below Project Lead can do both.
@@ -73,6 +73,12 @@ token to expire or changing Entra.
   server's own reason when it refuses: the last owner, the last lead, an administrator reaching for
   an owner. It enforces nothing: every rule above is still the server's, and
   `e2e/signin/access.spec.ts` shows that what the page withholds the server also refuses.
+- **Amended after the first hosted pilot:** a workspace owner or admin may also check the model
+  connection (`POST /api/provider/check`, capability `check-provider`; a platform administrator may
+  still do it). The pilot's first person is the workspace owner holding `Swarm.Admin`, not a platform
+  administrator, so with the check reserved to the platform role nobody who ran the pilot could click
+  **Verify connection**. The check costs a few tokens per deployment and is rate limited by the route.
+  Verifying the audit chain stays with the platform administrator alone.
 - **Not built:** groups (membership is per person), invitations by name or email, a directory lookup of
   an object ID, more than one workspace per tenant, and deleting a workspace. (Browser sign-in is
   [0008](./0008-browser-sign-in.md).)

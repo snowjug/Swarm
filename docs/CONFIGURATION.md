@@ -154,15 +154,15 @@ or `Swarm.Admin`. **They only let a person in**: a token with none of them is re
 the person can sign in and see nothing until they are added to a workspace or a project. What they
 may then do comes from their role there, not from the app role:
 
-| Role                   | Where                          | May                                                                |
-| ---------------------- | ------------------------------ | ------------------------------------------------------------------ |
-| Platform Administrator | app role `Swarm.PlatformAdmin` | Run a paid model check and verify the audit chain. Sees no project |
-| Workspace Owner        | workspace membership           | Everything in the workspace, and grant or remove owners            |
-| Workspace Admin        | workspace membership           | Everything in the workspace except the owners                      |
-| Project Lead           | project membership             | Read, export, review, run, chat, delete and share the project      |
-| Analyst                | project membership             | Read, export, run, branch, ask the analyst and the actors          |
-| Reviewer               | project membership             | Read, export, review statements and conflicts. Never runs          |
-| Viewer                 | project membership             | Read and export                                                    |
+| Role                   | Where                          | May                                                                                      |
+| ---------------------- | ------------------------------ | ---------------------------------------------------------------------------------------- |
+| Platform Administrator | app role `Swarm.PlatformAdmin` | Verify the audit chain, and check the model connection. Sees no project                  |
+| Workspace Owner        | workspace membership           | Everything in the workspace (the model connection check too), and grant or remove owners |
+| Workspace Admin        | workspace membership           | Everything in the workspace except the owners (the model connection check too)           |
+| Project Lead           | project membership             | Read, export, review, run, chat, delete and share the project                            |
+| Analyst                | project membership             | Read, export, run, branch, ask the analyst and the actors                                |
+| Reviewer               | project membership             | Read, export, review statements and conflicts. Never runs                                |
+| Viewer                 | project membership             | Read and export                                                                          |
 
 Any workspace member can create experiments and leads them. A workspace with no owner is claimed by
 the first person to call it who holds `Swarm.Admin`; after that the app role confers nothing, and an

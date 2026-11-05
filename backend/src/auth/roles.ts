@@ -35,7 +35,12 @@ export const PROJECT_CAPABILITIES = [
 export type ProjectCapability = (typeof PROJECT_CAPABILITIES)[number];
 
 /** What can be done to a workspace. */
-export const WORKSPACE_CAPABILITIES = ['member', 'create-project', 'manage-members'] as const;
+export const WORKSPACE_CAPABILITIES = [
+  'member',
+  'create-project',
+  'manage-members',
+  'check-provider',
+] as const;
 export type WorkspaceCapability = (typeof WORKSPACE_CAPABILITIES)[number];
 
 const PROJECT_ROLE_CAPABILITIES: Readonly<Record<ProjectRole, ReadonlySet<ProjectCapability>>> = {
