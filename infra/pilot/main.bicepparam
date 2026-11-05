@@ -76,6 +76,10 @@ param trafficMode = readEnvironmentVariable('SWARM_TRAFFIC_MODE', 'preserve')
 param previousRevisionName = readEnvironmentVariable('SWARM_PREVIOUS_REVISION', '')
 param newRevisionTrafficPercent = int(readEnvironmentVariable('SWARM_NEW_REVISION_TRAFFIC_PERCENT', '100'))
 
+// Optional. true creates a Key Vault in this resource group, with purge protection for 90 days, so it cannot be
+// deleted early: create it first with the references below empty, put the secret in, then apply again with them.
+// The only secret the pilot can hold is a search key (docs/azure/pilot-plan.md, "Finding sources from a question alone").
+param enableKeyVault = bool(readEnvironmentVariable('SWARM_ENABLE_KEY_VAULT', 'false'))
 // Optional. Settings whose value is a Key Vault secret, as JSON, for example
 // [{"envName":"AUTH_ENTRA_CLIENT_SECRET","secretName":"swarm-client-secret"}]. Empty: no secret at all,
 // which is the pilot's design (the app proves itself to Entra with its managed identity).

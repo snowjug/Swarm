@@ -161,6 +161,8 @@ describe.skipIf(!bicep || postgresRun)(
     let pilot: Json;
     let release: Json;
     let searching: Json;
+    let wikipedia: Json;
+    let vaultFirst: Json;
     let production: Json;
     let existing: Json;
     let fallback: Json;
@@ -194,6 +196,9 @@ describe.skipIf(!bicep || postgresRun)(
           { envName: 'RESEARCH_SEARCH_API_KEY', secretName: 'swarm-search-key' },
         ]),
       });
+      // Question-only discovery without a key, and the vault that a key needs, made first and empty.
+      wikipedia = run('pilot', { SWARM_RESEARCH_SEARCH_PROVIDER: 'wikipedia' });
+      vaultFirst = run('pilot', { SWARM_ENABLE_KEY_VAULT: 'true' });
       existing = run('pilot', {
         SWARM_EXISTING_WORKSPACE_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.OperationalInsights/workspaces/log-shared`,
         SWARM_EXISTING_APPINSIGHTS_ID: `${SUBSCRIPTION}/resourceGroups/rg-shared/providers/Microsoft.Insights/components/appi-shared`,
@@ -466,6 +471,21 @@ describe.skipIf(!bicep || postgresRun)(
         expect(
           environment(searching).filter((entry) => entry.name === 'RESEARCH_SEARCH_ENDPOINT'),
         ).toEqual([]);
+
+        // Wikipedia needs no key: the provider is set, and nothing secret comes with it.
+        expect(named(wikipedia, 'RESEARCH_SEARCH_PROVIDER')).toEqual([
+          { name: 'RESEARCH_SEARCH_PROVIDER', value: 'wikipedia' },
+        ]);
+        expect(named(wikipedia, 'RESEARCH_SEARCH_API_KEY')).toEqual([]);
+        const [wikiApp] = ofType(predicted(wikipedia), 'Microsoft.App/containerApps');
+        expect(objects(get(wikiApp, 'properties', 'configuration', 'secrets'))).toEqual([]);
+
+        // A vault made first, before any secret is named, holds nothing and the app reads nothing from it.
+        expect(ofType(predicted(vaultFirst), 'Microsoft.KeyVault/vaults')).toHaveLength(1);
+        expect(named(vaultFirst, 'RESEARCH_SEARCH_API_KEY')).toEqual([]);
+        const [vaultApp] = ofType(predicted(vaultFirst), 'Microsoft.App/containerApps');
+        expect(objects(get(vaultApp, 'properties', 'configuration', 'secrets'))).toEqual([]);
+        expect(ofType(predicted(pilot), 'Microsoft.KeyVault/vaults')).toEqual([]);
       });
 
       it('has no Key Vault secret resource and no public blob storage', () => {
