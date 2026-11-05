@@ -1,4 +1,4 @@
-import { expect, test, type APIResponse, type Page } from '@playwright/test';
+import { expect, test, type APIResponse, type Locator, type Page } from '@playwright/test';
 import {
   ADDRESSES,
   INJECTED,
@@ -9,7 +9,7 @@ import {
 } from '../../backend/test/support/journey-protocol';
 import { expectScene, goTo, step as journeyStep } from '../support/app';
 import { exploreButton, openAsk, questionBox, siteBox } from '../support/ask';
-import { stakeholdersViewOf } from '../support/ground-map';
+import { stakeholdersViewOf, pill } from '../support/ground-map';
 import { watchPage } from '../support/helpers';
 import {
   foundInCapture,
@@ -40,8 +40,10 @@ import {
   settleConstraints,
   signIn,
   startSimulation,
+  untilProposed,
   untilResearchStops,
   untilSimulated,
+  useActors,
   useTheActors,
 } from '../support/journey-ui';
 
@@ -617,17 +619,171 @@ test.describe('failure cases: the model', () => {
     await expect(alert).toContainText('No local fallback was used.');
     await shoot(page, 'FC08-invalid-replies', { full: false });
     const after = await harness.telemetry();
-    expect(
-      gained(before, after, 'swarm.model.calls', { 'swarm.model.outcome': 'repaired' }),
-      'the corrections were counted',
-    ).toBeGreaterThan(0);
+    // Every round trip is one call, and each reply here was whole and was refused: the correction that was
+    // asked for is a refused reply of its own, and nothing was accepted, so nothing is counted as repaired.
+    const asked = (await harness.foundryRequests()).length;
+    expect(asked, 'the model was asked more than once for each thing').toBeGreaterThan(3);
     expect(
       gained(before, after, 'swarm.model.calls', {
         'swarm.model.outcome': 'schema-invalid',
         'swarm.error.code': 'MODEL_OUTPUT_INVALID',
       }),
-      'the whole replies that were refused were counted, apart from the calls that failed',
-    ).toBeGreaterThan(0);
+      'each whole reply that was refused is a call of its own, the corrections included, apart from the calls that failed',
+    ).toBe(asked);
+    expect(
+      gained(before, after, 'swarm.model.calls', { 'swarm.model.outcome': 'repaired' }),
+      'no correction was accepted, so none was counted as one that mended a reply',
+    ).toBe(0);
+  });
+
+  // -- 15, 16, 17: the model that is cut off, or is not valid, on the Map -------------------
+  const participantsAsks = async () =>
+    (await harness.foundryRequests()).filter((request) =>
+      request.says.startsWith('Propose the participants in the decision'),
+    );
+  /** From the researched project to the Map, and the model asked for the participants; the page that says it could not. */
+  async function askForParticipants(page: Page): Promise<Locator> {
+    await press(page, 'Map the stakeholders').first().click();
+    await page.getByRole('button', { name: 'Find who is affected' }).click();
+    return page
+      .getByRole('alert')
+      .filter({ hasText: 'The model could not propose the participants' });
+  }
+  const proposedNotice = (page: Page): Locator =>
+    page.getByRole('status').filter({ hasText: 'Swarm proposed these participants' });
+
+  // -- 15 ----------------------------------------------------------------------------------
+  test('15 · a model that is cut off when it proposes the participants: the page stops and says what failed, keeps nothing, and goes on with rules only when asked', async ({
+    page,
+  }) => {
+    await harness.foundryBehaviour('participants-cut');
+    const before = await harness.telemetry();
+    const project = await researched(page, 'Model assisted');
+    const stopped = await askForParticipants(page);
+    await expect(stopped).toBeVisible({ timeout: 90_000 });
+    // What failed, in counts and words from a closed list: not a word of the model's, and none of the page's.
+    await expect(stopped).toContainText('The model’s answer was cut short');
+    await expect(stopped).toContainText('9,900 of them hidden reasoning');
+    await expect(stopped).toContainText('asked again once');
+    await expect(stopped).toContainText('Nothing was made: there are no participants yet.');
+    for (const name of ['Retry with the model', 'Edit participants', 'Continue with rules']) {
+      await expect(stopped.getByRole('button', { name })).toBeEnabled();
+    }
+    noLeak(await stopped.innerText(), 'the stop');
+    await shoot(page, 'FC15-participants-cut', { full: false });
+    // Nothing was kept, and no list stands in the model's place.
+    expect((await stakeholdersViewOf(page.request, project)).stakeholders).toBeNull();
+    // Asked, and asked again once; not for ever.
+    expect(await participantsAsks()).toHaveLength(2);
+    // A reply that ended at its limit and a reply that was whole and refused are counted apart, with what the thinking cost.
+    const after = await harness.telemetry();
+    expect(
+      gained(before, after, 'swarm.model.calls', {
+        'swarm.model.outcome': 'truncated',
+        'swarm.error.code': 'MODEL_TRUNCATED',
+        'swarm.model.finish_reason': 'length',
+      }),
+    ).toBe(2);
+    expect(
+      gained(before, after, 'swarm.model.calls', { 'swarm.model.outcome': 'schema-invalid' }),
+    ).toBe(0);
+    expect(gained(before, after, 'swarm.model.reasoning_tokens')).toBe(2 * 9_900);
+    // Rules are used only when the person says so, and what they make says that it is theirs.
+    await stopped.getByRole('button', { name: 'Continue with rules' }).click();
+    await expect(proposedNotice(page)).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole('button', { name: 'Rules fallback' })).toBeVisible();
+    expect(await participantsAsks(), 'rules ask nobody').toHaveLength(2);
+    const view = await stakeholdersViewOf(page.request, project);
+    expect(view.stakeholders?.discovery).toMatchObject({ mode: 'rules', model: null });
+    expect(view.stakeholders?.discovery.note).toMatch(/^Participants from the rules fallback\./u);
+    expect(view.stakeholders?.proposal?.failure?.code).toBe('MODEL_TRUNCATED');
+  });
+
+  // -- 16 ----------------------------------------------------------------------------------
+  test('16 · a model whose reply is whole and is not the participants asked for: the page stops and says so, and the model’s own list is kept once it answers', async ({
+    page,
+  }) => {
+    await harness.foundryBehaviour('participants-invalid');
+    const before = await harness.telemetry();
+    const project = await researched(page, 'Model assisted');
+    const stopped = await askForParticipants(page);
+    await expect(stopped).toBeVisible({ timeout: 90_000 });
+    await expect(stopped).toContainText(
+      'The model replied, but its answer did not pass validation',
+    );
+    await expect(stopped).toContainText('Nothing was made: there are no participants yet.');
+    noLeak(await stopped.innerText(), 'the stop');
+    expect((await stakeholdersViewOf(page.request, project)).stakeholders).toBeNull();
+    // Asked again once or twice, and then it stops; each whole reply that was refused is a call of its own.
+    const asks = (await participantsAsks()).length;
+    expect(asks).toBeGreaterThanOrEqual(2);
+    expect(asks).toBeLessThanOrEqual(3);
+    const after = await harness.telemetry();
+    expect(
+      gained(before, after, 'swarm.model.calls', {
+        'swarm.model.outcome': 'schema-invalid',
+        'swarm.error.code': 'MODEL_OUTPUT_INVALID',
+      }),
+    ).toBe(asks);
+    expect(
+      gained(before, after, 'swarm.model.calls', { 'swarm.model.outcome': 'truncated' }),
+      'a whole reply is not counted as one that was cut off',
+    ).toBe(0);
+    // The model answers, the person asks again, and what is kept is the model's.
+    await harness.foundryBehaviour('natural');
+    await stopped.getByRole('button', { name: 'Retry with the model' }).click();
+    await expect(proposedNotice(page)).toBeVisible({ timeout: 90_000 });
+    await expect(stopped).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Rules fallback' })).toHaveCount(0);
+    const view = await stakeholdersViewOf(page.request, project);
+    expect(view.stakeholders?.proposal).toMatchObject({ source: 'model', failure: null });
+  });
+
+  // -- 17 ----------------------------------------------------------------------------------
+  test('17 · a model that is cut off when it reads the constraints: rules read them, and the page says that the model failed and why, not that it was never asked', async ({
+    page,
+  }) => {
+    await harness.foundryBehaviour('constraints-cut');
+    const before = await harness.telemetry();
+    const project = await researched(page, 'Model assisted');
+    await press(page, 'Map the stakeholders').first().click();
+    await page.getByRole('button', { name: 'Find who is affected' }).click();
+    // The participants are the model's: only the constraints are cut off.
+    const proposed = await untilProposed(page);
+    await proposed.getByRole('button', { name: 'Review participants' }).click();
+    await page.getByRole('button', { name: /^Accept all/u }).click();
+    await useActors(page).click();
+    const offer = page.getByRole('dialog').filter({ hasText: 'Create the actors' });
+    // The model reads the constraints once the actors are made, unless the person says not to.
+    await expect(
+      offer.getByRole('switch', { name: /^Let the model read the constraints/u }),
+    ).toBeChecked();
+    await offer.getByRole('button', { name: 'Use these actors' }).click();
+    await expect(pill(page).getByText('Synthetic stand-ins')).toBeVisible();
+    await expect(page.getByText('The model could not read the constraints').first()).toBeVisible({
+      timeout: 90_000,
+    });
+    // The set is the rules’, and it says that a model was asked, what failed, and that no model proposed it.
+    const set = (await constraintsOf(page.request, project)).constraints;
+    expect(set).toMatchObject({ mode: 'rules', modelFailure: { code: 'MODEL_TRUNCATED' } });
+    expect(set?.note).toContain('no model proposed them');
+    expect(set?.constraints.length, 'the rules still read the sources').toBeGreaterThan(0);
+    await page
+      .getByRole('radiogroup', { name: 'Show as' })
+      .getByRole('radio', { name: 'Constraints' })
+      .click();
+    await expect(
+      page.getByText('Constraints from the rules fallback', { exact: true }),
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Ask the model again' })).toBeEnabled();
+    await shoot(page, 'FC17-constraints-cut', { full: false });
+    const after = await harness.telemetry();
+    expect(
+      gained(before, after, 'swarm.model.calls', {
+        'swarm.model.outcome': 'truncated',
+        'swarm.error.code': 'MODEL_TRUNCATED',
+      }),
+    ).toBe(2);
   });
 });
 

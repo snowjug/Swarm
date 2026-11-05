@@ -547,14 +547,18 @@ function actorReading(data: unknown): unknown {
   };
 }
 
+/** How the instructions of the task that proposes the participants, and of the one that reads the constraints, begin. */
+export const PARTICIPANTS_OPENING = 'Propose the participants in the decision';
+export const CONSTRAINTS_OPENING = 'Find the constraints of the decision in the data';
+
 const TASKS: [string, (data: unknown) => unknown][] = [
   ['Read the question into a scenario frame', scenarioReading],
   ['You plan the research for a what-if question', researchPlan],
   ['Define a small ontology for the supplied sources', ontology],
   ['Extract a source-grounded graph under the supplied ontology', sourceGraph],
-  ['Propose the participants in the decision', participants],
+  [PARTICIPANTS_OPENING, participants],
   ['For each key actor in data.actors, propose where it stands', actorReading],
-  ['Find the constraints of the decision in the data', constraints],
+  [CONSTRAINTS_OPENING, constraints],
   ['You are an independent reviewer of a scenario analysis', criticism],
 ];
 

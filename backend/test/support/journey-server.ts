@@ -45,19 +45,26 @@ import type { SearchProvider } from '../../src/research/discovery.js';
 import type { SqlDatabase } from '../../src/storage/sql.js';
 import { DatabaseError } from '../../src/storage/failure.js';
 import { Repository } from '../../src/storage/repository.js';
-import { startFakeFoundry, type FakeFoundry, type FakeStep } from './fake-foundry.js';
-import { naturalReply } from './journey-brain.js';
+import {
+  startFakeFoundry,
+  type FakeFoundry,
+  type FakeStep,
+  type RecordedRequest,
+} from './fake-foundry.js';
+import { CONSTRAINTS_OPENING, PARTICIPANTS_OPENING, naturalReply } from './journey-brain.js';
 import { startCapture } from './journey-capture.js';
 import { AUDIENCE, CLIENT_ID, TENANT_A, TENANT_B, startIdp } from './journey-idp.js';
 import {
   ADDRESSES,
   CANARIES,
+  FOUNDRY_BEHAVIOURS,
   INJECTED,
   DEFAULT_PORTS,
   INSTANCES,
   INSTANCE_FACTS,
   OUTAGE_DRIVER_TEXT,
   PEOPLE,
+  type FoundryBehaviour,
   type FoundryRequestSummary,
   type InstanceName,
   type JourneyState,
@@ -115,9 +122,28 @@ const web = await startJourneyWeb(port('web'));
 const idp = await startIdp(port('idp'));
 const foundry: FakeFoundry = await startFakeFoundry();
 
-type Behaviour = 'natural' | 'down' | 'content-filter' | 'invalid-json' | 'refusal';
-let behaviour: Behaviour = 'natural';
-function install(mode: Behaviour): void {
+let behaviour: FoundryBehaviour = 'natural';
+
+/**
+ * A model that does what it is asked, except for one task: its reply is cut off at its limit, after a long think
+ * (`finish_reason: length`, most of the limit spent on hidden thinking), or is whole and is not the JSON that was asked for.
+ */
+function exceptFor(
+  opening: string,
+  how: 'cut-off' | 'not-valid',
+  request: RecordedRequest,
+): FakeStep | undefined {
+  if (!request.system.includes(opening)) return naturalReply(request);
+  return how === 'cut-off'
+    ? {
+        kind: 'truncated',
+        partial: '{"version":1,"participants":[{"id":"',
+        usage: { prompt: 1_200, completion: 10_000, reasoning: 9_900 },
+      }
+    : { kind: 'text', text: '{"version":1,"participants":"this is not a list"}' };
+}
+
+function install(mode: FoundryBehaviour): void {
   behaviour = mode;
   foundry.respond((request): FakeStep | undefined => {
     switch (behaviour) {
@@ -129,6 +155,12 @@ function install(mode: Behaviour): void {
         return { kind: 'text', text: 'This is not JSON, and neither is what follows: {"half"' };
       case 'refusal':
         return { kind: 'refusal' };
+      case 'participants-cut':
+        return exceptFor(PARTICIPANTS_OPENING, 'cut-off', request);
+      case 'participants-invalid':
+        return exceptFor(PARTICIPANTS_OPENING, 'not-valid', request);
+      case 'constraints-cut':
+        return exceptFor(CONSTRAINTS_OPENING, 'cut-off', request);
       case 'natural':
         return naturalReply(request);
     }
@@ -406,14 +438,10 @@ async function route(
     case 'GET /foundry/problems':
       return ok([...foundry.problems]);
     case 'POST /foundry/behaviour':
-      if (
-        !['natural', 'down', 'content-filter', 'invalid-json', 'refusal'].includes(
-          String(body.behaviour),
-        )
-      ) {
+      if (!(FOUNDRY_BEHAVIOURS as readonly string[]).includes(String(body.behaviour))) {
         return refused('behaviour');
       }
-      install(body.behaviour as Behaviour);
+      install(body.behaviour as FoundryBehaviour);
       return ok();
     case 'POST /foundry/script':
       foundry.script(...(body.steps as FakeStep[]));

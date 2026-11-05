@@ -132,6 +132,21 @@ or not (`backend/src/models/output-policy.ts`, applied in `ModelClient`):
 - **Keeps the strict schema** wherever the deployment takes it (`response_format: json_schema`). Only
   `key-actor-refinement.v1` still asks for plain JSON, because its `traits` object has free keys.
 
+### If a reasoning deployment still cannot finish
+
+If `swarm.model.calls` keeps showing `truncated` after the second, larger and quieter try, and the message says
+nearly all of the output tokens were hidden reasoning, the deployment is the wrong kind for forms: use one that
+does not reason. Read-only, `az cognitiveservices account list-models -g <group> -n <account>` and
+`az cognitiveservices account deployment list -g <group> -n <account>` say what an account holds and can hold
+(nothing here creates anything). In East US 2 on 2026-11-05 the chat models without a reasoning mode were
+`gpt-4.1`, `gpt-4.1-mini` and `gpt-4.1-nano` (version 2025-04-14) and `gpt-4o` and `gpt-4o-mini`, all marked for
+retirement in 2027; a catalogue says what can be deployed, and not that the subscription has quota for it (the
+`az cognitiveservices usage list` that was tried returned no rows), so the quota is checked where the deployment is
+made. The app is pointed at one with `aiDeploymentName` (`infra/pilot/main.bicep`). A deployment that takes no
+reasoning effort refuses it, is asked again without it, and the refusal is remembered (an hour, per
+deployment). Which model to use is the owner's choice, with its price and its region's rules; it is not built into
+the code.
+
 ### The connection check
 
 `POST /api/provider/check` (the **Verify connection** button in the engine chip's popover) makes one tiny real
@@ -379,6 +394,13 @@ credentials), strict-schema conversion against the documented rules, downgrade a
 refusal and filter classification, routing, budgets, cache isolation, failover, and that no credential,
 endpoint or content reaches logs, status or telemetry.
 
+How a deployment that thinks behaves is a model of what the live pilot showed, not a measurement: `thinks` is a
+number a test chooses. What is checked is what the server asks for, and what it keeps, shows and counts when a
+reply ends at its limit or is whole and is not the JSON asked for: for the participants and the constraints in
+`model-path-routes.test.ts`, for the connection check in `provider-routes.test.ts`, for the client in
+`foundry-client.test.ts`, and in a browser in failure cases 8 and 15 to 17 of the
+[production journey](../production/journey.md). Whether a given deployment finishes a participants form inside
+those budgets is learned only by running the connection check and one small task against it.
 **Not verified against Azure:** that the deployments you configure accept strict `json_schema` and
 `reasoning_effort`; the exact error codes and bodies for refused parameters and blocked content; the shape of
 the content-filter annotations; the schema keywords strict mode refuses; Retry-After behaviour; the token

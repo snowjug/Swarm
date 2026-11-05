@@ -154,6 +154,23 @@ export interface TelemetryReading {
 /** Where a canary was found: nothing, if it was found nowhere that it must not be. */
 export type CanaryReport = Record<string, string[]>;
 
+/**
+ * How the fake Foundry of the harness answers. `natural` is a model that does what it is asked; the next four fail
+ * every task alike; and the last three answer every task naturally except one, whose reply is cut off at its limit
+ * (`finish_reason: length`) or is whole and is not the JSON that was asked for.
+ */
+export const FOUNDRY_BEHAVIOURS = [
+  'natural',
+  'down',
+  'content-filter',
+  'invalid-json',
+  'refusal',
+  'participants-cut',
+  'participants-invalid',
+  'constraints-cut',
+] as const;
+export type FoundryBehaviour = (typeof FOUNDRY_BEHAVIOURS)[number];
+
 export interface FoundryRequestSummary {
   index: number;
   deployment: string | null;

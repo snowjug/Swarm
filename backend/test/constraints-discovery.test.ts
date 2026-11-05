@@ -676,7 +676,11 @@ describe('reading for constraints with a model', () => {
       detail: 'The model replied, but its answer did not pass validation, so rules were used.',
     });
     expect(gave.set.mode).toBe('rules');
-    expect(gave.set.note).toContain('rules were used');
+    // The note says that rules read them and that no model proposed them, in the server's words alone.
+    expect(gave.set.note).toContain(
+      'The model replied, but its answer did not pass validation. Rules read the constraints instead, so no model proposed them.',
+    );
+    expect(gave.set.modelFailure).toMatchObject({ code: 'MODEL_OUTPUT_INVALID' });
     expect(gave.set.constraints.length).toBeGreaterThan(0);
   });
 

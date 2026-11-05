@@ -4,6 +4,7 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
 import {
   DEFAULT_PORTS,
   type CanaryReport,
+  type FoundryBehaviour,
   type FoundryRequestSummary,
   type InstanceName,
   type JourneyState,
@@ -73,9 +74,8 @@ export const harness = {
   tune: (tuning: Record<string, number>) => call<void>('POST', '/crawl/tuning', tuning),
   /** How long each simulated run waits before the next one, in ms, so that a person can act in the middle of one. */
   paceAnalysis: (ms: number) => call<void>('POST', '/analysis/pace', { ms }),
-  foundryBehaviour: (
-    behaviour: 'natural' | 'down' | 'content-filter' | 'invalid-json' | 'refusal',
-  ) => call<void>('POST', '/foundry/behaviour', { behaviour }),
+  foundryBehaviour: (behaviour: FoundryBehaviour) =>
+    call<void>('POST', '/foundry/behaviour', { behaviour }),
   foundryRequests: () => call<FoundryRequestSummary[]>('GET', '/foundry/requests'),
   foundryProblems: () => call<string[]>('GET', '/foundry/problems'),
   /** What the search double offers for the next question, or a failure it raises. */
