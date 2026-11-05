@@ -170,6 +170,80 @@ const MEASURE =
 const TIME_WORDS =
   /\b(?:Q[1-4]|(?:jan(?:uary)?|feb(?:ruary)?|mar(?:ch)?|apr(?:il)?|may|jun(?:e)?|jul(?:y)?|aug(?:ust)?|sep(?:t(?:ember)?)?|oct(?:ober)?|nov(?:ember)?|dec(?:ember)?)\b|(?:19|20)\d{2})/giu;
 
+/**
+ * Words that say the number after them names something and counts nothing, whatever its length: "Roadmap ID
+ * 502533", "KB 5012345", "version 11", "section 4", "#4021". Two sources that give different numbers after
+ * such a word are citing different things, and do not disagree.
+ */
+const NAMING_WORD =
+  /(?:\b(?:ids?|identifier|kb|cve|rfc|mc|ticket|bug|ref|roadmap|article|version|chapter|section|table|page)\b[\s:#.(–—-]{0,3}|#\s?)$/iu;
+/**
+ * Words that name something only some of the time: "release 502533", "build 19045", "post 566318" are
+ * identifiers, but "release 500 homes" and "build 200 homes" are quantities. After these, only a number of
+ * five digits or more, which no one counts in, is read as a name.
+ */
+const SOMETIMES_NAMING_WORD =
+  /\b(?:release|build|patch|post|issue|commit|reference|item|feature|note)\b[\s:#.(–—-]{0,3}$/iu;
+const LONG_NUMBER = /^\d{5,}$/u;
+/** Digits that end a word, as in "MC502533", "KB5012345", "Q3" or "v2.0": a name, not a figure. */
+const GLUED_TO_LETTERS = /\p{L}$/u;
+/** Digits after a hyphenated name ("COVID-19", "gpt-5"); only a bare number, since "up-to-40%" is a quantity. */
+const HYPHENATED_NAME = /\p{L}-$/u;
+/** Currency written as a code before the amount ("USD500"), which is a figure, not a name. */
+const CURRENCY_CODE = /(?:^|[^\p{L}])(?:USD|EUR|GBP|INR|AUD|CAD|JPY|CHF|CNY|NZD|SEK|NOK|DKK)$/u;
+/**
+ * A capitalised word in the middle of a sentence, which makes the small bare number after it a name and not
+ * a count: "in Microsoft 365", "on Windows 11". The first word of a sentence is capitalised anyway, so it
+ * says nothing ("Over 400 ferries ran", "Added 3 connectors"), and neither does one after a full stop or colon.
+ */
+const AFTER_PROPER_NOUN = /(?:^|\S)\s+(?<![.!?:;]\s)\p{Lu}[\p{L}\p{N}'’-]*\s$/u;
+const PROPER_BUT_TIME =
+  /^(?:Q[1-4]|January|February|March|April|May|June|July|August|September|October|November|December|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)$/u;
+/**
+ * Six digits or more with no separator are an identifier when no word introduces them and nothing is counted
+ * after them: "(566318)", "[566318]", a number that opens a line, or one that ends a link ("aka.ms/566318").
+ * A quantity is written with its commas, or with its noun, or after a word that says what it is ("reached
+ * 412000").
+ */
+const LONG_PLAIN_NUMBER = /^\d{6,}$/u;
+const NO_WORD_BEFORE = /(?:^|[([#:|])\s?$/u;
+const ENDS_A_LINK = /[\p{L}\p{N}]\/$/u;
+const LOOK_BACK = 80;
+
+/**
+ * Whether a number the scan found is a name and not a quantity: it follows a word that says it names
+ * something, ends a word, is a long number written without a separator that counts nothing, or is the small
+ * bare number of a proper noun. A release-note or an article number is read as a figure by none of them,
+ * so two sources citing different ones are not set against each other as a conflict.
+ */
+function isIdentifier(
+  sentence: string,
+  match: RegExpMatchArray,
+  parts: { symbol: string; whole: string; decimals: string; suffix: string },
+): boolean {
+  const start = match.index ?? 0;
+  const at = start + Math.max(0, match[0].search(/\d/u));
+  const from = Math.max(0, at - LOOK_BACK);
+  // A window cut mid-sentence starts with a stand-in word, so it is never taken for the sentence's first word.
+  const before = `${from > 0 ? '… ' : ''}${sentence.slice(from, at)}`;
+  const bare = !parts.symbol && !parts.decimals && !parts.suffix;
+  if (GLUED_TO_LETTERS.test(before) && !CURRENCY_CODE.test(before)) return true;
+  if (bare && HYPHENATED_NAME.test(before)) return true;
+  if (NAMING_WORD.test(before)) return true;
+  if (bare && LONG_NUMBER.test(parts.whole) && SOMETIMES_NAMING_WORD.test(before)) return true;
+  if (bare && LONG_PLAIN_NUMBER.test(parts.whole)) {
+    if (ENDS_A_LINK.test(before)) return true;
+    if (NO_WORD_BEFORE.test(before)) {
+      return !/^\s?\p{L}/u.test(sentence.slice(start + match[0].length));
+    }
+  }
+  if (bare && parts.whole.length <= 4) {
+    const word = /(\p{L}[\p{L}\p{N}'’-]*)\s$/u.exec(before)?.[1] ?? '';
+    if (AFTER_PROPER_NOUN.test(before) && !PROPER_BUT_TIME.test(word)) return true;
+  }
+  return false;
+}
+
 /** Figures in a sentence. Years are time qualifiers, not measurements, and are returned separately. */
 export function measurementsIn(sentence: string): {
   measurements: Measurement[];
@@ -183,6 +257,7 @@ export function measurementsIn(sentence: string): {
     const isYear =
       !symbol && !decimals && !suffix && /^(?:19|20)\d{2}$/u.test(whole) && !whole.includes(',');
     if (isYear) continue;
+    if (isIdentifier(sentence, match, { symbol: symbol ?? '', whole, decimals, suffix })) continue;
     const base = Number(`${whole.replaceAll(',', '')}${decimals}`);
     if (!Number.isFinite(base)) continue;
     const percent = suffixKey === '%' || suffixKey === 'percent' || suffixKey === 'per cent';

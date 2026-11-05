@@ -52,6 +52,51 @@ describe('measurementsIn', () => {
       'currency',
     );
   });
+
+  describe('a number that names a release note, an article or a product', () => {
+    it.each([
+      ['a roadmap ID in brackets', 'Copilot connectors are rolling out (Roadmap ID 502533).'],
+      ['an ID after a colon', 'Roadmap ID: 502533 covers Copilot connectors from Microsoft.'],
+      ['a message-centre code', 'Copilot connectors from Microsoft are tracked as MC502533.'],
+      ['a knowledge-base number', 'The Copilot app is fixed by update KB5012345 for everyone.'],
+      ['an article number', 'The Copilot app from Microsoft is described in article 566318.'],
+      ['a number in brackets alone', 'The Copilot app from Microsoft is rolling out now (566318).'],
+      ['a feature number', 'The Copilot app from Microsoft is feature 566318 on the roadmap.'],
+      ['a release number', 'Release 502533 adds Copilot connectors from Microsoft.'],
+      [
+        'a number in a link',
+        'Copilot connectors from Microsoft are listed at aka.ms/502533 today.',
+      ],
+      ['a hash number', 'Roadmap #502533 covers Copilot connectors from Microsoft.'],
+      ['the 365 of Microsoft 365', 'Copilot connectors work across Microsoft 365 apps for admins.'],
+      [
+        'the number of a version',
+        'The admin centre now runs on Windows 11 and Android 14 devices.',
+      ],
+      ['a number inside a hyphenated name', 'The pandemic, COVID-19, changed the timetable a lot.'],
+      ['a number glued to a letter', 'The model gpt-5 answered while v2.0 of the app was in use.'],
+    ])('is not read as a figure: %s', (_label, sentence) => {
+      expect(measurementsIn(sentence).measurements).toEqual([]);
+    });
+
+    it.each([
+      ['a figure after the word "figure"', 'The official figure: 412,000 passengers.', ['412,000']],
+      ['a count of what is built or released', 'The council will build 200 homes.', ['200']],
+      ['a count after the first word of a sentence', 'Added 3 new connectors.', ['3']],
+      ['a count after a quantifier', 'Over 400 ferries ran in the spring.', ['400']],
+      ['a long number that is a count', 'Ridership reached 412000 last year.', ['412000']],
+      ['a long number that counts something', '412000 passengers rode the ferry.', ['412000']],
+      ['an amount after a currency code', 'The council paid USD500 for the lease.', ['500']],
+      ['a percentage after a hyphen', 'Ridership rose by up-to-40% last year.', ['40%']],
+      [
+        'a figure beside a route number',
+        'Passengers on Route 7 numbered 412,000 last winter.',
+        ['412,000'],
+      ],
+    ])('is still read as a figure: %s', (_label, sentence, raw) => {
+      expect(measurementsIn(sentence).measurements.map((m) => m.raw)).toEqual(raw);
+    });
+  });
 });
 
 describe('splitSentences', () => {
@@ -247,6 +292,104 @@ describe('detectContradictions', () => {
       'The island council supports the proposed electric ferry plan for the route entirely.',
     );
     expect(detectContradictions([a, b], NOW)).toEqual([]);
+  });
+
+  describe('a release-note or article number that is not a figure', () => {
+    const connectors = passage(
+      'S1',
+      'Copilot connectors from Microsoft work across Microsoft 365 apps.',
+    );
+    const app = passage('S1', 'The Copilot app from Microsoft is included in Microsoft 365 plans.');
+
+    it('is not set against the 365 of Microsoft 365: "connectors copilot microsoft" with "365" and "502533"', () => {
+      const roadmap = passage(
+        'S2',
+        'Copilot connectors from Microsoft are rolling out (Roadmap ID 502533).',
+      );
+      expect(detectContradictions([connectors, roadmap], NOW)).toEqual([]);
+    });
+
+    it('is not set against the 365 of Microsoft 365: "app copilot microsoft" with "365" and "566318"', () => {
+      const article = passage(
+        'S2',
+        'The Copilot app from Microsoft is described in article 566318.',
+      );
+      expect(detectContradictions([app, article], NOW)).toEqual([]);
+    });
+
+    it.each([
+      [
+        'a roadmap ID',
+        'The Copilot app from Microsoft is rolling out to tenants (Roadmap ID 566318).',
+      ],
+      [
+        'an article number',
+        'The Copilot app from Microsoft is described for tenants in article 566318.',
+      ],
+      ['a code', 'The Copilot app from Microsoft is tracked as MC566318 for tenants.'],
+      [
+        'a knowledge-base number',
+        'The Copilot app from Microsoft is fixed by update KB566318 for tenants.',
+      ],
+      [
+        'a number in brackets',
+        'The Copilot app from Microsoft is rolling out to tenants now (566318).',
+      ],
+      ['a feature number', 'The Copilot app from Microsoft is feature 566318 for tenants.'],
+    ])('is not set against a real figure, whatever its shape: %s', (_label, text) => {
+      const figure = passage(
+        'S1',
+        'The Copilot app from Microsoft is used by 412,000 tenants today.',
+      );
+      expect(detectContradictions([figure, passage('S2', text)], NOW)).toEqual([]);
+    });
+
+    it('is not set against another one: two items of one roadmap are not a disagreement', () => {
+      const first = passage(
+        'S1',
+        'The Copilot app from Microsoft is rolling out as Roadmap ID 566318.',
+      );
+      const second = passage(
+        'S2',
+        'The Copilot app from Microsoft is rolling out as Roadmap ID 502533.',
+      );
+      expect(detectContradictions([first, second], NOW)).toEqual([]);
+    });
+
+    it('still finds two sources that give different figures for the same measure', () => {
+      const a = passage('S1', 'The Copilot app from Microsoft reached 412,000 tenants last year.');
+      const b = passage('S2', 'The Copilot app from Microsoft reached 365,000 tenants last year.');
+      const [hit] = detectContradictions([a, b], NOW);
+      expect([hit?.leftValue, hit?.rightValue].sort()).toEqual(['365,000', '412,000']);
+    });
+
+    it('finds the figures that sentences with a number of their own were hiding', () => {
+      const a = passage(
+        'S1',
+        'Roadmap ID 502533: the Copilot app from Microsoft reached 412,000 tenants last year.',
+      );
+      const b = passage(
+        'S2',
+        'Roadmap ID 566318: the Copilot app from Microsoft reached 365,000 tenants last year.',
+      );
+      const found = detectContradictions([a, b], NOW);
+      expect(found).toHaveLength(1);
+      expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['365,000', '412,000']);
+    });
+
+    it('still finds a percentage that differs beside an ID', () => {
+      const a = passage(
+        'S1',
+        'The Copilot app from Microsoft (Roadmap ID 502533) is used by 61% of tenants.',
+      );
+      const b = passage(
+        'S2',
+        'The Copilot app from Microsoft (Roadmap ID 566318) is used by 48% of tenants.',
+      );
+      const found = detectContradictions([a, b], NOW);
+      expect(found).toHaveLength(1);
+      expect([found[0]?.leftValue, found[0]?.rightValue].sort()).toEqual(['48%', '61%']);
+    });
   });
 
   describe('short sentences that count the same thing over the same period', () => {

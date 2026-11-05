@@ -241,7 +241,9 @@ the sources fill the first screen.
 - **Conflicts** come first when any is unsettled, ahead of the sources they are between. Each puts two
   sources that give different figures ("Different figures") or say opposite things ("Opposite statements")
   side by side, with the words each stands in. Swarm found them from wording alone, and "Neither side is
-  declared true."; **How it was found** says which words the passages share. Each is a **Possible conflict**
+  declared true."; **How it was found** says which words the passages share. A number that names something
+  and counts nothing, such as a release-note ID, an article number or the 365 of Microsoft 365, is not read
+  as a figure, so two such numbers are never set against each other. Each is a **Possible conflict**
   until a person settles it: **Confirm**, **Not a conflict** or **Mark resolved**, with an optional note
   (**Add a note**), and **Change decision** if you change your mind; settled ones wait under **Reviewed**. A
   conflict that you dismiss or resolve no longer weighs on the statements it touched. Nothing requires you
