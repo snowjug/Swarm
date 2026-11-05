@@ -312,6 +312,20 @@ describe('the search of Wikipedia', () => {
       expect(failure.kind).toBe('malformed');
     }
   });
+
+  it('leaves out a page whose title is longer than a title can be, and keeps the others', async () => {
+    const answer = {
+      query: {
+        search: [{ title: 'Harbour pilots' }, { title: 'x'.repeat(301) }, { title: 'Tides' }],
+      },
+    };
+    const provider = wikipediaSearch(settings(fakeFetch(() => json(answer)).fetch));
+    const hits = await provider.search('harbour', { limit: 5, signal: never });
+    expect(hits.map((hit) => hit.url)).toEqual([
+      'https://en.wikipedia.org/wiki/Harbour_pilots',
+      'https://en.wikipedia.org/wiki/Tides',
+    ]);
+  });
 });
 
 describe('the web search of Brave', () => {
@@ -394,6 +408,21 @@ describe('the web search of Brave', () => {
         'malformed',
       );
     }
+  });
+
+  it('leaves out an address that is too long to use, and keeps the others', async () => {
+    const answer = {
+      web: {
+        results: [
+          { url: `https://example.org/${'a'.repeat(5_000)}` },
+          { url: 'https://example.org/page' },
+        ],
+      },
+    };
+    const provider = braveSearch(settings(fakeFetch(() => json(answer)).fetch, { apiKey: KEY }));
+    expect(await provider.search('x', { limit: 5, signal: never })).toEqual([
+      { url: 'https://example.org/page' },
+    ]);
   });
 });
 

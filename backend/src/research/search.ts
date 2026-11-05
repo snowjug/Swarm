@@ -286,13 +286,14 @@ const baseOf = (endpoint: string | null, own: string): URL => {
 
 const WIKIPEDIA = 'https://en.wikipedia.org';
 
+// A page that a provider names with more than a title can be is left out and the rest are kept: one odd entry must
+// not make the whole answer unusable (`usableAddress` does the same for an address that is too long).
+const MOST_TITLE_LENGTH = 300;
+
 const wikipediaAnswer = z.object({
   query: z
     .object({
-      search: z
-        .array(z.object({ title: z.string().min(1).max(300) }))
-        .max(50)
-        .optional(),
+      search: z.array(z.object({ title: z.string().min(1) })).optional(),
     })
     .optional(),
 });
@@ -326,9 +327,11 @@ export function wikipediaSearch(settings: SearchSettings): SearchProvider {
       }).toString();
       const answer = wikipediaAnswer.safeParse(await getJson(address, {}, settings, signal));
       if (!answer.success) throw new SearchFailure('malformed');
-      const pages = (answer.data.query?.search ?? []).map(({ title }) =>
-        new URL(`/wiki/${encodeURIComponent(title.replaceAll(' ', '_'))}`, base).toString(),
-      );
+      const pages = (answer.data.query?.search ?? [])
+        .filter(({ title }) => title.length <= MOST_TITLE_LENGTH)
+        .map(({ title }) =>
+          new URL(`/wiki/${encodeURIComponent(title.replaceAll(' ', '_'))}`, base).toString(),
+        );
       return addressesOf(pages, limit);
     },
   };
@@ -341,10 +344,8 @@ const BRAVE = 'https://api.search.brave.com';
 const braveAnswer = z.object({
   web: z
     .object({
-      results: z
-        .array(z.object({ url: z.string().max(4_096) }))
-        .max(50)
-        .optional(),
+      // An address too long to use is left out by `usableAddress`; it does not fail the answer.
+      results: z.array(z.object({ url: z.string() })).optional(),
     })
     .optional(),
 });
