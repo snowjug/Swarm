@@ -12,6 +12,8 @@ const labPort = Number(process.env.E2E_LAB_PORT || 3116);
 const providerPort = Number(process.env.E2E_PROVIDER_PORT || 11999);
 const labWebPort = Number(process.env.E2E_LAB_WEB_PORT || 3117);
 const labWebFixturePort = Number(process.env.E2E_LAB_WEB_FIXTURE_PORT || 3118);
+const publicPort = Number(process.env.E2E_PUBLIC_PORT || 3119);
+const publicControlPort = Number(process.env.E2E_PUBLIC_CONTROL_PORT || 3120);
 // Where the specs that add public web pages as evidence (ask-evidence.spec.ts, ask-pipeline.spec.ts) find
 // their server and the fixture web server behind it; workers inherit them.
 process.env.E2E_LAB_WEB_URL ??= `http://127.0.0.1:${labWebPort}`;
@@ -103,6 +105,28 @@ const suites: Record<string, { project: Project; servers: WebServer[] }> = {
         env: {
           SIGNIN_E2E_PORT: String(signinPort),
           SIGNIN_E2E_IDP_PORT: String(signinIdpPort),
+        },
+      },
+    ],
+  },
+  public: {
+    // The public edition in a real browser: sign-up with a fake Google, the free tier on a fake Azure deployment, a person's
+    // own key on a fake Gemini, and deleting the account (backend/test/support/public-e2e-server.ts). Nothing leaves the
+    // machine: the browser is sent to accounts.google.com as it would be, and the test answers there.
+    project: {
+      name: 'public',
+      testMatch: /public\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${publicPort}` },
+    },
+    servers: [
+      {
+        command: 'node --import tsx backend/test/support/public-e2e-server.ts',
+        url: `http://127.0.0.1:${publicControlPort}/__health`,
+        reuseExistingServer: false,
+        timeout: 180_000,
+        env: {
+          E2E_PUBLIC_PORT: String(publicPort),
+          E2E_PUBLIC_CONTROL_PORT: String(publicControlPort),
         },
       },
     ],

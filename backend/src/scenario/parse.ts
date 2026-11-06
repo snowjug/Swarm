@@ -47,8 +47,17 @@ const FAILURES: Readonly<Record<string, string>> = {
   MODEL_NOT_CONFIGURED: 'no model is configured',
 };
 
+/**
+ * Refusals that were written for a person (the public edition's free-tier and own-key states): they already say what
+ * happened and what to do, so the note says that, and not a code beside "something went wrong".
+ */
+const PLAIN_REFUSAL = /^(?:FREE_TIER_[A-Z_]+|BYOK_[A-Z_]+)$/u;
+
 function failureNote(error: unknown): string {
   const code = error instanceof AppError ? error.code : 'MODEL_UNEXPECTED';
+  if (error instanceof AppError && PLAIN_REFUSAL.test(code)) {
+    return `The model was not used: ${error.message} The rules read this question instead.`;
+  }
   return `The model could not read this question (${FAILURES[code] ?? 'something went wrong'}; ${code}), so the rules read it instead.`;
 }
 

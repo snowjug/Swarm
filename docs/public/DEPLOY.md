@@ -137,7 +137,7 @@ az cognitiveservices usage list --location "$LOCATION" --query "[?contains(name.
 AI_ARGS=(--location "$LOCATION" --template-file infra/main.bicep --parameters
   environmentName=swarm-public-ai resourceGroupName=rg-swarm-public-ai location="$LOCATION"
   modelName=gpt-4.1-mini modelVersion=<version from the list> deploymentSku=GlobalStandard
-  deploymentName=swarm-free deploymentCapacity=<thousands of tokens a minute, 1 to 100>
+  deploymentName=gpt-4.1-mini deploymentCapacity=<thousands of tokens a minute, 1 to 100>
   tags='{"purpose":"public-edition-model"}')
 az deployment sub what-if --name swarm-public-ai-whatif "${AI_ARGS[@]}"
 az deployment sub create  --name swarm-public-ai "${AI_ARGS[@]}"                       # OWNER, billable
@@ -145,7 +145,9 @@ az cognitiveservices account list -g rg-swarm-public-ai --query "[].{name:name, 
 ```
 
 `GlobalStandard` is pay per token with no standing charge, and may process prompts in any Azure region: a data-residency choice
-that is yours. A deployment type with **no quota** in your subscription fails the create; try another type or region. The
+that is yours. **Name the deployment after its model** (`gpt-4.1-mini`, as above): the page tells a person which model read
+their question ("Read by a model · gpt-4.1-mini"), and the name of the deployment is what it says. Nothing else about the
+deployment or the account is shown to anyone. A deployment type with **no quota** in your subscription fails the create; try another type or region. The
 model name `gpt-4.1-mini` and its price are an example: read the price for **your** SKU and region from the Azure OpenAI
 pricing page. The application will not start without a price for the deployment, and the cap is only as good as that price
 ([pilot-cost.md](../azure/pilot-cost.md#model-usage-usage-based-separate) lists `gpt-4.1-mini` Global Standard at US$0.40 in and
@@ -166,7 +168,7 @@ Make the file **outside the repository**, readable by you only (`chmod 600`), an
 # ~/swarm-public.env
 export SWARM_PUBLIC_ENV_NAME=swarm-public
 export SWARM_PUBLIC_AI_ACCOUNT_RESOURCE_ID=<resource ID of the model account>                # REQUIRED
-export SWARM_PUBLIC_AI_DEPLOYMENT_NAME=<its non-reasoning deployment, for example swarm-free>   # REQUIRED
+export SWARM_PUBLIC_AI_DEPLOYMENT_NAME=<its non-reasoning deployment, named after its model, for example gpt-4.1-mini>   # REQUIRED
 export SWARM_PUBLIC_MODEL_INPUT_PRICE_USD=<US$ per million input tokens, for example 0.40>    # REQUIRED
 export SWARM_PUBLIC_MODEL_OUTPUT_PRICE_USD=<US$ per million output tokens, for example 1.60>  # REQUIRED
 export SWARM_PUBLIC_ALERT_EMAIL=<where alerts and budget notices go>                          # REQUIRED

@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from 'vitest';
 import { loadPublicConfig, type PublicConfig } from '../../src/public/config.js';
 import { publicEditionStorage } from '../../src/public/storage/edition.js';
 import { PublicUserStore } from '../../src/public/storage/users.js';
@@ -27,6 +27,8 @@ let raw: SqlDatabase;
 let users: PublicUserStore;
 let a: { id: string; ws: string; project: string };
 let b: { id: string; ws: string; project: string };
+/** Set when the edition would not open the database: the server refuses to start unless the isolation is in force. */
+let refused: Error | null = null;
 
 function seed(subject: string): { id: string; ws: string; project: string } {
   const user = users.create({ provider: 'google', subject, email: `${subject}@example.com` });
@@ -40,7 +42,12 @@ function seed(subject: string): { id: string; ws: string; project: string } {
 
 beforeAll(() => {
   config = loadPublicConfig(environment);
-  repository = new Repository('pglite:memory', { edition: publicEditionStorage(config) });
+  try {
+    repository = new Repository('pglite:memory', { edition: publicEditionStorage(config) });
+  } catch (error) {
+    refused = error instanceof Error ? error : new Error(String(error));
+    return;
+  }
   raw = repository.extend((db) => db);
   users = repository.extend(
     (db) => new PublicUserStore(asSystemView(db), { pepper: config.pepper, retentionDays: 30 }),
@@ -49,7 +56,15 @@ beforeAll(() => {
   b = seed('bob');
 });
 
-afterAll(() => repository.close());
+// A database that will not open is a failure of every test below, with the reason the edition gave, rather than a
+// hook that fails before any of them is counted.
+beforeEach(() => {
+  if (refused) throw refused;
+});
+
+afterAll(() => {
+  if (!refused) repository.close();
+});
 
 const rows = (scope: 'system' | string, sql: string, ...values: (string | number)[]) =>
   scope === 'system'

@@ -3,6 +3,7 @@ import type { InjectOptions } from 'fastify';
 import { scenarioFrameSchema } from '../../../shared/scenario.js';
 import type { Job } from '../../src/storage/jobs.js';
 import { currentFunding } from '../../src/public/funding.js';
+import { AppError } from '../../src/errors.js';
 import { modelIdentity } from '../../src/models/identity.js';
 import { BYOK_BLOCKED_WORDS } from '../../src/public/models.js';
 import { tablesOf } from '../../src/storage/postgres/row-security.js';
@@ -165,14 +166,18 @@ async function world(options: Options = {}) {
       key: boolean;
       workspace: string | undefined;
       identity: string;
+      /** What a model made for the run would be: the code of the refusal, or "a model" that is paid for as `funding`. */
+      model: string;
     } | null = null;
     await jobs.enterRun({ projectId: id } as Job, async () => {
       const now = currentFunding();
+      const decided = h.built.publicEdition!.funding();
       seen = {
         funding: now?.funding,
         key: Boolean(now?.byok),
         workspace: now?.workspaceId,
         identity: JSON.stringify(modelIdentity({ name: 'foundry', model: 'operator-deployment' })),
+        model: decided instanceof AppError ? decided.code : 'a model',
       };
     });
     return seen!;
@@ -621,6 +626,7 @@ describe('a person’s own Gemini key', () => {
       expect(await w.fundingOfRun(id)).toMatchObject({
         funding: 'byok',
         key: true,
+        model: 'a model',
         workspace: alice.workspaceId,
       });
       expect(JSON.parse((await w.fundingOfRun(id)).identity)).toEqual({
@@ -629,7 +635,11 @@ describe('a person’s own Gemini key', () => {
       });
       // The key goes: the run has no model, and is not given the free tier's.
       await w.call(alice, 'DELETE', '/api/byok');
-      expect(await w.fundingOfRun(id)).toMatchObject({ funding: 'byok', key: false });
+      expect(await w.fundingOfRun(id)).toMatchObject({
+        funding: 'byok',
+        key: false,
+        model: 'BYOK_KEY_NEEDED',
+      });
       // And nothing of that touched the operator's deployment.
       expect(w.foundry.seen).toHaveLength(0);
     });

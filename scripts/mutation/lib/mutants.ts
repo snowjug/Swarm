@@ -6,7 +6,7 @@ import { z } from 'zod';
 export const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..', '..');
 
 export const mutantSchema = z.object({
-  id: z.string().regex(/^[MSPJTRABUL][0-9]{1,3}$/u),
+  id: z.string().regex(/^[MSPJTRABULE][0-9]{1,3}$/u),
   area: z.enum([
     'membership',
     'sign-in',
@@ -18,6 +18,7 @@ export const mutantSchema = z.object({
     'budget',
     'access',
     'lab',
+    'public',
   ]),
   /** What would be wrong if the rule were not there, in one sentence. */
   claim: z.string().min(10).max(200),
@@ -48,7 +49,8 @@ export function loadMutants(root = ROOT): Mutant[] {
 
 const lf = (text: string): string => text.replace(/\r\n/gu, '\n');
 
-const RELATIVE_IMPORT = /(?:from|import)\s+['"](\.{1,2}\/[^'"]+)['"]/gu;
+// A file is reached through `from './x'`, `import './x'` and `import('./x')`: the public edition is loaded only when asked for.
+const RELATIVE_IMPORT = /(?:from|import)\s*\(?\s*['"](\.{1,2}\/[^'"]+)['"]/gu;
 
 function resolveImport(from: string, specifier: string): string | null {
   const target = resolve(dirname(from), specifier);

@@ -605,6 +605,10 @@ error) and `GET /api/config` names the deployment. In public mode both are repla
   `POST /api/byok/connect` (section 7), which says what it found.
 - `GET /api/config` leaves the deployment name and set-up notes out (`provider.model` is null, `provider.reason` is a
   fixed sentence), and says a model is available when the operator's is set up **or** a person's own key is allowed.
+- **What does name the model is the label on a result.** A reading, a proposal or a run says which model wrote it
+  ("Read by a model · gpt-4.1-mini"), and for the free tier that is the name of the operator's deployment, so the deployment
+  is to be named after its model (DEPLOY.md, section 3). On a person's own key it is the model they chose, and never the
+  operator's. The label is a name, not a credential or an address.
 
 The tests (`backend/test/public/`): `ledger.test.ts` (the ledger on SQLite and PGlite: settle once, every cap, a person's
 own key never counted against them, refusals leave nothing held, ledger accuracy), `ledger-race.test.ts` (writers that

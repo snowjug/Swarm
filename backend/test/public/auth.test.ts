@@ -866,6 +866,31 @@ describe('who may sign up', () => {
       h.signIn({ provider: 'google', subject: 'g-1', email: 'a@example.com' }),
     ).rejects.toThrow(/signin=disabled/u);
   });
+
+  it('stops a session that nothing revoked when its account is found switched off, and ends it', async () => {
+    const h = await harness();
+    const { cookie } = await h.signIn({
+      provider: 'google',
+      subject: 'g-1',
+      email: 'a@example.com',
+    });
+    const user = h.built.repository.asSystem(() =>
+      h.built.publicEdition!.context.users.find('google', 'g-1')!,
+    );
+    // Flagged in the row alone, so that the session is still there for the guard to meet (a session made, or kept, by
+    // something that did not go through `setDisabled`).
+    h.built.repository.asSystem(() =>
+      h.built.repository.extend((db) =>
+        db.prepare('UPDATE public_users SET disabled = 1 WHERE id = ?').run(user.id),
+      ),
+    );
+    const refused = await h.app.inject({ method: 'GET', url: '/api/account', headers: { cookie } });
+    expect(refused.statusCode).toBe(403);
+    expect(refused.json().error.code).toBe('ACCOUNT_DISABLED');
+    // The guard ended the session as it refused it.
+    const after = await h.app.inject({ method: 'GET', url: '/api/account', headers: { cookie } });
+    expect(after.statusCode).toBe(401);
+  });
 });
 
 describe('what anyone may ask without signing in', () => {
@@ -957,6 +982,25 @@ describe('deleting an account', () => {
       email: 'alice@example.com',
     });
     const bob = await h.signIn({ provider: 'github', subject: '77', email: 'bob@example.com' });
+    // She is also signed in on a second device, and that session is as much hers as the first.
+    await h.signIn({ provider: 'google', subject: 'g-1', email: 'alice@example.com' });
+    const peopleOf = (provider: 'google' | 'github', subject: string) =>
+      h.built.repository.asSystem(() =>
+        h.built.publicEdition!.context.users.find(provider, subject)!,
+      );
+    const sessionsOf = (who: { id: string; workspaceId: string }) =>
+      Number(
+        h.built.repository.asSystem(() =>
+          h.built.repository.extend((db) =>
+            db
+              .prepare('SELECT COUNT(*) AS n FROM sessions WHERE principal_id = ? OR tenant_id = ?')
+              .get(who.id, who.workspaceId),
+          ),
+        )?.n,
+      );
+    const hers = peopleOf('google', 'g-1');
+    const his = peopleOf('github', '77');
+    expect({ hers: sessionsOf(hers), his: sessionsOf(his) }).toEqual({ hers: 2, his: 1 });
     const made = await h.app.inject({
       method: 'POST',
       url: '/api/projects',
@@ -1022,9 +1066,9 @@ describe('deleting an account', () => {
       ).statusCode,
     ).toBe(401);
 
+    // Her sessions are deleted, and not merely unusable because the account they name is gone. His is untouched.
+    expect({ hers: sessionsOf(hers), his: sessionsOf(his) }).toEqual({ hers: 0, his: 1 });
     // Nothing is left that names her, in any table, in any text column.
-    const user = { id: '', workspace: '' };
-    void user;
     const leftovers = h.built.repository.asSystem(() =>
       h.built.repository.extend((db) => {
         const tables = db

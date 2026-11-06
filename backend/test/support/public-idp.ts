@@ -184,6 +184,8 @@ export async function publicApp(
     };
     /** How pages are read from the web: a fetcher with a resolver of the test's choosing. */
     urlFetcher?: PublicFetcher;
+    /** Serve the built page too (`frontend/dist`), for a browser. Without it there is no page, only the API. */
+    serve?: boolean;
   } = {},
 ): Promise<PublicHarness> {
   const config = {
@@ -199,7 +201,7 @@ export async function publicApp(
   const built = await buildApp({
     config,
     repository,
-    frontendRoot: null,
+    ...(options.serve ? {} : { frontendRoot: null }),
     ...(options.log ? { logStream: options.log.stream } : {}),
     ...(options.urlFetcher ? { urlFetcher: options.urlFetcher } : {}),
     public: {
