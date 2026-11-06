@@ -21,11 +21,24 @@ export type WorkerConfig =
       statementTimeoutMs: number;
     };
 
+/**
+ * What the session must look like when a statement runs, for a database that enforces row-level security: the role it
+ * runs as, and the two settings the policies read. A request without one is run as the connection's own role, as it has
+ * always been. The worker applies a context only when it differs from the one it applied last, and forgets it when a
+ * transaction is rolled back or the connection is replaced, because PostgreSQL undoes a `SET` made in a transaction that
+ * rolls back and a new connection starts with none.
+ */
+export interface BridgeContext {
+  role: string | null;
+  tenant: string;
+  system: boolean;
+}
+
 export type BridgeRequest =
   | { type: 'ping' }
-  | { type: 'query'; text: string; values: unknown[]; retry: boolean }
+  | { type: 'query'; text: string; values: unknown[]; retry: boolean; context?: BridgeContext }
   /** `retry` is for the statement that begins a transaction: a lost connection is replaced and it is run again. */
-  | { type: 'exec'; text: string; retry?: boolean }
+  | { type: 'exec'; text: string; retry?: boolean; context?: BridgeContext }
   | { type: 'close' };
 
 export type BridgeReply =

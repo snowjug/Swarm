@@ -39,12 +39,21 @@ import { SessionStore } from './sessions.js';
 import { ArtifactStore } from './artifacts.js';
 import { UsageStore } from './usage.js';
 import type { SqlDatabase } from './sql.js';
+import { asSystemView } from './system-view.js';
 import { parseSnapshot } from './snapshot.js';
 
 const payloadRow = z.object({ payload: z.string() });
 const idRow = z.object({ id: z.string() });
 const countRow = z.object({ count: z.number() });
 const ownerRow = z.object({ tenant_id: z.string(), owner_id: z.string() });
+
+/**
+ * What an edition adds to storage, run once after the pilot's schema is in place and before any store is made: its own
+ * tables, and row-level security. The pilot passes none, and its storage is exactly what it was.
+ */
+export interface EditionStorage {
+  prepare(database: SqlDatabase): void;
+}
 
 /** Who a project belongs to. The tenant is the workspace boundary; the owner may change it. */
 export interface Owner {
@@ -116,6 +125,8 @@ export class Repository {
       entra?: boolean;
       /** Wait before attempt n+1 of a job; a test replaces the jittered default. */
       retryDelayMs?: (attempt: number) => number;
+      /** What an edition adds to the database. None for the pilot. */
+      edition?: EditionStorage;
     } = {},
   ) {
     this.database = openDatabase(
@@ -124,19 +135,22 @@ export class Repository {
     );
     try {
       this.migration = migrate(this.database, { path: target });
+      options.edition?.prepare(this.database);
     } catch (error) {
       this.database.close();
       throw error;
     }
+    // Where the database has row security these are the database as the platform; otherwise the database itself.
+    const platform = asSystemView(this.database);
     this.ledger = new LedgerStore(this.database, (operation) => this.transaction(operation));
     this.studio = new StudioStore(this.database);
-    this.audit = new AuditLog(this.database);
+    this.audit = new AuditLog(this.database, platform);
     this.members = new MemberStore(
       this.database,
       (operation) => this.transaction(operation),
       this.audit,
     );
-    this.sessions = new SessionStore(this.database, options.now);
+    this.sessions = new SessionStore(platform, options.now);
     this.usage = new UsageStore(this.database);
     this.artifacts = new ArtifactStore(this.database);
     this.jobs = new JobStore(
@@ -160,10 +174,42 @@ export class Repository {
   /** Answers a trivial query, so that a probe can tell a live database from a dead one. */
   ping(): boolean {
     try {
-      return this.database.prepare('SELECT 1 AS ok').get()?.ok === 1;
+      return this.database.asSystem(() => this.database.prepare('SELECT 1 AS ok').get()?.ok === 1);
     } catch {
       return false;
     }
+  }
+
+  /** Runs `operation` as the platform: for work about no one workspace. A plain call where there is no row security. */
+  asSystem<T>(operation: () => T): T {
+    return this.database.asSystem(operation);
+  }
+
+  /** Runs `operation` as the workspace `tenantId`. A plain call where there is no row security. */
+  asTenant<T>(tenantId: string, operation: () => T): T {
+    return this.database.asTenant(tenantId, operation);
+  }
+
+  /**
+   * Runs `operation` in the workspace that owns the project: a job works on one project, so it works for one workspace.
+   * A project that is gone is the platform's to tidy up. A plain call where there is no row security.
+   */
+  inProjectScope<T>(projectId: string, operation: () => T): T {
+    if (!this.database.rowSecurity) return operation();
+    const owner = this.database.asSystem(() => this.ownership(projectId));
+    return owner
+      ? this.database.asTenant(owner.tenantId, operation)
+      : this.database.asSystem(operation);
+  }
+
+  /** Builds what an edition needs on this repository's database (its own stores), so that they share its connection. */
+  extend<T>(build: (database: SqlDatabase) => T): T {
+    return build(this.database);
+  }
+
+  /** Whether this repository's database enforces row-level security. */
+  get rowSecurity(): boolean {
+    return this.database.rowSecurity;
   }
 
   private transaction<T>(operation: () => T): T {
@@ -758,6 +804,11 @@ export class Repository {
     });
   }
   recoverInterrupted(): void {
+    // The platform's own start-up work, on every workspace's projects.
+    this.database.asSystem(() => this.recoverAll());
+  }
+
+  private recoverAll(): void {
     // Every experiment of every tenant. The list is paged and newest first, and the limit on how
     // many one tenant may keep says nothing about how many the database holds, so a page would
     // leave an older run "running" for ever: it could not be deleted, cancelled or restarted.

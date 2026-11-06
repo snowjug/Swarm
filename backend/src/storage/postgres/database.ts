@@ -1,10 +1,12 @@
 import { randomBytes } from 'node:crypto';
 import { AppError, storageUnavailable } from '../../errors.js';
 import { DatabaseError } from '../failure.js';
+import { SYSTEM_SCOPE, currentScope, runInScope } from '../scope.js';
 import type { SqlDatabase, SqlRow, SqlStatement, SqlValue } from '../sql.js';
 import {
   SyncBridge,
   sleepSync,
+  type BridgeContext,
   type BridgeReply,
   type BridgeRequest,
   type Transport,
@@ -75,6 +77,8 @@ export class PostgresDatabase implements SqlDatabase {
   private active = false;
   private snapshotting = false;
   private closed = false;
+  /** Set when the database enforces row-level security: the role every statement then runs as. */
+  private rls: { role: string } | null = null;
 
   get inTransaction(): boolean {
     return this.active;
@@ -152,14 +156,59 @@ export class PostgresDatabase implements SqlDatabase {
     return new PostgresDatabase(bridge, null, release);
   }
 
-  private raw(request: BridgeRequest): Extract<BridgeReply, { ok: true }> {
+  private raw(
+    request: Extract<BridgeRequest, { type: 'query' | 'exec' }>,
+  ): Extract<BridgeReply, { ok: true }> {
     if (this.closed) throw new AppError(500, 'STORAGE_CLOSED', 'The database is closed.');
     if (this.schema && this.bridge.activeSchema !== this.schema) {
       this.bridge.activeSchema = null;
       this.send({ type: 'exec', text: `SET search_path TO ${quote(this.schema)}` });
       this.bridge.activeSchema = this.schema;
     }
-    return this.send(request);
+    const context = this.contextFor();
+    return this.send(context ? { ...request, context } : request);
+  }
+
+  /**
+   * What the session must be for the statement about to be sent. With row security on, that is the role the policies
+   * apply to and the scope of the code that is making the call; with none, nothing is asked for, and the connection
+   * behaves as it always has. A call with no scope is refused, never treated as "everything".
+   */
+  private contextFor(): BridgeContext | undefined {
+    if (!this.rls) return undefined;
+    const scope = currentScope();
+    if (!scope || (!scope.system && !scope.tenant)) {
+      throw new AppError(
+        500,
+        'DB_CONTEXT_MISSING',
+        'A database call was made outside any request, job or system scope.',
+      );
+    }
+    return {
+      role: this.rls.role,
+      tenant: scope.system ? '' : (scope.tenant ?? ''),
+      system: scope.system,
+    };
+  }
+
+  get rowSecurity(): boolean {
+    return this.rls !== null;
+  }
+
+  /**
+   * From now on every statement runs as `role`, a role the policies apply to, in the scope of the code that makes
+   * it. Called once, after the schema and the policies are in place, by the code that opens a public database.
+   */
+  enableRowSecurity(role: string): void {
+    this.rls = { role };
+  }
+
+  asSystem<T>(operation: () => T): T {
+    return this.rls ? runInScope(SYSTEM_SCOPE, operation) : operation();
+  }
+
+  asTenant<T>(tenantId: string, operation: () => T): T {
+    return this.rls ? runInScope({ tenant: tenantId, system: false }, operation) : operation();
   }
 
   private send(request: BridgeRequest): Extract<BridgeReply, { ok: true }> {

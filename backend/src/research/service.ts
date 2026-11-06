@@ -183,7 +183,8 @@ export class ResearchService {
    */
   attach(): this {
     phases.set(this.repository, this);
-    this.recover();
+    // Start-up work on every workspace's runs: the platform's, and nothing a caller chose.
+    this.repository.asSystem(() => this.recover());
     return this;
   }
 

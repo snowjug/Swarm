@@ -396,6 +396,11 @@ export class AnalysisService {
 
   /** Marks every comparison that a stopped server left running as interrupted. Returns how many. */
   recoverInterrupted(): number {
+    // Start-up work on every workspace's comparisons: the platform's, and nothing a caller chose.
+    return this.repository.asSystem(() => this.markInterrupted());
+  }
+
+  private markInterrupted(): number {
     const left = this.repository.artifacts
       .listAll('analysis', {
         matching: (payload) =>

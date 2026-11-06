@@ -372,7 +372,8 @@ export class Orchestrator {
     }
     if (!job) return;
     const { projectId } = job;
-    this.activeTask = this.run(job)
+    // A job works on one project, and so for one workspace: it runs in that workspace's scope, which is what row security reads.
+    this.activeTask = (async () => this.repository.inProjectScope(projectId, () => this.run(job)))()
       .catch((error: unknown) => this.onFailure(projectId, publicFailure(error).code))
       .finally(() => {
         this.activeTask = null;
@@ -384,9 +385,14 @@ export class Orchestrator {
   /**
    * The upkeep of the queue, done by every process that runs jobs: hand on the jobs of workers
    * that stopped, end jobs that waited too long, and take work that is due. A test calls it directly.
+   * It is the platform's work, taken from the queue's own rows, so it runs as the platform.
    */
   maintain(): void {
     if (this.stopping) return;
+    this.repository.asSystem(() => this.upkeep());
+  }
+
+  private upkeep(): void {
     try {
       for (const { job, outcome } of this.repository.jobs.reap()) this.afterReap(job, outcome);
       for (const job of this.repository.jobs.expireStale(this.expireAfterMs)) {
