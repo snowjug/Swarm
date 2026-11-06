@@ -197,7 +197,7 @@ Defaults are deliberately conservative. A value marked **required** must be set 
 | `FREE_USER_CONCURRENT_CALLS`                    | `3`           | Model round trips one person may have in flight                                                                                                                                           |
 | `FREE_GLOBAL_DAILY_TOKENS`                      | `2000000`     | Tokens all free users together may use per UTC day                                                                                                                                        |
 | `FREE_GLOBAL_DAILY_COST_USD`                    | `5`           | Estimated spend all free users together may cause per UTC day                                                                                                                             |
-| `FREE_TOKENS_PER_RUN`                           | `15000`       | Only for the meter: what "one run" is taken to cost                                                                                                                                       |
+| `FREE_TOKENS_PER_RUN`                           | `15000`       | What "one run" is taken to cost: the meter's "runs left" is what is left divided by it, and a cap counts as reached (the tier "used up") when less than this is left of it                |
 | `FREE_ROLE_MAX_OUTPUT_TOKENS`                   | table in code | JSON, per model role, at most these output tokens on the free tier                                                                                                                        |
 | `BYOK_ENABLED`                                  | `true`        | Allow people to bring a key                                                                                                                                                               |
 | `BYOK_MAX_CONCURRENT_CALLS`                     | `4`           | Round trips one person may have in flight on their own key                                                                                                                                |
@@ -208,7 +208,10 @@ non-reasoning deployment, for example a `gpt-4.1-mini` deployment), `FOUNDRY_DEP
 `reasoning: false`, and `MODEL_PRICES` with a price for it. In public mode **start-up fails** if `FOUNDRY_DEPLOYMENT_REASONING`
 is set, if the free deployment is declared as reasoning or its name is one of a known reasoning family (`o1`, `o3`,
 `o4`, `gpt-5`) without `PUBLIC_ALLOW_REASONING_DEPLOYMENT=1`, or if it has no price: a cost cap is never enforced
-from a guessed price. `MODEL_CACHE` is forced `off`.
+from a guessed price. `MODEL_CACHE` is forced `off`. `FREE_USER_CONCURRENT_CALLS` is at most 50 and
+`FREE_USER_CONCURRENT_RUNS` at most 20. `PROJECT_MODEL_CALL_LIMIT` and `PROJECT_MODEL_TOKEN_LIMIT` (the pilot's
+per-project caps, which stay as they are there: 0 is no limit) default to **300 calls and 400,000 tokens** in public
+mode, and an explicit `0` is refused at start-up: a project that is left to run is how a free tier is spent.
 
 ## 4. The sign-in choice (c)
 
@@ -449,15 +452,18 @@ interface SpendGate {
   begin(call: { deployment: string; inputTokens: number; maxOutputTokens: number }): SpendTicket; // throws to refuse
 }
 interface SpendTicket {
-  settle(used: {
-    inputTokens: number;
-    outputTokens: number;
-    reasoningTokens: number | null;
-    reported: boolean;
-  }): void;
-  release(): void; // the call failed before it used anything
+  settle(used: { inputTokens: number; outputTokens: number; reasoningTokens: number | null }): void;
+  settleAtWorstCase(): void; // the request was sent and nothing is known of what it used
+  release(): void; // the request never reached the provider
 }
 ```
+
+What a round trip is charged is decided in the client, once, whatever happens to it: a reply is charged **as the provider
+reported it**, a reply cut off at its limit or refused for its content too (the provider bills them); a request that was
+sent and not answered (timeout, abort) is charged at its **worst case**, because the provider may be billing for all of
+it; a request the provider refused with an HTTP error (a bad request, a refused parameter, a failed sign-in, a rate
+limit) or that could not be reached is **released**, because nothing was used; a provider that answers without usage is
+charged at the estimate. The pilot gives its clients no gate and nothing here runs.
 
 The public model factory (`createPublicModelFactory`) wraps the base factory. For each model it makes, it reads the
 **funding** of the current context (free tier, or the person's own key) and builds the client with the right provider
@@ -479,25 +485,31 @@ counts refused calls by day and reason. The unit of cost is a millionth of a dol
 are one atomic statement that cannot be passed by concurrent requests, in this process or in another:
 
 1. Refuse if the kill switch is off (environment or run-time), or the person's account is disabled.
-2. Estimate the call: `inputTokens` from the characters about to be sent, plus the **whole** `maxOutputTokens`
-   (a reasoning model's hidden tokens are inside that limit), priced from `MODEL_PRICES`.
+2. Estimate the call: `inputTokens` from the characters about to be sent (the messages, the strict schema the model is
+   asked to answer in, and the framing of each message), **padded** by half again and 64 (`heldInputTokens`), because
+   the estimate is from characters and a provider counts more than that; plus the **whole** `maxOutputTokens` (a
+   reasoning model's hidden tokens are inside that limit), priced from `MODEL_PRICES`. The padding is given back at
+   settlement, and a call that used more than it held is still charged for all it used.
 3. In order, each as `UPDATE … SET reserved_* = reserved_* + ? WHERE … AND used + reserved + ? <= cap`
    with a check of the changed row count; a failure rolls back the whole transaction:
-   - the **person's day**: calls, and tokens (`FREE_USER_DAILY_*`);
+   - the **person's day**: calls, tokens (`FREE_USER_DAILY_*`) and calls **in flight** (`FREE_USER_CONCURRENT_CALLS`);
    - the person's **lifetime** tokens (`FREE_USER_LIFETIME_TOKENS`);
-   - the **global day**: tokens and estimated dollars (`FREE_GLOBAL_DAILY_*`);
-   - the person's calls **in flight** (`FREE_USER_CONCURRENT_CALLS`).
+   - the **global day**: tokens and estimated dollars (`FREE_GLOBAL_DAILY_*`).
 4. Insert the reservation and return a ticket.
 
 `settle` replaces the reservation with the real usage, in one transaction: `input + output` tokens as the provider
 reported them (hidden reasoning tokens are inside `output`, and are also kept in their own column), priced the same
-way. A provider that reports nothing is charged at the estimate, never at zero. `release` returns the reservation
-when the call failed before it used anything. A reservation older than an hour is released by the upkeep timer, so a
-crash cannot lock a cap.
+way. A reservation settles or is released **once** (the reservation row is what is deleted, so a second settle or a
+release of the same one changes nothing). A reservation older than an hour is released by the upkeep timer (`sweep`), so
+a crash cannot lock a cap.
 
 Because the **whole worst case** is reserved before the request is sent, the sum of what is settled and what is
-reserved can never pass a cap, however many calls are in flight. Settling after the fact, which is what the
-per-project limit does, would let a burst through; that is why the free tier does not use it.
+reserved can never pass a cap, however many calls are in flight, except by what a provider counts beyond the padded
+estimate of its input, which is bounded by one call's input and is what the Azure budget alert is the second line
+for. Settling after the fact, which is what the per-project limit does, would let a burst through; that is why the free
+tier does not use it. The statements are conditional updates, which PostgreSQL re-evaluates against the latest committed
+row after waiting for its lock (`READ COMMITTED`), so the same holds across processes and replicas; the tests race
+real writers on one SQLite file and, when `SWARM_TEST_POSTGRES_URL` is set, on PostgreSQL (section 6.8).
 
 ### 6.4 Defaults and the cap states
 
@@ -508,7 +520,10 @@ changed by the owner (decision 2). The existing per-project caps stay in force, 
 400,000 tokens when `PROJECT_MODEL_*` is unset, and the free tier runs with `MODEL_OPERATION_TOKEN_LIMIT` unset or
 lower.
 
-What a person sees is a **state**, never an error:
+What a person sees is a **state**, never an error. The state is read from the same ledger rows as the reservation, and a
+token cap counts as reached when **less than one run** (`FREE_TOKENS_PER_RUN`) is left of it, so that "0 free runs left"
+and "used up" are one thing and the tier says so before a run is begun that could not finish. The call-level check
+above is what actually refuses a call, on the worst case of that call, and is always the last word:
 
 | State (`free.reason`) | Message (one next action)                                                                |
 | --------------------- | ---------------------------------------------------------------------------------------- |
@@ -530,7 +545,10 @@ The free tier is configured on a non-reasoning deployment (section 3). The route
 `maxTokens` of each call to the cap of its role (the router already passes the role with every call), by
 default `extraction 1500, actor 1200, scenario 1500, critic 1500, synthesis 2000, research-planner 1000` and 2000 for a
 call that names no role. A person on their own key gets the router's ordinary budget. A
-deployment that reasons is refused at start-up, so hidden reasoning tokens cannot eat the cap.
+deployment that reasons is refused at start-up, so hidden reasoning tokens cannot eat the cap. The operator's
+declaration is believed: the client is told at start-up (`CapabilityMemory`'s `declared` map) that these deployments
+take no `reasoning_effort`, so the first call to one is not a request that is bound to be refused (a pilot still learns
+it from a refusal, as before).
 
 ### 6.6 Kill switch and budget automation
 
@@ -550,7 +568,29 @@ deployment that reasons is refused at start-up, so hidden reasoning tokens canno
 
 `GET /api/usage` (section 9) drives a small "free runs left today" meter with a hint to bring a key.
 `GET /api/admin/usage` (platform administrator) gives spend by day, the top accounts by tokens (masked e-mail and
-opaque id), blocked requests by reason, and the state of the switches.
+opaque id), blocked requests by reason, and the state of the switches. The page treats `runsLeft === 0` as the
+limit-reached state, which is the same moment the server reports `available: false`.
+
+### 6.8 What a stranger is told about the model, and the tests
+
+The pilot's `GET /api/provider/status` answers with the process's own counters (every caller's calls and tokens, its last
+error) and `GET /api/config` names the deployment. In public mode both are replaced:
+
+- `GET /api/provider/status` and `POST /api/provider/check` tell **this person** what their funding can do and what
+  they have used today (`counters` are their own ledger row, `model` is the label "Free tier", `lastError` is the
+  state's message when the free tier cannot be used). **`check` makes no model call**: the free tier's state is read
+  from the ledger, so pressing it cannot spend the operator's credits. A person's own key is tried by
+  `POST /api/byok/connect` (section 7), which says what it found.
+- `GET /api/config` leaves the deployment name and set-up notes out (`provider.model` is null, `provider.reason` is a
+  fixed sentence), and says a model is available when the operator's is set up **or** a person's own key is allowed.
+
+The tests (`backend/test/public/`): `ledger.test.ts` (the ledger on SQLite and PGlite: settle once, every cap, a person's
+own key never counted against them, refusals leave nothing held, ledger accuracy), `ledger-race.test.ts` (writers that
+run at once, each with a connection of its own to one database, released together; the caps are read **while they
+run** as well as at the end, and the test fails if a cap is weakened), `freetier.test.ts` (the gate through a fake
+Azure deployment: caps, the cap-reached state, the kill switch in all three forms, the meter, the admin view, one run
+at a time, the model chip, the configuration). A call on a person's own key while the free tier is used up or
+switched off is tested end to end with the BYOK tests (section 7).
 
 ## 7. Bring your own key (e, Phase 4)
 

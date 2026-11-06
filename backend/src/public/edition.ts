@@ -4,17 +4,23 @@ import type {
   FastifyRequest,
   HookHandlerDoneFunction,
 } from 'fastify';
-import type { FreeTierReason } from '../../../shared/public.js';
-import type { ServerConfig } from '../config.js';
-import type { Orchestrator } from '../orchestration/runner.js';
-import type { InteractionService } from '../orchestration/interaction.js';
+import { z } from 'zod';
 import type { PublicGuard } from '../auth/guard.js';
+import type { ServerConfig } from '../config.js';
+import { AppError } from '../errors.js';
+import type { FundingSource } from '../models/factory.js';
+import type { InteractionService } from '../orchestration/interaction.js';
+import type { Orchestrator } from '../orchestration/runner.js';
 import type { Repository } from '../storage/repository.js';
 import { enterScope } from '../storage/scope.js';
 import { createContext, type PublicContext, type PublicEditionOptions } from './context.js';
+import { enterFunding, runWithFunding, type FundingContext } from './funding.js';
 import { createPublicGuard } from './guard.js';
+import { publicFundingSource } from './models.js';
 import { accountRoutes } from './routes/account.js';
 import { authRoutes } from './routes/auth.js';
+import { publicProviderRoutes } from './routes/provider.js';
+import { nextResetAt, usageRoutes } from './routes/usage.js';
 
 export type { PublicEditionOptions } from './context.js';
 
@@ -22,33 +28,32 @@ export interface PublicEdition {
   context: PublicContext;
   /** Plugged into `registerAuth`. */
   guard: PublicGuard;
+  /** Plugged into the model factory: how each model is reached and paid for. */
+  funding: FundingSource;
   /**
    * The first `onRequest` hook: gives the request a row-security scope that nothing is yet allowed to read, which the
    * guard fills in with the caller's workspace once the caller is known.
    */
   scopeHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void;
-  /** Registers the routes that belong to this edition. */
+  /** An `onRequest` hook that runs after the guard: says what pays for the model calls of this request. */
+  fundingHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void;
+  /** Hands over what the edition needs of the services that were made after it (the queue, the interaction service). */
+  attach(services: { jobs: Orchestrator; interaction: InteractionService }): void;
+  /** Registers the routes that belong to this edition. Needs `attach` first. */
   registerRoutes(app: FastifyInstance): void;
   /** Stops what the edition runs in the background. */
   close(): void;
 }
 
-/** The next UTC midnight, when the day's limits start again. */
-export const nextResetAt = (now: number): string => {
-  const at = new Date(now);
-  return new Date(
-    Date.UTC(at.getUTCFullYear(), at.getUTCMonth(), at.getUTCDate() + 1),
-  ).toISOString();
-};
+const projectParams = z.object({ id: z.uuid() });
+const UNSAFE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
 export function createPublicEdition(input: {
   config: ServerConfig;
   repository: Repository;
-  jobs: Orchestrator;
-  interaction: InteractionService;
   options?: PublicEditionOptions;
 }): PublicEdition {
-  const { config, repository, jobs, interaction } = input;
+  const { config, repository } = input;
   const context = createContext(config, repository, input.options ?? {});
   // The repository must have been opened with this edition's storage, or its isolation is not in force.
   const ready = repository.asSystem(() =>
@@ -67,19 +72,17 @@ export function createPublicEdition(input: {
     );
   }
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  let services: { jobs: Orchestrator; interaction: InteractionService } | null = null;
 
-  const freeTierReason = (): FreeTierReason | null => {
-    if (!context.pub.free.enabled || !config.provider.configured) return 'disabled';
-    if (!context.settings.flag('free_tier_enabled', true)) return 'disabled';
-    return null;
-  };
-
-  // Housekeeping of what the edition keeps: expired sign-ins, old sign-up records, deleted accounts' counters.
+  // Housekeeping of what the edition keeps: expired sign-ins, old sign-up records, old days of usage, reservations that
+  // a crashed process left, and the counters of accounts that were deleted long ago.
   const purge = setInterval(() => {
     try {
       context.logins.purge();
       context.signups.purge();
       context.users.purgeDeleted();
+      context.ledger.sweep(60 * 60_000);
+      context.ledger.prune();
     } catch {
       // Housekeeping is retried at the next tick; it never takes a request down.
     }
@@ -87,13 +90,84 @@ export function createPublicEdition(input: {
   purge.unref();
 
   const guard = createPublicGuard(context);
+  const funding = publicFundingSource(
+    context,
+    () => new AppError(503, 'BYOK_KEY_REJECTED', 'Using your own key is not available.'),
+  );
+
+  /** One workspace holds at most this many runs at once, whatever pays for them. */
+  const admit = (projectId: string): void => {
+    const limit = config.public!.free.userConcurrentRuns;
+    const active = repository.extend((database) => {
+      const owner = database.prepare('SELECT tenant_id FROM projects WHERE id = ?').get(projectId);
+      if (!owner) return 0;
+      return Number(
+        database
+          .prepare(
+            `SELECT COUNT(*) AS n FROM jobs j JOIN projects p ON p.id = j.project_id
+              WHERE p.tenant_id = ? AND j.project_id <> ?
+                AND j.state IN ('queued', 'running', 'retrying', 'cancelling')`,
+          )
+          .get(String(owner.tenant_id), projectId)?.n ?? 0,
+      );
+    });
+    if (active >= limit) {
+      context.ledger.recordBlocked('runs-in-progress');
+      throw new AppError(
+        429,
+        'RUN_IN_PROGRESS',
+        'A run is already in progress in your workspace. Wait for it to finish, or stop it, then start this one.',
+      );
+    }
+  };
+
   return {
     context,
     guard: context.options.wrapGuard ? context.options.wrapGuard(guard) : guard,
+    funding,
     scopeHook(_request, _reply, done) {
       enterScope({ tenant: null, system: false }, done);
     },
+    fundingHook(request, _reply, done) {
+      const principal = request.principal;
+      if (!principal) {
+        done();
+        return;
+      }
+      const byok = null;
+      const mode = byok ? 'byok' : 'free';
+      // A request that changes a project may start model work on it: the project remembers what pays for it (the word
+      // only, never a key), so that a run is never moved onto the owner's credits by the key going away.
+      const id = UNSAFE.has(request.method) ? projectParams.safeParse(request.params) : null;
+      if (id?.success) {
+        try {
+          context.projectFunding.set(id.data.id, mode);
+        } catch {
+          // The project is gone, or was never this caller's; the guard has already settled that.
+        }
+      }
+      const ours: FundingContext = { workspaceId: principal.tenantId, funding: mode, byok };
+      enterFunding(ours, done);
+    },
+    attach(attached) {
+      services = attached;
+      // A run is paid for as the project says, in the workspace that owns it, whenever and wherever it is picked up.
+      attached.jobs.wrapRuns((job, run) => {
+        const owner = repository.asSystem(() => repository.ownership(job.projectId));
+        if (!owner) return run();
+        const marker = context.projectFunding.get(job.projectId) ?? 'free';
+        const ours: FundingContext = {
+          workspaceId: owner.tenantId,
+          funding: marker,
+          byok: null,
+        };
+        return runWithFunding(ours, run);
+      });
+      repository.jobs.setAdmission(admit);
+    },
     registerRoutes(app) {
+      if (!services) throw new Error('The public edition was not given its services.');
+      const { jobs, interaction } = services;
       authRoutes(app, context);
       accountRoutes(app, context, {
         async stopWork(projectIds) {
@@ -114,9 +188,11 @@ export function createPublicEdition(input: {
             await sleep(100);
           }
         },
-        freeTierReason,
+        freeTierReason: () => context.freeReason(),
         resetsAt: () => nextResetAt(context.now()),
       });
+      usageRoutes(app, context);
+      publicProviderRoutes(app, context, config.rateLimitScale);
     },
     close() {
       clearInterval(purge);

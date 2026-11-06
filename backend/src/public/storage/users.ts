@@ -93,6 +93,13 @@ export class PublicUserStore {
     return raw ? toUser(raw) : null;
   }
 
+  getByWorkspace(workspaceId: string): PublicUser | null {
+    const raw = this.database
+      .prepare(`SELECT ${COLUMNS} FROM public_users WHERE workspace_id = ?`)
+      .get(workspaceId);
+    return raw ? toUser(raw) : null;
+  }
+
   /** The accounts that have an address, for an administrator who knows only that. At most 20. */
   byEmail(email: string): PublicUser[] {
     return this.database

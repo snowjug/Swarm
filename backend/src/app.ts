@@ -24,6 +24,7 @@ import {
   type OrchestratorOptions,
 } from './orchestration/runner.js';
 import { createModelFactory } from './models/factory.js';
+import { refusingGateway } from './models/gateways.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
@@ -179,7 +180,27 @@ export async function buildApp(options: AppOptions) {
   repository.usage.setDefaults(config.modelBudget);
   repository.recoverInterrupted();
   const telemetry = new ProviderTelemetry(config.provider);
-  const modelFactory = options.modelFactory ?? createModelFactory(config, telemetry);
+  // The public edition decides, for every model that is made, what pays for it. It is made before the model factory
+  // for that reason, and is handed the queue and the interaction service once they exist.
+  const publicEdition =
+    config.edition === 'public'
+      ? (await import('./public/edition.js')).createPublicEdition({
+          config,
+          repository,
+          ...(options.public ? { options: options.public } : {}),
+        })
+      : null;
+  const modelFactory =
+    options.modelFactory && publicEdition
+      ? // A model a test supplies still goes nowhere without a signed-in person to make it for.
+        (((onUsage, factoryOptions) => {
+          const decided = publicEdition.funding();
+          return decided instanceof AppError
+            ? refusingGateway(decided)
+            : options.modelFactory!(onUsage, factoryOptions);
+        }) as ModelFactory)
+      : (options.modelFactory ??
+        createModelFactory(config, telemetry, undefined, publicEdition?.funding));
   const jobs = new Orchestrator(
     repository,
     config,
@@ -285,16 +306,7 @@ export async function buildApp(options: AppOptions) {
   });
   const verifier =
     config.auth.mode === 'entra' ? (options.tokenVerifier ?? new TokenVerifier(config.auth)) : null;
-  const publicEdition =
-    config.edition === 'public'
-      ? (await import('./public/edition.js')).createPublicEdition({
-          config,
-          repository,
-          jobs,
-          interaction,
-          ...(options.public ? { options: options.public } : {}),
-        })
-      : null;
+  publicEdition?.attach({ jobs, interaction });
   // Before anything that reads the database: the scope that row-level security reads is made here.
   if (publicEdition) app.addHook('onRequest', publicEdition.scopeHook);
   registerAuth(app, {
@@ -303,6 +315,8 @@ export async function buildApp(options: AppOptions) {
     ...(verifier ? { verifier } : {}),
     ...(publicEdition ? { public: publicEdition.guard } : {}),
   });
+  // After the guard has said who is calling: what pays for the model calls of this request.
+  if (publicEdition) app.addHook('onRequest', publicEdition.fundingHook);
   publicEdition?.registerRoutes(app);
   if (publicEdition) app.addHook('onClose', async () => publicEdition.close());
   registerAudit(app, repository);
@@ -427,7 +441,9 @@ export async function buildApp(options: AppOptions) {
     ),
     config.rateLimitScale,
   );
-  providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
+  // The pilot's route reports the process's own counters, every caller's included: a public edition tells each person
+  // about their own funding only.
+  if (!publicEdition) providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
   // [url-ingest routes]
   evidenceRoutes(app, config, config.rateLimitScale, options.urlFetcher, undefined, (input) =>

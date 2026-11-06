@@ -579,14 +579,49 @@ function loadBaseConfig(
     role: input.SWARM_ROLE,
     jobLeaseMs: input.JOB_LEASE_SECONDS * 1_000,
     modelBudget: {
-      callLimit: input.PROJECT_MODEL_CALL_LIMIT,
-      tokenLimit: input.PROJECT_MODEL_TOKEN_LIMIT,
+      callLimit: publicBudget(
+        pub,
+        environment.PROJECT_MODEL_CALL_LIMIT,
+        input.PROJECT_MODEL_CALL_LIMIT,
+        PUBLIC_PROJECT_CALL_LIMIT,
+        'PROJECT_MODEL_CALL_LIMIT',
+      ),
+      tokenLimit: publicBudget(
+        pub,
+        environment.PROJECT_MODEL_TOKEN_LIMIT,
+        input.PROJECT_MODEL_TOKEN_LIMIT,
+        PUBLIC_PROJECT_TOKEN_LIMIT,
+        'PROJECT_MODEL_TOKEN_LIMIT',
+      ),
     },
     routing,
     urlIngestion: buildUrlIngestion(input),
     // The crawler fetches pages for strangers from this server: off in public unless the operator asks.
     research: pub && !pub.allowResearch ? { ...research, enabled: false } : research,
   };
+}
+
+/** What one project may use of a model when a public deployment's operator says nothing: it is never without a limit. */
+const PUBLIC_PROJECT_CALL_LIMIT = 300;
+const PUBLIC_PROJECT_TOKEN_LIMIT = 400_000;
+
+/**
+ * A project's model limit. A pilot keeps what it was given (0: none). A public edition has a default, and refuses 0,
+ * because a project that is left to run is how a free tier is spent without end.
+ */
+function publicBudget(
+  pub: PublicConfig | null,
+  given: string | undefined,
+  value: number,
+  fallback: number,
+  name: string,
+): number {
+  if (!pub) return value;
+  if (!given?.trim()) return fallback;
+  if (value === 0) {
+    throw new Error(`${name} must be above 0 in the public edition: every project needs a limit.`);
+  }
+  return value;
 }
 
 /** Refuses to start a public edition whose free tier could spend hidden reasoning tokens or an unpriced amount. */
@@ -625,12 +660,24 @@ function publicModelProblems(
 
 export function publicConfig(config: ServerConfig): AppConfig {
   const { name, model, configured, reason, auth } = config.provider;
+  const shared = config.edition === 'public';
+  // A person's own key can do model work without the operator's model being set up.
+  const modelAssisted = configured || (config.public?.byok.enabled ?? false);
   return {
     version: APP_VERSION,
     deployment: { mode: config.deployment.mode, label: config.deployment.label },
     build: { ...config.deployment.build },
-    // The endpoint, its host and any key stay server-side; only the auth *mode* is public.
-    provider: { name, model, configured, reason, auth },
+    // The endpoint, its host and any key stay server-side; only the auth *mode* is public. In the public edition the
+    // operator's deployment name and set-up notes are not said to strangers either.
+    provider: shared
+      ? {
+          name,
+          model: null,
+          configured,
+          reason: configured ? '' : 'The free tier is not set up.',
+          auth: 'none',
+        }
+      : { name, model, configured, reason, auth },
     limits: {
       maxDocuments: MAX_DOCUMENTS,
       maxDocumentChars: MAX_DOCUMENT_CHARS,
@@ -652,9 +699,9 @@ export function publicConfig(config: ServerConfig): AppConfig {
     features: { constraints: true, participants: true },
     capabilities: {
       local: true,
-      modelAssisted: configured,
+      modelAssisted,
       // What a new question starts with: the model only where one is set up and the operator asked for it.
-      defaultEngine: configured && config.defaultEngine === 'model' ? 'llm' : 'local',
+      defaultEngine: modelAssisted && config.defaultEngine === 'model' ? 'llm' : 'local',
       fileTypes: ['txt', 'md', 'markdown', 'pdf', 'csv', 'json'],
       pdf: true,
       webRetrieval: false,

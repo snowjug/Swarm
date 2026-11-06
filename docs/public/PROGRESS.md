@@ -92,3 +92,51 @@ change. A test seam (`wrapGuard`) lets a test remove the application's checks to
 
 **Open issues**: the sign-in page, account page and landing page are in the frontend helper's hands; the browser journeys
 are Phase 8.
+
+## Phase 3: the free tier on the owner's credits, with hard caps
+
+**Done**
+
+- A **spend gate** in the model client (`models/spend.ts`, `models/client.ts`): asked before every provider round trip,
+  told what happened after. A reply is charged as reported (a cut-off or refused reply too), a request sent and never
+  answered at its worst case, a request the provider refused or that never reached it is released. Inert in the pilot
+  (a pilot gives its clients no gate).
+- The **usage ledger** (`public/storage/ledger.ts`): per person per UTC day, per account lifetime, and for the whole tier,
+  updated by conditional `UPDATE`s in one transaction, so concurrent requests cannot pass a cap. It reserves the worst
+  case (padded input estimate plus the whole output limit, which hidden reasoning tokens are inside), settles with the
+  real usage once, counts blocked calls by reason, and sweeps reservations a crash left behind.
+- **Funding**: every model made in public mode is made for a funding context (`public/funding.ts`, an
+  `AsyncLocalStorage`): the free tier or the person's own key. With none, the model refuses (`NO_FUNDING_CONTEXT`), so
+  there is no path to the owner's credits that does not go through a signed-in person. A project records a funding
+  marker, and a queued run is paid for as its project says.
+- **Free tier model**: the operator's non-reasoning deployment, declared to the client as taking no reasoning effort,
+  held to a per-role output cap (`models/gateways.ts`). Per-project caps default to 300 calls and 400,000 tokens, and 0
+  is refused at start-up.
+- **Cap states**: user day, user lifetime, whole tier, in flight, and switched off, each a plain message with one next
+  action (HTTP 429 `FREE_TIER_*`), never an ugly failure. The tier counts as used up when less than one run is left of a
+  cap, which is also what the meter's "runs left" says.
+- **Kill switch**: `FREE_TIER_ENABLED` (environment, wins), the run-time flag and `POST /api/admin/free-tier`, and
+  `POST /api/ops/free-tier/off` for the budget automation (a key whose SHA-256 is compared in constant time; it can only
+  turn the tier off). Admin: spend by day, top accounts, blocked calls, disable a user, disable sign-ups, audit.
+- **What a stranger is told**: `GET /api/usage` (the meter), and in public mode `/api/provider/status`,
+  `/api/provider/check` and `/api/config` describe the caller's own funding, with no deployment name, no endpoint and no
+  other person's counters. `check` makes no model call.
+- One workspace has at most one run at a time (`RUN_IN_PROGRESS`).
+
+**Tests**: `ledger.test.ts` (20, on SQLite and PGlite), `ledger-race.test.ts` (writers on separate connections released
+together, with the caps read while they run; it fails if a cap is weakened, which was checked), `freetier.test.ts` (20:
+through a fake Azure deployment: caps, the cap-reached state, kill switch in three forms, the meter, admin view, the
+model chip, configuration). All 114 public tests pass, and the 45 existing suites that touch the changed modules pass
+unchanged (1,607 tests). One public test timed out once under load (a PGlite start-up) and passed alone.
+
+**Next**: Phase 4, bring your own key with Gemini: the provider, the in-memory key store, header handling and
+redaction, `POST /api/byok/connect`, plain-language errors, and the fake Gemini server tests including the no-leak
+canary.
+
+**Decisions**: the input estimate is padded by half again plus 64 so a provider that counts more than the characters
+cannot slip past a cap; what is beyond it is bounded by one call's input and is what the budget alert backs up. The
+indicator and the call-level refusal are separate: the indicator says "used up" when under one run is left, the ledger
+refuses a call on that call's worst case.
+
+**Open issues**: no real PostgreSQL server was raced (only SQLite threads and PGlite); the test is ready for one
+(`SWARM_TEST_POSTGRES_URL`). Cost is estimated from `MODEL_PRICES`, not read from Azure.
