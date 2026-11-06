@@ -638,6 +638,19 @@ JSON throughout. A change (`POST`, `PUT`, `PATCH`, `DELETE`) from the browser ca
 carries `Cache-Control: no-store`. The errors are `{ "error": { "code", "message", "requestId" } }`. The frontend
 and the infrastructure are built to this section.
 
+The shapes below are written as TypeScript in [`shared/public.ts`](../../shared/public.ts), which both sides import.
+In public mode the server adds `<meta name="swarm-edition" content="public">` to `index.html` (and to the single-page
+fallback), and **only then**: the page makes no public-edition request unless it finds that tag, so the pilot's page is
+exactly what it was, with no extra request. The paths `/status`, `/legal/terms` and `/legal/privacy` are pages of the
+single-page app (the server already falls back to `index.html` for any other `GET` that accepts HTML, outside `/api`
+and `/auth/`).
+The page decides what to show from the error **code**, never from the message. The codes of the public edition are
+`FREE_TIER_USER_CAP`, `FREE_TIER_GLOBAL_CAP`, `FREE_TIER_LIFETIME_CAP`, `FREE_TIER_DISABLED` and
+`FREE_TIER_CONCURRENT` (all HTTP 429: the free tier cannot be used by this request, and the reason is the code);
+`BYOK_KEY_NEEDED`, `BYOK_KEY_REJECTED`, `BYOK_RATE_LIMITED`, `BYOK_QUOTA`, `BYOK_REGION`, `BYOK_MODEL_NOT_FOUND` and
+`BYOK_BLOCKED` (the person's own key, on a run); `PROJECT_LIMIT`, `STORAGE_LIMIT`, `RUN_IN_PROGRESS`,
+`BOT_CHECK_FAILED`, `NOT_AVAILABLE` and `ACCOUNT_DISABLED`.
+
 ### Public (no session)
 
 | Route                          | Answer                                                                                                                                                                                                                                                                                                     |
