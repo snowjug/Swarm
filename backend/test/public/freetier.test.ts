@@ -401,12 +401,24 @@ describe('the kill switch', () => {
         .statusCode,
     ).toBe(401);
     await expect(t.call(t.a.workspaceId)).resolves.toEqual({ ok: true });
-    // Azure's action group sends a JSON body and cannot set a header, so the key may come in the query.
+    // Azure's action group sends a JSON body and cannot set a header, so the key may come in the query. The body is what a
+    // budget notification carries, and is not read: only the key says who is asking.
     const off = await t.h.app.inject({
       method: 'POST',
       url: `${url}?key=${key}`,
       headers: { 'content-type': 'application/json' },
-      payload: { schemaId: 'azureMonitorCommonAlertSchema' },
+      payload: {
+        schemaId: 'AIP Budget Notification',
+        data: {
+          SubscriptionName: 'swarm-public',
+          BudgetName: 'swarm-public-monthly',
+          BudgetType: 'Cost',
+          Unit: 'USD',
+          BudgetThreshold: '0.9',
+          NotificationThresholdAmount: '90.0',
+          ContactGroups: [{ Name: 'swarm-public-budget' }],
+        },
+      },
     });
     expect(off.statusCode).toBe(200);
     expect(off.json()).toEqual({ freeTier: 'off' });

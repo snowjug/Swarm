@@ -29,6 +29,13 @@ export const TEMPLATES = [
   'infra/pilot/modules/network.bicep',
   'infra/pilot/modules/postgres.bicep',
   'infra/pilot/modules/registry.bicep',
+  'infra/public/main.bicep',
+  'infra/public/modules/action-groups.bicep',
+  'infra/public/modules/alerts.bicep',
+  'infra/public/modules/container-app.bicep',
+  'infra/public/modules/guards.bicep',
+  'infra/public/modules/identity.bicep',
+  'infra/public/modules/model-deployment.bicep',
 ];
 
 export const PARAM_FILES = {

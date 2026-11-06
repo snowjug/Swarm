@@ -750,4 +750,49 @@ describe('the record of security events', () => {
     const text = JSON.stringify(events);
     expect(text).not.toMatch(/@example\.com|127\.0\.0\.1|council meets|AIzaSy/u);
   });
+
+  it('never holds the budget automation’s key, the one that arrives in an address: not in a log line, an answer or the record', async () => {
+    const { createHash } = await import('node:crypto');
+    const key = 'budget-canary-0123456789-abcdef';
+    const wrong = 'wrong-canary-0123456789-abcdef';
+    const w = await openWorld({
+      log: true,
+      environment: { PUBLIC_OPS_KEY_SHA256: createHash('sha256').update(key).digest('hex') },
+    });
+    const body = {
+      schemaId: 'AIP Budget Notification',
+      data: { BudgetName: 'swarm-public-monthly', NotificationThresholdAmount: '90.0' },
+    };
+    const json = { 'content-type': 'application/json' };
+    const refused = await w.raw({
+      method: 'POST',
+      url: `/api/ops/free-tier/off?key=${wrong}`,
+      headers: json,
+      payload: body,
+    });
+    expect(refused.statusCode).toBe(401);
+    expect((await w.send(null, 'GET', '/api/public/session')).json().freeTier.available).toBe(true);
+    const off = await w.raw({
+      method: 'POST',
+      url: `/api/ops/free-tier/off?key=${key}`,
+      headers: json,
+      payload: body,
+    });
+    expect(off.statusCode).toBe(200);
+    expect((await w.send(null, 'GET', '/api/public/session')).json().freeTier).toEqual({
+      available: false,
+      reason: 'disabled',
+    });
+    const everything = [
+      w.logs.join(''),
+      w.answers.join('\n'),
+      JSON.stringify(
+        w.h.built.repository.asSystem(() => w.h.built.repository.audit.list({ limit: 500 })),
+      ),
+    ].join('\n');
+    expect(everything).not.toContain(key);
+    expect(everything).not.toContain(wrong);
+    // What was asked is in the log, as a path without its query.
+    expect(w.logs.join('')).toContain('/api/ops/free-tier/off');
+  });
 });

@@ -270,3 +270,52 @@ which are the first time the page runs against the real server.
 
 **Open issues**: the page has not run in a real browser yet (Phase 8), and no one has looked at it on a phone or in the
 dark theme beyond what the design system gives. Turnstile's widget has only been run against a fake loader.
+
+## Phase 7: infrastructure as code (not deployed)
+
+Built by a helper, reviewed and checked here. **Nothing was deployed, created or changed in Azure.**
+
+**Done**
+
+- `infra/public/` (Bicep at subscription scope, `main.bicep` and `main.bicepparam`, six modules): its own resource group, a
+  container app, PostgreSQL, Log Analytics and Application Insights, a user-assigned managed identity, Key Vault
+  (RBAC, soft delete, purge protection), a registry, and the model account **referenced, never created** (the deployment is
+  only read, and a reasoning model is refused before anything is made). It reuses the pilot's modules for the parts that
+  are the same, and none of the pilot's names or parameters. The parameter file reads only `SWARM_PUBLIC_*` variables and
+  holds no value of yours.
+- **Guards**: one revision and at most one replica (a key lives in the memory of one process; `minReplicas` 0 or 1, 1 by
+  default), 0.5 vCPU and 1 GiB by default and never more than 1 vCPU and 2 GiB, HTTPS only behind one trusted proxy
+  (`TRUST_PROXY=1`), secrets only as Key Vault references (the pepper always, a provider's only when it is configured), the
+  application's identity holding four roles and nothing else, and a deployment in two phases (the foundation, then the app)
+  so that nothing is half made when a check fails.
+- **Budget**: a monthly budget with notices at 50, 80, 100 and 120 percent of actual cost and a forecast at 100. The 100 and
+  120 percent notices e-mail the owner **and** call the webhook that turns the free tier off (`POST /api/ops/free-tier/off`);
+  the others only e-mail. The documents say, at the top, that **a budget alerts and does not stop spend**, and that the
+  application's own daily cap is the protection that works in real time.
+- `docs/public/DEPLOY.md`: the exact commands for the what-if and the live deployment in order, the two OAuth apps, the
+  secrets, the image, the first-run checks (including row security on the real database, read-only), a custom domain, a
+  closed first deployment, costs, rollback, teardown, and what was not verified.
+- `scripts/iac/public.mjs` and `public-invariants.test.ts` (about 60 checks of what the template must hold, among them that
+  the environment it sets is exactly the table of DESIGN §3, that no secret is in it, and that it refuses the reasoning
+  families the application refuses), added to the repository's `iac:validate`.
+- Changes made in review: DESIGN §3 now states the contract the template relies on (`AUTH_MODE` unset, what a `0` cap means,
+  the pepper never changes, the webhook, the limits of `azure:release` for this edition); the budget webhook is tested with
+  the body of a budget notice and with the key in no log line, answer or audit entry.
+
+**Tests**: `bicep build` and `bicep lint` of the seven templates; `npm run iac:validate`: 83 checks passed; `scripts/iac`:
+110 passed, 2 skipped; `freetier.test.ts` and `abuse.test.ts` for the webhook.
+
+**What-if: not run.** `az deployment sub what-if` is read-only, but the identity of this machine is not authorised to ask
+for one (`AuthorizationFailed`). The command is in DEPLOY.md for the owner, with a stand-in key so that the real one cannot
+reach the output.
+
+**Next**: Phase 8, the browser journeys, the full run, the secret scan, the self-review and the pull request.
+
+**Decisions**: one replica, one revision, and a webhook key in the query because an action group cannot set a header (anyone
+who can read the action group can read it: it can only turn the free tier off). `azure:release` is not used for this
+edition, because it expects the pilot's sign-in redirect and its multi-revision mode.
+
+**Open issues**: not deployed, so the template has never met Azure Resource Manager (names, quotas and SKU availability are
+refused there, not here); whether the managed PostgreSQL honours the role and row-security setup is checked by the
+application's start-up self-check and by the queries in DEPLOY.md section 10; a restart or a scale to zero forgets every key
+held in memory (people paste it again).

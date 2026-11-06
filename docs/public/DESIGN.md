@@ -213,6 +213,27 @@ from a guessed price. `MODEL_CACHE` is forced `off`. `FREE_USER_CONCURRENT_CALLS
 per-project caps, which stay as they are there: 0 is no limit) default to **300 calls and 400,000 tokens** in public
 mode, and an explicit `0` is refused at start-up: a project that is left to run is how a free tier is spent.
 
+How a deployment is made to hold to this section is in [DEPLOY.md](DEPLOY.md) and `infra/public/`. Four things it relies on
+are part of the contract:
+
+- **`AUTH_MODE` stays unset.** The public edition has its own sign-in, and start-up refuses any other value
+  (`SWARM_EDITION=public does not use AUTH_MODE`), so none of the pilot's `AUTH_*` variables except the two session limits
+  is set.
+- **A `FREE_*` cap of `0` means nothing is allowed, never "no limit"** (the pilot reads `0` as no limit for a project's
+  budget, which is why a project's `0` is refused here). `FREE_USER_DAILY_TOKENS=0` turns the free tier away for everybody
+  at the first call. The template does not allow a `0` at all.
+- **`PUBLIC_PEPPER` is never changed once people have signed up.** It keys the hashes of addresses and the counters of
+  deleted accounts, so a new value would make every counter of a deleted account unreachable (a deleted account could then
+  start over with a full allowance) and would start the sign-up throttle again.
+- **The budget automation's webhook** is `POST /api/ops/free-tier/off`, with its key in the query (an action group cannot set a
+  header) and a JSON body that is not read. It can only turn the free tier off. Tests send what a budget notice carries,
+  with no anti-forgery header and no cookie, and check that the key is in no log line, answer or audit entry
+  (`freetier.test.ts`, `abuse.test.ts`).
+
+`scripts/azure` (`azure:release`) is the pilot's tooling: it expects the pilot's Microsoft sign-in redirect and its
+multi-revision mode, so for this edition only its `status`, `check` and `build` commands are of use. The public template
+runs one revision and at most one replica, and DEPLOY.md gives the commands.
+
 ## 4. The sign-in choice (c)
 
 ### 4.1 Evaluation

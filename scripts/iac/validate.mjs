@@ -25,6 +25,14 @@ import {
   lint,
   LOCK,
 } from './bicep.mjs';
+import {
+  PUBLIC_FOUNDATION_ENV,
+  PUBLIC_PARAM_FILE,
+  PUBLIC_PLACEHOLDER_ENV,
+  PUBLIC_REQUIRED_VARIABLES,
+  buildPublicParams,
+  evaluatePublic,
+} from './public.mjs';
 
 const args = new Set(process.argv.slice(2));
 const strict = args.has('--strict') || process.env.CI === 'true';
@@ -166,5 +174,52 @@ for (const [profile, file] of Object.entries(PARAM_FILES)) {
     );
   }
 }
+
+// The public edition (infra/public): a template at SUBSCRIPTION scope that reuses the pilot's modules. Its templates are built
+// and linted above with the others; here its parameter file is compiled and the deployment evaluated, in both phases of its
+// deployment (docs/public/DEPLOY.md): first without the container app, then with it.
+const publicProfiles = {
+  'public (first deployment, no app)': PUBLIC_FOUNDATION_ENV,
+  'public (with the app)': PUBLIC_PLACEHOLDER_ENV,
+};
+
+for (const [profile, environment] of Object.entries(publicProfiles)) {
+  const compiled = buildPublicParams(bicep, environment);
+  const problems = describeDiagnostics(compiled.diagnostics);
+  record(
+    `bicep build-params ${PUBLIC_PARAM_FILE} (${profile}, placeholder environment)`,
+    compiled.status === 0 && !problems ? 'pass' : 'fail',
+    problems,
+  );
+
+  const evaluated = evaluatePublic(bicep, environment);
+  const snapshotProblems = evaluated.snapshot ? (evaluated.snapshot.diagnostics ?? []) : [];
+  record(
+    `${profile}: bicep snapshot evaluates the deployment offline`,
+    evaluated.status === 0 && snapshotProblems.length === 0 ? 'pass' : 'fail',
+    evaluated.status !== 0
+      ? describeDiagnostics(evaluated.diagnostics)
+      : snapshotProblems.length > 0
+        ? snapshotProblems.map((problem) => JSON.stringify(problem)).join('\n')
+        : `${evaluated.snapshot.predictedResources.length} resources predicted`,
+  );
+  if (evaluated.snapshot) {
+    const same = findDuplicatePredictions(evaluated.snapshot);
+    record(
+      `${profile}: no predicted resource appears twice`,
+      same.length === 0 ? 'pass' : 'fail',
+      same.map((entry) => `${entry.id} is predicted ${entry.count} times`).join('\n'),
+    );
+  }
+}
+
+const publicBare = buildPublicParams(bicep, PUBLIC_PLACEHOLDER_ENV, PUBLIC_REQUIRED_VARIABLES);
+record(
+  'public: an unset required value stops the deployment before anything is created',
+  publicBare.status !== 0 ? 'pass' : 'fail',
+  publicBare.status !== 0
+    ? ''
+    : 'The parameter file compiled with its required environment variables unset.',
+);
 
 finish(checks.some((check) => check.status === 'fail') ? 1 : 0);
