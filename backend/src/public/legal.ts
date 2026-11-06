@@ -19,6 +19,7 @@ const FALLBACK: Record<LegalDocument, string> = {
 export function legalText(
   document: LegalDocument,
   directory = resolve(process.cwd(), 'legal'),
+  values: { retentionDays?: number } = {},
 ): LegalText {
   const path = resolve(directory, `${document}.md`);
   let text = FALLBACK[document];
@@ -27,5 +28,7 @@ export function legalText(
   } catch {
     // An unreadable file is the stub.
   }
+  // What the owner configured, so that a notice cannot say one number while the site does another.
+  text = text.replaceAll('{{retentionDays}}', String(values.retentionDays ?? 30));
   return { title: TITLES[document], text, reviewed: !text.includes(MARKER) };
 }

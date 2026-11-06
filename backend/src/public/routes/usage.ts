@@ -94,6 +94,7 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
         emailMasked: user ? maskEmail(user.email) : 'deleted account',
         tokens: row.tokens,
         calls: row.calls,
+        disabled: user?.disabled ?? false,
       };
     });
     const view: AdminUsageView = {

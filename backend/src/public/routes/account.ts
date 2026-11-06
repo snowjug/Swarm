@@ -69,6 +69,7 @@ export function accountRoutes(
       bot: context.bot ? { kind: 'turnstile', siteKey: context.bot.siteKey } : null,
       freeTier: freeTier(),
       byokEnabled: pub.byok.enabled,
+      retentionDays: pub.deletedAccountRetentionDays,
       legal: { terms: '/legal/terms', privacy: '/legal/privacy' },
       user: who
         ? {
@@ -110,7 +111,9 @@ export function accountRoutes(
 
   app.get('/api/public/legal/:doc', async (request) => {
     const { doc } = legalParams.parse(request.params);
-    return legalText(doc, context.options.legalDirectory);
+    return legalText(doc, context.options.legalDirectory, {
+      retentionDays: pub.deletedAccountRetentionDays,
+    });
   });
 
   app.get('/api/account', async (request) => {

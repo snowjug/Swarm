@@ -1,0 +1,753 @@
+@layer scenes {
+  /*
+   * The public edition: the page a visitor meets before signing in (landing, FAQ, status, terms, privacy, usage), the meter
+   * in the top bar, and the cards that tell a signed-in person why something was refused. It speaks the language of the
+   * rest of the interface: type from the tokens, glass only for what floats, a hairline instead of a box.
+   */
+
+  /* ---- The frame of a page ------------------------------------------------------------------------------ */
+  .sw-pub {
+    position: relative;
+    z-index: var(--z-content);
+    display: grid;
+    grid-template-rows: auto 1fr auto;
+    min-height: 100dvh;
+    color: var(--ink);
+  }
+  .sw-pub__bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-4);
+    width: min(100%, var(--w-content));
+    margin-inline: auto;
+    padding: var(--s-4) var(--gutter) 0;
+  }
+  .sw-pub[data-wide] .sw-pub__bar,
+  .sw-pub[data-wide] .sw-pub__main {
+    width: min(100%, var(--w-wide));
+  }
+  .sw-pub__brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.6rem;
+    min-height: 2.75rem;
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .sw-pub__word {
+    padding-bottom: 0.1rem;
+    font-family: var(--font-display);
+    font-size: 1.65rem;
+    line-height: 1;
+    letter-spacing: -0.01em;
+  }
+  .sw-pub__main {
+    width: min(100%, var(--w-content));
+    margin-inline: auto;
+    padding: var(--s-5) var(--gutter) var(--s-8);
+  }
+  .sw-pub__main:focus-visible {
+    outline: none;
+  }
+  .sw-pub__foot {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-2) var(--s-5);
+    padding: var(--s-5) var(--gutter) var(--s-7);
+    border-top: 1px solid var(--hairline);
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+  }
+  .sw-pub__footnav {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-1) var(--s-5);
+  }
+  .sw-pub__footnav a,
+  .sw-pub-signin a,
+  .sw-pub-account__links a,
+  .sw-pub-byok a,
+  .sw-pub-legal a,
+  .sw-pub-faq a {
+    color: var(--ink-2);
+    text-underline-offset: 0.2em;
+  }
+  .sw-pub__footnav a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 2.75rem;
+  }
+  @media (hover: hover) {
+    .sw-pub__footnav a:hover,
+    .sw-pub-signin a:hover,
+    .sw-pub-account__links a:hover,
+    .sw-pub-byok a:hover {
+      color: var(--ink);
+    }
+  }
+  .sw-pub-wait {
+    position: relative;
+    z-index: var(--z-content);
+    display: grid;
+    place-items: center;
+    min-height: 100dvh;
+    color: var(--ink-3);
+  }
+
+  /* ---- The landing page ---------------------------------------------------------------------------------- */
+  .sw-pub-landing {
+    display: grid;
+    gap: var(--s-8);
+  }
+  .sw-pub-landing__note {
+    width: min(100%, 34rem);
+    margin-inline: auto;
+  }
+  .sw-pub-hero {
+    display: grid;
+    justify-items: center;
+    gap: var(--s-4);
+    padding-top: clamp(var(--s-5), 7vh, var(--s-8));
+    text-align: center;
+  }
+  .sw-pub-hero__title {
+    max-width: 14ch;
+    margin: 0;
+    font-family: var(--font-display);
+    font-size: clamp(2.75rem, 1.2rem + 6.4vw, 6rem);
+    font-weight: 400;
+    line-height: 0.98;
+    letter-spacing: -0.028em;
+    text-wrap: balance;
+    animation: sw-rise var(--dur-cinema) var(--ease-out) both;
+  }
+  .sw-pub-hero__lead {
+    max-width: 38rem;
+    margin: 0;
+    color: var(--ink-2);
+    font-size: var(--fs-lead);
+    line-height: 1.5;
+    text-wrap: pretty;
+  }
+  .sw-pub-hero__actions {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: var(--s-3);
+    margin-top: var(--s-2);
+  }
+  .sw-pub-hero .sw-caption {
+    max-width: 34rem;
+  }
+  .sw-pub-how {
+    display: grid;
+    gap: var(--s-5);
+  }
+  .sw-pub-how > h2,
+  .sw-pub-faq > h1,
+  .sw-pub-faq > h2 {
+    margin: 0;
+    text-align: center;
+  }
+  .sw-pub-how__steps {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: var(--s-5);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+  .sw-pub-how__step {
+    display: grid;
+    align-content: start;
+    gap: var(--s-2);
+    padding-top: var(--s-4);
+    border-top: 1px solid var(--hairline-strong);
+  }
+  .sw-pub-how__num {
+    color: var(--accent);
+    font-family: var(--font-display);
+    font-size: 2rem;
+    line-height: 1;
+  }
+  .sw-pub-how__step h3,
+  .sw-pub-how__step p {
+    margin: 0;
+  }
+  @media (max-width: 48rem) {
+    .sw-pub-how__steps {
+      grid-template-columns: minmax(0, 1fr);
+      gap: var(--s-4);
+    }
+  }
+
+  /* ---- Questions and answers ----------------------------------------------------------------------------- */
+  .sw-pub-faq {
+    display: grid;
+    gap: var(--s-4);
+    width: min(100%, 44rem);
+    margin-inline: auto;
+  }
+  .sw-pub-faq__list {
+    display: grid;
+  }
+  .sw-pub-faq__item {
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-pub-faq__answer {
+    display: grid;
+    gap: var(--s-3);
+    padding-bottom: var(--s-4);
+    color: var(--ink-2);
+    line-height: 1.6;
+  }
+  .sw-pub-faq__answer p,
+  .sw-pub-faq__answer ul {
+    margin: 0;
+  }
+  .sw-pub-faq__answer ul {
+    padding-left: 1.2rem;
+  }
+
+  /* ---- Signing in ---------------------------------------------------------------------------------------- */
+  .sw-pub-dialog {
+    width: min(34rem, calc(100vw - 2rem));
+  }
+  .sw-pub-signin {
+    display: grid;
+    gap: var(--s-3);
+    width: 100%;
+  }
+  .sw-pub-signin__buttons {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-pub-signin__check {
+    display: grid;
+    gap: var(--s-2);
+    justify-items: start;
+  }
+  .sw-pub-signin p {
+    margin: 0;
+  }
+  .sw-pub-glyph {
+    display: inline-grid;
+    place-items: center;
+    width: 1.25rem;
+    height: 1.25rem;
+    border: 1.5px solid currentColor;
+    border-radius: 50%;
+    font-size: 0.75rem;
+    font-weight: 700;
+    line-height: 1;
+  }
+  .sw-pub-glyph::before {
+    content: attr(data-glyph);
+  }
+
+  /* ---- Status, and the texts ----------------------------------------------------------------------------- */
+  .sw-pub-status,
+  .sw-pub-legal {
+    display: grid;
+    gap: var(--s-4);
+    width: min(100%, 44rem);
+    margin-inline: auto;
+  }
+  .sw-pub-status h1,
+  .sw-pub-legal h1 {
+    margin: 0;
+  }
+  .sw-pub-status__wait {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-pub-status__headline {
+    --lamp: var(--c-favor);
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-3);
+    padding: var(--s-3) 0;
+    border-block: 1px solid var(--hairline);
+  }
+  .sw-pub-status__headline > svg {
+    flex: none;
+    margin-top: 0.15rem;
+    color: var(--lamp);
+  }
+  .sw-pub-status__headline[data-health='degraded'],
+  .sw-pub-status__headline[data-health='maintenance'],
+  .sw-pub-status__headline[data-health='unreachable'] {
+    --lamp: var(--c-caution);
+  }
+  .sw-pub-status__word {
+    margin: 0 0 var(--s-1);
+    font-family: var(--font-display);
+    font-size: var(--fs-h3);
+    line-height: 1.15;
+  }
+  .sw-pub-status__list {
+    display: grid;
+    margin: 0;
+  }
+  .sw-pub-status__row {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: var(--s-1) var(--s-4);
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-pub-status__row dt {
+    color: var(--ink-3);
+  }
+  .sw-pub-status__row dd {
+    margin: 0;
+    color: var(--ink);
+    text-align: right;
+  }
+  .sw-pub-legal__body {
+    display: grid;
+    gap: var(--s-3);
+    color: var(--ink-2);
+    font-size: var(--fs-read);
+    line-height: 1.7;
+  }
+  .sw-pub-legal__body h2,
+  .sw-pub-legal__body h3,
+  .sw-pub-legal__body p,
+  .sw-pub-legal__body ul {
+    margin: 0;
+  }
+  .sw-pub-legal__body h2,
+  .sw-pub-legal__body h3 {
+    margin-top: var(--s-3);
+    color: var(--ink);
+  }
+  .sw-pub-legal__body ul {
+    padding-left: 1.3rem;
+  }
+  .sw-pub-legal__text {
+    white-space: pre-line;
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- Usage, for the administrator ---------------------------------------------------------------------- */
+  .sw-pub-admin {
+    display: grid;
+    gap: var(--s-6);
+  }
+  .sw-pub-admin h1 {
+    margin: 0;
+  }
+  .sw-pub-admin__block {
+    display: grid;
+    gap: var(--s-3);
+    min-width: 0;
+  }
+  .sw-pub-admin__block h2 {
+    margin: 0;
+  }
+  .sw-pub-admin__switch {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3) var(--s-5);
+    padding: var(--s-3) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-pub-admin__name {
+    margin: 0;
+    font-weight: 600;
+  }
+  .sw-pub-admin__scroll {
+    overflow-x: auto;
+  }
+  .sw-pub-admin__confirm {
+    display: inline-flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  .sw-pub-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--fs-small);
+    font-variant-numeric: tabular-nums;
+  }
+  .sw-pub-table th,
+  .sw-pub-table td {
+    padding: var(--s-2) var(--s-3);
+    border-bottom: 1px solid var(--hairline);
+    text-align: left;
+    vertical-align: middle;
+  }
+  .sw-pub-table thead th {
+    color: var(--ink-3);
+    font-weight: 560;
+  }
+  .sw-pub-table tbody th {
+    font-weight: 500;
+    overflow-wrap: anywhere;
+  }
+  .sw-pub-table tr[data-disabled] td,
+  .sw-pub-table tr[data-disabled] th {
+    color: var(--ink-3);
+  }
+
+  /* ---- The meter in the top bar -------------------------------------------------------------------------- */
+  .sw-usage {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.4rem;
+    min-width: 2.25rem;
+    height: 2.25rem;
+    margin-right: 0.125rem;
+    padding: 0 0.55rem;
+    border: 1px solid var(--hairline);
+    border-radius: var(--r-pill);
+    background: transparent;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    font-weight: 560;
+    line-height: 1;
+    white-space: nowrap;
+    transition:
+      background-color var(--dur-fast) var(--ease-out),
+      border-color var(--dur-fast) var(--ease-out),
+      color var(--dur-fast) var(--ease-out),
+      transform var(--dur-base) var(--ease-spring-snappy);
+  }
+  .sw-usage svg {
+    flex: none;
+  }
+  .sw-usage[data-tone='accent'] {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  .sw-usage[data-tone='caution'] {
+    border-color: color-mix(in oklab, var(--c-caution) 55%, var(--hairline));
+    color: var(--ink);
+  }
+  .sw-usage[data-tone='caution'] svg {
+    color: var(--c-caution);
+  }
+  @media (hover: hover) {
+    .sw-usage:hover {
+      border-color: var(--accent-line);
+      background: var(--accent-soft);
+      color: var(--ink);
+    }
+  }
+  .sw-usage[data-state='open'] {
+    border-color: var(--accent-line);
+    background: var(--accent-soft);
+    color: var(--ink);
+  }
+  .sw-usage:active {
+    transform: scale(0.96);
+    transition-duration: var(--dur-instant);
+  }
+  [data-theme='high-contrast'] .sw-usage {
+    border-color: var(--hairline-strong);
+  }
+  @media (pointer: coarse) {
+    .sw-usage {
+      height: 2.75rem;
+      min-width: 2.75rem;
+    }
+  }
+  .sw-usage__fig::before {
+    content: attr(data-figure);
+    font-variant-numeric: tabular-nums;
+  }
+  /* A narrow bar shows the figure beside the icon; the whole line is still there, for a screen reader. */
+  .sw-usage__words {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+  /* With a project open the bar carries the journey, the engine and the provider, and has no room for the words at any
+     width: the figure stays, and the whole line is in the tooltip, in the popover and in the name. */
+  /* Before there is a project the bar has no journey to carry, so the words come as soon as the bar is wide enough. */
+  @media (min-width: 40rem) {
+    .sw-bar:not([data-has-project]) .sw-usage__words {
+      position: static;
+      width: auto;
+      height: auto;
+      margin: 0;
+      overflow: visible;
+      clip: auto;
+    }
+    .sw-bar:not([data-has-project]) .sw-usage__fig {
+      display: none;
+    }
+  }
+  .sw-usage-pop {
+    display: grid;
+    gap: var(--s-3);
+  }
+  .sw-usage-pop > * {
+    margin: 0;
+  }
+  .sw-usage-pop__title {
+    font-family: var(--font-display);
+    font-size: 1.5rem;
+    font-weight: 400;
+    line-height: 1.1;
+    letter-spacing: -0.015em;
+  }
+  .sw-usage-pop__list {
+    display: grid;
+    gap: var(--s-2);
+  }
+  .sw-usage-pop__list > div {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    gap: 0 var(--s-3);
+    font-size: var(--fs-small);
+  }
+  .sw-usage-pop__list dt {
+    color: var(--ink-3);
+  }
+  .sw-usage-pop__list dd {
+    margin: 0;
+    color: var(--ink-2);
+    text-align: right;
+  }
+  .sw-usage-pop__limit {
+    display: grid;
+    justify-items: start;
+    gap: var(--s-3);
+  }
+  .sw-usage-pop__limit p {
+    margin: 0;
+    color: var(--ink-2);
+  }
+  .sw-usage-pop__link {
+    justify-self: start;
+    min-height: 1.75rem;
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--ink-2);
+    font: inherit;
+    font-size: var(--fs-small);
+    text-align: left;
+    text-decoration: underline;
+    text-underline-offset: 0.2em;
+    cursor: pointer;
+  }
+  @media (hover: hover) {
+    .sw-usage-pop__link:hover {
+      color: var(--ink);
+    }
+  }
+  @media (pointer: coarse) {
+    .sw-usage-pop__link {
+      min-height: 2.75rem;
+    }
+  }
+
+  /* The signed-in address sits under the label, in the case it is written in: the label is set in capitals. */
+  .sw-pub-who {
+    padding: 0 0.6rem 0.4rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
+  }
+
+  /* ---- Cards over the application ------------------------------------------------------------------------ */
+  .sw-limit,
+  .sw-welcome {
+    --glass-radius: var(--r-lg);
+    position: fixed;
+    z-index: var(--z-chrome);
+    left: 0;
+    right: 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--s-3) var(--s-4);
+    margin-inline: auto;
+    padding: var(--s-3) var(--s-4);
+    animation: sw-rise var(--dur-base) var(--ease-out) both;
+  }
+  .sw-limit {
+    top: calc(var(--topbar-h) + 1.5rem);
+    width: min(36rem, calc(100% - 2 * var(--gutter)));
+  }
+  .sw-welcome {
+    bottom: max(1rem, env(safe-area-inset-bottom));
+    width: min(38rem, calc(100% - 2 * var(--gutter)));
+  }
+  .sw-limit__text,
+  .sw-welcome__text {
+    display: grid;
+    flex: 1 1 14rem;
+    gap: 0.2rem;
+    min-width: 0;
+    font-size: var(--fs-body);
+  }
+  .sw-limit__text p,
+  .sw-welcome__text p {
+    margin: 0;
+    color: var(--ink-2);
+  }
+  .sw-limit__title {
+    color: var(--ink);
+    font-weight: 600;
+  }
+  .sw-limit__actions,
+  .sw-welcome__actions {
+    display: flex;
+    flex: none;
+    align-items: center;
+    gap: var(--s-2);
+  }
+  @media (max-width: 40rem) {
+    .sw-limit {
+      top: calc(var(--topbar-h) + 1.25rem);
+    }
+    .sw-welcome {
+      bottom: max(0.75rem, env(safe-area-inset-bottom));
+      gap: var(--s-2) var(--s-3);
+      padding: var(--s-3);
+    }
+    .sw-welcome__text {
+      font-size: var(--fs-small);
+    }
+  }
+
+  /* ---- The panels for the key and for the account -------------------------------------------------------- */
+  .sw-pub-byok,
+  .sw-pub-account {
+    display: grid;
+    gap: var(--s-4);
+  }
+  .sw-pub-byok p,
+  .sw-pub-account p {
+    margin: 0;
+  }
+  .sw-pub-byok__form {
+    display: grid;
+    gap: var(--s-3);
+    justify-items: start;
+  }
+  .sw-pub-byok__form .sw-field {
+    width: 100%;
+  }
+  .sw-pub-byok__status {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--s-2);
+    min-height: 1.25rem;
+    color: var(--ink-2);
+    font-size: var(--fs-small);
+    overflow-wrap: anywhere;
+  }
+  .sw-pub-byok__status svg {
+    flex: none;
+    margin-top: 0.1rem;
+  }
+  .sw-pub-byok__status[data-status='valid'] svg,
+  .sw-pub-byok__status[data-status='connected'] svg {
+    color: var(--c-favor);
+  }
+  .sw-pub-byok__status[data-status='invalid'] svg {
+    color: var(--c-critical);
+  }
+  .sw-pub-byok__status[data-status='rate-limited'] svg,
+  .sw-pub-byok__status[data-status='quota'] svg,
+  .sw-pub-byok__status[data-status='region'] svg,
+  .sw-pub-byok__status[data-status='unreachable'] svg,
+  .sw-pub-byok__status[data-status='local'] svg {
+    color: var(--c-caution);
+  }
+  .sw-pub-byok__held {
+    display: grid;
+    gap: var(--s-3);
+    justify-items: start;
+    padding-top: var(--s-3);
+    border-top: 1px solid var(--hairline);
+  }
+  .sw-pub-byok__held .sw-field {
+    width: 100%;
+  }
+  .sw-pub-byok__notice {
+    color: var(--ink-3);
+    font-size: var(--fs-small);
+    line-height: 1.5;
+  }
+  .sw-pub-account__list {
+    display: grid;
+    margin: 0;
+  }
+  .sw-pub-account__list > div {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: var(--s-1) var(--s-3);
+    padding: var(--s-2) 0;
+    border-bottom: 1px solid var(--hairline);
+  }
+  .sw-pub-account__list dt {
+    color: var(--ink-3);
+  }
+  .sw-pub-account__list dd {
+    margin: 0;
+    text-align: right;
+    overflow-wrap: anywhere;
+  }
+  .sw-pub-account__list .sw-pub-account__gauge {
+    grid-column: 1 / -1;
+    text-align: left;
+  }
+  .sw-pub-account__links {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-1) var(--s-4);
+    font-size: var(--fs-small);
+  }
+  .sw-pub-account__links a {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    min-height: 1.75rem;
+  }
+  @media (pointer: coarse) {
+    .sw-pub-account__links a {
+      min-height: 2.75rem;
+    }
+  }
+  .sw-pub-account__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--s-3);
+  }
+  .sw-pub-account__explain {
+    display: grid;
+    gap: var(--s-3);
+    color: var(--ink-2);
+    line-height: 1.55;
+  }
+  .sw-pub-account__explain ul {
+    display: grid;
+    gap: var(--s-2);
+    margin: 0;
+    padding-left: 1.2rem;
+  }
+}

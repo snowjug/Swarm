@@ -914,9 +914,21 @@ describe('what anyone may ask without signing in', () => {
     const terms = (await h.app.inject({ method: 'GET', url: '/api/public/legal/terms' })).json();
     expect(terms).toMatchObject({ title: 'Terms of use', reviewed: false });
     expect(terms.text).toContain('NOT YET REVIEWED');
+    const privacy = (
+      await h.app.inject({ method: 'GET', url: '/api/public/legal/privacy' })
+    ).json();
+    expect(privacy.reviewed).toBe(false);
+    // The number of days is the one the site is configured with, not one written in the file.
+    expect(privacy.text).not.toContain('{{');
+    expect(privacy.text).toContain('for 30 days a keyed counter');
+    const kept = await harness({ PUBLIC_DELETED_ACCOUNT_RETENTION_DAYS: '7' });
+    const sevenDays = (
+      await kept.app.inject({ method: 'GET', url: '/api/public/legal/privacy' })
+    ).json();
+    expect(sevenDays.text).toContain('for 7 days a keyed counter');
     expect(
-      (await h.app.inject({ method: 'GET', url: '/api/public/legal/privacy' })).json().reviewed,
-    ).toBe(false);
+      (await kept.app.inject({ method: 'GET', url: '/api/public/session' })).json().retentionDays,
+    ).toBe(7);
     expect(
       (await h.app.inject({ method: 'GET', url: '/api/public/legal/secrets' })).statusCode,
     ).toBe(400);

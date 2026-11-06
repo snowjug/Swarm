@@ -14,7 +14,7 @@ What the code does, so that the notice can say it truthfully (check it against t
 - A key you bring is kept in your browser's session storage and in the server's memory while a run needs it. It is never
   written to the database, a log, a report or an export.
 - Deleting your account deletes your projects and everything of yours. What stays: an append-only audit log of security
-  events (an opaque identifier, an action word and counts, no content), and for 30 days a keyed counter of the free tokens
+  events (an opaque identifier, an action word and counts, no content), and for {{retentionDays}} days a keyed counter of the free tokens
   the account used, so that the free allowance cannot be reset by deleting and signing up again.
 
 The owner decides, and probably needs a lawyer for: who is the data controller, where the data is stored, how long the

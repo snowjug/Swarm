@@ -54,6 +54,8 @@ export interface PublicSession {
   bot: { kind: 'turnstile'; siteKey: string } | null;
   freeTier: FreeTierAvailability;
   byokEnabled: boolean;
+  /** How many days a keyed counter of a deleted account's free tokens is kept (0: nothing is kept), for the privacy text. */
+  retentionDays: number;
   legal: { terms: string; privacy: string };
   user: {
     emailMasked: string;
@@ -169,7 +171,14 @@ export interface AdminUsageView {
     costUsd: number;
     blocked: number;
   }[];
-  topUsers: { id: string; emailMasked: string; tokens: number; calls: number }[];
+  topUsers: {
+    id: string;
+    emailMasked: string;
+    tokens: number;
+    calls: number;
+    /** The account is switched off, so that the table says so after a reload. */
+    disabled: boolean;
+  }[];
   blocked: { byReason: Record<string, number> };
   switches: { freeTierEnv: boolean; freeTierRuntime: boolean; signups: boolean };
   today: {

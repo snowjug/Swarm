@@ -234,3 +234,39 @@ is let in is counted, so being turned away by the address, or by a quota, never 
 **Open issues**: the redirect, rebinding and size rules of reading a web page are the fetcher's own and were not tried
 again through the public routes (a test cannot listen on port 80); the rate limits are per process; Turnstile was only
 tried against a fake.
+
+## Phase 6: the page of the public edition
+
+Built by a helper from the contract in DESIGN §9, then reviewed and completed here.
+
+**Done**
+
+- `frontend/src/public/` (README there lists every `data-testid` and every request the page makes): a landing page with
+  "Try it free" and the three steps, a sign-in card (Google and GitHub, and the Turnstile widget only when the server says
+  it is on), the gate (maintenance, unreachable, the reason a sign-in did not work), the usage meter in the top bar, the
+  panel for a person's own key, the account panel (sign out, and "Delete my account and all my data" after a phrase), the
+  limit-reached card, a sample on the rules engine that uses no model, the status page, the FAQ ("What does it cost?",
+  "Is my key safe?", "Is my data private?" and four more), the terms and privacy pages, and the administrator's page.
+  It uses the application's own design system and tokens; nothing of `ui/caseguard-redesign` is imported.
+- **The pilot's page is what it was.** The public edition is on only when the server puts
+  `<meta name="swarm-edition" content="public">` in `index.html`, which it does only in public mode. The changes to the
+  application are five small seams (`api.ts`, `main.tsx`, `Root.tsx`, `TopBar.tsx`, `SettingsMenu.tsx`), each inert
+  without the tag. The page is a lazy chunk (`PublicGate-*.js`) that `index.html` does not reference, so a pilot never
+  downloads it. `pilot.test.ts` and the gate tests hold this, and the existing frontend suites pass unchanged.
+- **The key**: in memory and `sessionStorage` only, sent as a header on changes and on the two reads that say what the
+  funding is, never to another origin, cleared by Forget key, sign-out, deletion and any 401.
+- **Changes made in review**: Forget key now also asks the server to drop its copy (`DELETE /api/byok`) and says whether it
+  could; the model chip sends the key, so that it describes the key and not the free tier; the privacy words follow the
+  site's retention setting (`retentionDays` on the session, and `{{retentionDays}}` in `legal/privacy.md`) instead of a
+  "30 days" written in the page; the top users carry `disabled`, so that a switched-off account is shown as one after a
+  reload; the type of the disable answer is the server's (`{ accounts }`).
+
+**Tests**: 11 files and 201 tests under `frontend/src/public` (the pilot guard, headers and the key's whereabouts, the
+gate, sign-in, the key panel, usage, account, the pages and the limit card); the whole frontend suite: 121 files, 1,964
+tests; `tsc`, `eslint`, `prettier` and `npm run build` clean.
+
+**Next**: Phase 7 (infrastructure, built by a helper, to be reviewed and committed), then Phase 8: the browser journeys,
+which are the first time the page runs against the real server.
+
+**Open issues**: the page has not run in a real browser yet (Phase 8), and no one has looked at it on a phone or in the
+dark theme beyond what the design system gives. Turnstile's widget has only been run against a fake loader.

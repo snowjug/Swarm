@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { History, MessageCircleQuestion, Search } from 'lucide-react';
 import { IconButton } from '../design/ui';
 import { Mark } from '../design/ui';
+import { usePublicSlots } from '../public/slots';
 import { paletteShortcut } from './commands';
 import { JourneyRail } from './JourneyRail';
 import { SCENE_LABELS, type SceneId, type SceneInfo } from './scenes';
@@ -38,6 +39,8 @@ export function TopBar({
   status: ReactNode;
   menu: ReactNode;
 }) {
+  // The public edition puts its meter here; without it there is nothing, and the bar is what it always was.
+  const publicSlots = usePublicSlots();
   return (
     <header className="sw-bar sw-glass" data-has-project={hasProject || undefined}>
       <div className="sw-bar__start">
@@ -65,6 +68,7 @@ export function TopBar({
         ) : null}
       </div>
       <div className="sw-bar__end">
+        {publicSlots?.meter}
         {status}
         <IconButton
           label="Search and commands"

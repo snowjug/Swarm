@@ -495,6 +495,32 @@ describe('what a person is shown of their own use', () => {
     expect(view.days[0]).toMatchObject({ calls: expect.any(Number), tokens: expect.any(Number) });
     expect(view.days[0].tokens).toBeGreaterThan(0);
     expect(view.topUsers[0]).toMatchObject({ emailMasked: 'a***@example.com' });
+    expect(view.topUsers.map((user: { disabled: boolean }) => user.disabled)).toEqual([
+      false,
+      false,
+    ]);
+    // An account that is switched off says so in the table, after a reload as well.
+    await t.h.app.inject({
+      method: 'POST',
+      url: `/api/admin/users/${t.b.id}/disable`,
+      headers: { cookie: admin.cookie, ...csrf },
+      payload: { disabled: true },
+    });
+    const again = (
+      await t.h.app.inject({
+        method: 'GET',
+        url: '/api/admin/usage?days=7',
+        headers: { cookie: admin.cookie },
+      })
+    ).json();
+    expect(
+      again.topUsers.map((user: { id: string; disabled: boolean }) => [user.id, user.disabled]),
+    ).toEqual(
+      expect.arrayContaining([
+        [t.a.id, false],
+        [t.b.id, true],
+      ]),
+    );
     expect(view.blocked.byReason['user-cap']).toBeGreaterThan(0);
     expect(view.switches).toEqual({ freeTierEnv: true, freeTierRuntime: true, signups: true });
     expect(view.today.limits).toEqual({ tokens: 2_000_000, costUsd: 5 });
