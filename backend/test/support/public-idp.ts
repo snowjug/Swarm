@@ -1,5 +1,6 @@
 import { SignJWT, createLocalJWKSet, exportJWK, generateKeyPair, type JWK } from 'jose';
 import { buildApp } from '../../src/app.js';
+import type { PublicFetcher } from '../../src/ingest/url/fetcher.js';
 import type { PublicEditionOptions } from '../../src/public/context.js';
 import { publicEditionStorage } from '../../src/public/storage/edition.js';
 import { Repository } from '../../src/storage/repository.js';
@@ -172,11 +173,23 @@ export interface PublicHarness {
 
 export async function publicApp(
   environment: Record<string, string> = {},
-  options: { now?: () => number; public?: PublicEditionOptions; fetcher?: FakeProviders } = {},
+  options: {
+    now?: () => number;
+    public?: PublicEditionOptions;
+    fetcher?: FakeProviders;
+    /** Where the server's log goes, with its level: for a test that reads what the server wrote. */
+    log?: {
+      stream: { write(chunk: string): unknown };
+      level: 'fatal' | 'error' | 'warn' | 'info' | 'debug';
+    };
+    /** How pages are read from the web: a fetcher with a resolver of the test's choosing. */
+    urlFetcher?: PublicFetcher;
+  } = {},
 ): Promise<PublicHarness> {
   const config = {
     ...testConfig({ ...publicEnvironment, ...environment }),
     databasePath: 'pglite:memory',
+    ...(options.log ? { logLevel: options.log.level } : {}),
   };
   const providers = options.fetcher ?? new FakeProviders();
   const repository = new Repository(config.databasePath, {
@@ -187,6 +200,8 @@ export async function publicApp(
     config,
     repository,
     frontendRoot: null,
+    ...(options.log ? { logStream: options.log.stream } : {}),
+    ...(options.urlFetcher ? { urlFetcher: options.urlFetcher } : {}),
     public: {
       fetcher: providers.fetch,
       googleKeys: keys.resolver,

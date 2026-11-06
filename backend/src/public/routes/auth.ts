@@ -183,7 +183,11 @@ export function authRoutes(app: FastifyInstance, context: PublicContext): void {
     const token = readCookie(request.headers.cookie, context.sessionCookie);
     if (token) {
       const found = context.repository.sessions.find(token, context.lifetime.idleMs);
-      if (found) context.audit('public.signout', found.principal.id);
+      if (found) {
+        context.audit('public.signout', found.principal.id);
+        // Signing out forgets the key the server may be holding for this person's runs.
+        context.keys.forget(found.principal.tenantId);
+      }
       context.repository.sessions.revoke(token);
     }
     return reply

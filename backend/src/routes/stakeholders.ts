@@ -20,6 +20,7 @@ import { projectAllows } from '../auth/roles.js';
 import type { ProviderConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { productSignals } from '../telemetry/product-signals.js';
 import {
   actorEditSchema,
@@ -154,7 +155,7 @@ export function stakeholderRoutes(
   app: FastifyInstance,
   repository: Repository,
   createModel: ModelFactory,
-  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model'>,
+  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model' | 'name'>,
   rateScale = 1,
 ): void {
   const limit = (max: number) => ({ rateLimit: { max: max * rateScale, timeWindow: '1 minute' } });
@@ -333,7 +334,7 @@ export function stakeholderRoutes(
           model: wanted
             ? createModel(repository.modelUse(project.id), { maxCalls: MAX_DISCOVERY_CALLS })
             : null,
-          modelName: wanted ? provider.model : null,
+          modelName: wanted ? modelIdentity(provider).model : null,
           signal,
         }),
       );
@@ -546,7 +547,7 @@ export function stakeholderRoutes(
           model: wanted
             ? createModel(repository.modelUse(project.id), { maxCalls: MAX_PROPOSAL_CALLS })
             : null,
-          modelName: wanted ? provider.model : null,
+          modelName: wanted ? modelIdentity(provider).model : null,
           signal,
           existing: existing?.data ?? null,
           // A person is at the screen: a model that could not be used is told to them, not answered for.
@@ -681,7 +682,7 @@ export function stakeholderRoutes(
           model: wanted
             ? createModel(repository.modelUse(project.id), { maxCalls: MAX_PROPOSAL_CALLS })
             : null,
-          modelName: wanted ? provider.model : null,
+          modelName: wanted ? modelIdentity(provider).model : null,
           signal,
           onModelFailure: 'stop',
           ...(input.fallbackFrom ? { after: input.fallbackFrom } : {}),

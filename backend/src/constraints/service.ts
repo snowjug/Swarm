@@ -21,6 +21,7 @@ import { autoVariants } from '../analysis/variants.js';
 import type { ProviderConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { simulateEachSpecOnce } from '../simulation/simulate.js';
 import type { ArtifactRecord } from '../storage/artifacts.js';
 import type { Repository } from '../storage/repository.js';
@@ -48,7 +49,7 @@ const conflict = (): AppError =>
 
 export interface ConstraintServiceOptions {
   createModel: ModelFactory;
-  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model'>;
+  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model' | 'name'>;
   now?: () => Date;
   /** The engine the gate and the views run: the population simulator, unless a test supplies another. */
   simulator?: Simulator;
@@ -466,7 +467,7 @@ export class ConstraintService {
                 maxCalls: MODEL_CALLS,
               })
             : null,
-        modelName: mode === 'model' ? this.options.provider.model : null,
+        modelName: mode === 'model' ? modelIdentity(this.options.provider).model : null,
         signal,
         revisions: {
           scenario: records.scenario?.revision ?? 0,

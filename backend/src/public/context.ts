@@ -9,6 +9,9 @@ import { asSystemView } from '../storage/system-view.js';
 import type { PublicConfig } from './config.js';
 import { createBotCheck, type BotCheck } from './bot.js';
 import { buildProviders } from './identity/registry.js';
+import { EphemeralKeys } from './byok/keys.js';
+import { scrub } from './byok/secrets.js';
+import { WindowLimiter } from './limits.js';
 import type { IdentityProvider } from './identity/provider.js';
 import { PublicLoginStore } from './storage/login.js';
 import { PublicSettings } from './storage/settings.js';
@@ -51,6 +54,10 @@ export interface PublicContext {
   ledger: UsageLedger;
   /** What each project's model work is paid for with. */
   projectFunding: ProjectFundingStore;
+  /** A person's own key, in memory, for the length of their runs. Never stored anywhere. */
+  keys: EphemeralKeys;
+  /** Tries of a key, by account: it is a way to find out whether a key is valid, so it is not offered without limit. */
+  keyChecks: WindowLimiter;
   /** The free tier may be used at all right now: the environment, the run-time switch and a model that is set up all say yes. */
   freeEnabled(): boolean;
   /** Why the free tier cannot be used by this person (or by anyone, with no person), or null. */
@@ -133,6 +140,8 @@ export function createContext(
     signups,
     ledger,
     projectFunding,
+    keys: new EphemeralKeys({ now }),
+    keyChecks: new WindowLimiter(10, 60 * 60_000, now),
     providers: buildProviders(pub, {
       ...(options.fetcher ? { fetcher: options.fetcher } : {}),
       ...(options.googleKeys ? { googleKeys: options.googleKeys } : {}),
@@ -157,7 +166,8 @@ export function createContext(
         action,
         targetType: 'public',
         targetId: action,
-        detail,
+        // Whatever the detail holds, a key is not in what is kept.
+        detail: scrub(detail),
       });
     },
   };

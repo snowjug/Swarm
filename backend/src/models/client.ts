@@ -94,6 +94,12 @@ export interface ModelClientDeps {
    * in a pilot: nothing is reserved or settled, and the client behaves exactly as it always has.
    */
   spend?: SpendGate | null;
+  /**
+   * Judges a refusal from a provider whose errors are not OpenAI's (a person's own Gemini key). Given the status and the
+   * body (bounded, as text, read once), it returns the failure to raise, or null to have the usual one. It decides how an
+   * error reads and never repeats the body. Absent in a pilot.
+   */
+  failure?: ((status: number, body: string) => ProviderHttpError | null) | null;
 }
 
 interface ChatMessage {
@@ -156,6 +162,11 @@ interface CallPlan extends RequestPlan {
   reasoningEffort: ReasoningEffort | null;
   /** The most the reply may be, in tokens, thinking included: it grows when a reply is cut off at it. */
   maxTokens: number;
+  /**
+   * The name of that limit in the request. `max_completion_tokens` for every provider; a provider that does not know
+   * it (Gemini's compatibility layer is in beta) is asked again with `max_tokens`.
+   */
+  tokenField: 'max_completion_tokens' | 'max_tokens';
   /** Whether this client made the room for thinking that `maxTokens` holds, and so must change it with the effort. */
   madeRoom: boolean;
   /** The effort this client chose, where the route named none: it is the first thing an ambiguous refusal is blamed on. */
@@ -178,6 +189,7 @@ interface CallPlan extends RequestPlan {
     temperature: boolean;
     reasoningEffort: boolean;
     minimalEffort: boolean;
+    maxCompletionTokens: boolean;
   };
 }
 
@@ -427,7 +439,13 @@ export class ModelClient implements ModelGateway {
       // Per-proxy simulation makes many small calls, so a tokens-per-minute quota is throttled far
       // more often than a batched design would be; throttling gets its own, larger retry allowance.
       if (response.status === 429 && throttled < plan.retry.throttle) {
-        await response.body?.cancel();
+        if (this.deps.failure) {
+          // A refusal that says asking again will not help (a quota that is used up) is not asked again.
+          const judged = this.deps.failure(429, await boundedErrorText(response));
+          if (judged && !judged.retryable) throw judged;
+        } else {
+          await response.body?.cancel();
+        }
         await pause(retryDelay(response.headers.get('retry-after'), throttled), signal);
         throttled += 1;
         continue;
@@ -438,10 +456,13 @@ export class ModelClient implements ModelGateway {
         transient += 1;
         continue;
       }
+      const text = await boundedErrorText(response);
+      const judged = this.deps.failure?.(response.status, text) ?? null;
+      if (judged) throw judged;
       throw httpFailure(
         response.status,
         this.config,
-        await providerErrorDetail(response),
+        parseProviderError(text),
         name === 'foundry' ? plan.deployment : null,
       );
     }
@@ -675,9 +696,13 @@ export class ModelClient implements ModelGateway {
     const route = options.route;
     const deployment = route?.deployment ?? this.config.model;
     const foundry = this.config.name === 'foundry';
+    // Gemini, reached through its OpenAI-compatible endpoint, takes a strict schema and a reasoning effort like a
+    // Foundry deployment does, and no temperature (recent models ignore it and will refuse it).
+    const gemini = this.config.name === 'gemini';
+    const structured = foundry || gemini;
     const known = deployment ? this.capabilities.get(deployment) : {};
     let strict: StrictSchema | null = null;
-    if (foundry && route?.strictSchema !== false && known.jsonSchema !== false) {
+    if (structured && route?.strictSchema !== false && known.jsonSchema !== false) {
       const converted = toStrictSchema(schema, route?.task);
       if (
         converted.ok &&
@@ -690,7 +715,7 @@ export class ModelClient implements ModelGateway {
     // unless a route says otherwise. A deployment that takes no effort says so once, and is not asked again.
     const effortFloor: ReasoningEffort = known.minimalEffort === false ? 'low' : MINIMAL_EFFORT;
     const named = route?.reasoningEffort ?? null;
-    const takesEffort = foundry && known.reasoningEffort !== false;
+    const takesEffort = structured && known.reasoningEffort !== false;
     const chosenEffort = takesEffort && named === null ? STRUCTURED_EFFORT : null;
     const wanted = takesEffort ? (named ?? chosenEffort) : null;
     const reasoningEffort =
@@ -706,6 +731,7 @@ export class ModelClient implements ModelGateway {
       // room for it, unless a router has already made that room.
       maxTokens:
         route?.roomForReasoning === true ? answerTokens : budgetFor(answerTokens, reasoningEffort),
+      tokenField: known.maxCompletionTokens === false ? 'max_tokens' : 'max_completion_tokens',
       madeRoom: route?.roomForReasoning !== true,
       chosenEffort,
       blame: 'open',
@@ -714,7 +740,13 @@ export class ModelClient implements ModelGateway {
       retried: false,
       timeoutMs: route?.timeoutMs ?? this.config.timeoutMs,
       retry: route?.retry ?? { transient: MAX_TRANSIENT_RETRIES, throttle: MAX_THROTTLE_RETRIES },
-      refused: { schema: null, temperature: false, reasoningEffort: false, minimalEffort: false },
+      refused: {
+        schema: null,
+        temperature: false,
+        reasoningEffort: false,
+        minimalEffort: false,
+        maxCompletionTokens: false,
+      },
     };
   }
 
@@ -731,6 +763,15 @@ export class ModelClient implements ModelGateway {
     }
     const { code } = error.detail;
     const parameter = error.detail.param?.toLowerCase() ?? null;
+    if (
+      parameter === 'max_completion_tokens' &&
+      plan.tokenField === 'max_completion_tokens' &&
+      this.config.name === 'gemini'
+    ) {
+      plan.tokenField = 'max_tokens';
+      plan.refused.maxCompletionTokens = true;
+      return true;
+    }
     if (parameter?.startsWith('temperature') && plan.temperature !== null) {
       plan.temperature = null;
       plan.refused.temperature = true;
@@ -798,6 +839,9 @@ export class ModelClient implements ModelGateway {
     if (refused.temperature) this.capabilities.refused(deployment, { temperature: false });
     if (refused.reasoningEffort) this.capabilities.refused(deployment, { reasoningEffort: false });
     if (refused.minimalEffort) this.capabilities.refused(deployment, { minimalEffort: false });
+    if (refused.maxCompletionTokens) {
+      this.capabilities.refused(deployment, { maxCompletionTokens: false });
+    }
     plan.blame = 'cleared';
     plan.blamedEffort = null;
     plan.refused = {
@@ -805,6 +849,7 @@ export class ModelClient implements ModelGateway {
       temperature: false,
       reasoningEffort: false,
       minimalEffort: false,
+      maxCompletionTokens: false,
     };
   }
 
@@ -839,7 +884,7 @@ export class ModelClient implements ModelGateway {
                     },
                   }
                 : { type: 'json_object' },
-            max_completion_tokens: maxTokens,
+            [plan.tokenField]: maxTokens,
             ...(plan.temperature === null ? {} : { temperature: plan.temperature }),
             ...(plan.reasoningEffort === null ? {} : { reasoning_effort: plan.reasoningEffort }),
           },
@@ -1091,9 +1136,9 @@ export function parseProviderError(raw: string): ProviderErrorDetail {
   };
 }
 
-/** Reads a bounded error body for its machine codes. Any failure just means "no detail". */
-export async function providerErrorDetail(response: Response): Promise<ProviderErrorDetail> {
-  if (!response.body) return NO_DETAIL;
+/** Reads a bounded error body as text. Any failure, or a body that is too long, just means "no text". */
+async function boundedErrorText(response: Response): Promise<string> {
+  if (!response.body) return '';
   const reader = response.body.getReader();
   const parts: Uint8Array[] = [];
   let size = 0;
@@ -1104,13 +1149,18 @@ export async function providerErrorDetail(response: Response): Promise<ProviderE
       size += value.byteLength;
       parts.push(value);
     }
-    if (size > MAX_ERROR_BODY_BYTES) return NO_DETAIL;
-    return parseProviderError(new TextDecoder().decode(Buffer.concat(parts)));
+    if (size > MAX_ERROR_BODY_BYTES) return '';
+    return new TextDecoder().decode(Buffer.concat(parts));
   } catch {
-    return NO_DETAIL;
+    return '';
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+/** Reads a bounded error body for its machine codes. Any failure just means "no detail". */
+export async function providerErrorDetail(response: Response): Promise<ProviderErrorDetail> {
+  return parseProviderError(await boundedErrorText(response));
 }
 
 /**
@@ -1124,6 +1174,8 @@ export class ProviderHttpError extends AppError {
     message: string,
     public readonly providerStatus: number,
     public readonly detail: ProviderErrorDetail,
+    /** False when asking again cannot help (a quota that is used up): the call is not repeated. */
+    public readonly retryable = true,
   ) {
     super(statusCode, code, message);
     this.name = 'ProviderHttpError';

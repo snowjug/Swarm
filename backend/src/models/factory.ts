@@ -2,21 +2,30 @@ import type { ServerConfig, ProviderConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import { TaskCache } from './cache.js';
 import { CapabilityMemory } from './capabilities.js';
-import { ModelClient, type ModelGateway, type ModelUsageSink } from './client.js';
+import {
+  ModelClient,
+  type ModelClientDeps,
+  type ModelGateway,
+  type ModelUsageSink,
+} from './client.js';
 import { budgetLimit, OperationBudget } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
-import { cappedGateway, refusingGateway } from './gateways.js';
+import { cappedGateway, refusingGateway, rewordedGateway } from './gateways.js';
 import type { RoutingConfig } from './routing-config.js';
 import { createRouter, type Router } from './router.js';
 import { createTaskRunner, type TaskRunner } from './runner.js';
 import type { SpendGate } from './spend.js';
 import type { ModelRole, TaskObserver } from './task.js';
-import type { ProviderTelemetry } from './telemetry.js';
+import type { ModelObserver, ProviderTelemetry } from './telemetry.js';
 
-export type ModelFactory = (
-  onUsage: ModelUsageSink,
-  options?: { maxCalls: number },
-) => ModelGateway;
+export interface ModelFactory {
+  (onUsage: ModelUsageSink, options?: { maxCalls: number }): ModelGateway;
+  /**
+   * What a task is routed by, and the provider it is reached through, when the model being made now is not the
+   * operator's (a person's own key in the public edition); null when it is. A pilot's factory has none.
+   */
+  own?: () => { provider: ProviderConfig; routing: RoutingConfig } | null;
+}
 
 /**
  * How one model is to be reached and paid for, decided at the moment it is made. A pilot never decides: every model is
@@ -32,6 +41,16 @@ export interface ModelFunding {
   spend?: SpendGate | null;
   /** Holds each call to at most this many output tokens, by the role of the task. */
   outputCap?: ((role: ModelRole | null) => number) | null;
+  /** The routing of the tasks made with this model, when it is not the operator's: a person's provider names its own models. */
+  routing?: RoutingConfig;
+  /** What is known of the models this funding reaches, apart from the operator's: neither can teach the other a refusal. */
+  capabilities?: CapabilityMemory;
+  /** Counts the round trips apart from the operator's counters. */
+  observer?: ModelObserver | null;
+  /** How this provider's refusals read (see `ModelClientDeps.failure`). */
+  failure?: ModelClientDeps['failure'];
+  /** Changes how a failure of a call reads, never whether there is one (see `rewordedGateway`). */
+  reword?: ((error: unknown) => unknown) | null;
 }
 
 /** What decides, or the reason that nothing may be made. */
@@ -70,7 +89,7 @@ export function createModelFactory(
       : {},
   );
   telemetry.usePrices(config.routing.prices);
-  return (onUsage, options) => {
+  const factory: ModelFactory = (onUsage, options) => {
     const decided = funding?.();
     if (decided instanceof AppError) return refusingGateway(decided);
     const client = new ModelClient(
@@ -80,13 +99,24 @@ export function createModelFactory(
       options?.maxCalls ?? 16,
       {
         tokens,
-        observer: telemetry,
-        capabilities,
+        observer: decided?.observer === undefined ? telemetry : decided.observer,
+        capabilities: decided?.capabilities ?? capabilities,
         ...(decided?.spend ? { spend: decided.spend } : {}),
+        ...(decided?.failure ? { failure: decided.failure } : {}),
       },
     );
-    return decided?.outputCap ? cappedGateway(client, decided.outputCap) : client;
+    const capped = decided?.outputCap ? cappedGateway(client, decided.outputCap) : client;
+    return decided?.reword ? rewordedGateway(capped, decided.reword) : capped;
   };
+  if (funding) {
+    factory.own = () => {
+      const decided = funding();
+      return decided instanceof AppError || !decided.routing
+        ? null
+        : { provider: decided.provider, routing: decided.routing };
+    };
+  }
+  return factory;
 }
 
 interface Shared {
@@ -145,20 +175,27 @@ export function taskRunnerFor(
   createModel: ModelFactory,
   options: TaskRunnerOptions,
 ): TaskRunner {
-  const { router, cache } = sharedFor(config.routing);
+  // A person's own provider names its own models and has its own limits: tasks are routed by those, not the operator's.
+  const own = createModel.own?.() ?? null;
+  const routing = own?.routing ?? config.routing;
+  const { router, cache } = sharedFor(routing);
   return createTaskRunner({
-    gateway: config.provider.configured
-      ? createModel(options.onUsage, { maxCalls: options.maxCalls ?? 16 })
-      : null,
-    provider: config.provider.name,
+    gateway:
+      own || config.provider.configured
+        ? createModel(options.onUsage, { maxCalls: options.maxCalls ?? 16 })
+        : null,
+    provider: (own?.provider ?? config.provider).name,
     router,
     budgets: {
-      operation: options.budget === undefined ? newOperationBudget(config) : options.budget,
+      operation:
+        options.budget === undefined
+          ? newOperationBudget(own ? { ...config, routing } : config)
+          : options.budget,
       project: options.onUsage,
     },
     cache,
     observer: options.observer ?? null,
-    prices: config.routing.prices,
-    traceContent: config.routing.traceContent,
+    prices: routing.prices,
+    traceContent: routing.traceContent,
   });
 }

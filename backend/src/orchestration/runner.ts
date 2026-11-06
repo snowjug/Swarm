@@ -17,6 +17,7 @@ import { buildLocalGraph } from '../knowledge/graph.js';
 import { createLimiter } from '../limiter.js';
 import { ModelClient } from '../models/client.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { jobLease, type Job, type JobKind, type JobLease, type JobState } from '../storage/jobs.js';
 import type { Repository } from '../storage/repository.js';
 import { annotate, failSpan, inSpan, signals } from '../telemetry/signals.js';
@@ -212,8 +213,9 @@ export class Orchestrator {
         rounds: [],
         report: null,
         execution: {
-          provider: project.mode === 'local' ? 'none' : this.config.provider.name,
-          model: project.mode === 'local' ? null : this.config.provider.model,
+          provider:
+            project.mode === 'local' ? 'none' : modelIdentity(this.config.provider).provider,
+          model: project.mode === 'local' ? null : modelIdentity(this.config.provider).model,
           modelCalls: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -254,8 +256,8 @@ export class Orchestrator {
         throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.provider.reason);
       if (
         project.execution &&
-        (project.execution.provider !== this.config.provider.name ||
-          project.execution.model !== this.config.provider.model)
+        (project.execution.provider !== modelIdentity(this.config.provider).provider ||
+          project.execution.model !== modelIdentity(this.config.provider).model)
       ) {
         throw new AppError(
           409,
@@ -279,8 +281,9 @@ export class Orchestrator {
         stage: stepStage[step],
         error: null,
         execution: project.execution || {
-          provider: project.mode === 'local' ? 'none' : this.config.provider.name,
-          model: project.mode === 'local' ? null : this.config.provider.model,
+          provider:
+            project.mode === 'local' ? 'none' : modelIdentity(this.config.provider).provider,
+          model: project.mode === 'local' ? null : modelIdentity(this.config.provider).model,
           modelCalls: 0,
           inputTokens: 0,
           outputTokens: 0,

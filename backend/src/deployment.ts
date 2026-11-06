@@ -278,6 +278,8 @@ const ENDPOINT_SETTING = {
   foundry: 'FOUNDRY_ENDPOINT',
   openai: 'OPENAI_BASE_URL',
   ollama: 'OLLAMA_BASE_URL',
+  // Never an operator's provider (AI_PROVIDER does not take it): a person's own key reaches a fixed https address.
+  gemini: 'the provider address',
 } as const;
 
 function modelViolations({ mode, config, environment }: Context): string[] {

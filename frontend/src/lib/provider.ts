@@ -21,6 +21,8 @@ export function realModelLabel(provider: ProviderName): string {
       return 'REAL AZURE AI';
     case 'foundry':
       return 'REAL MODEL · Microsoft Foundry';
+    case 'gemini':
+      return 'REAL MODEL · Google Gemini (your key)';
     case 'openai':
       return 'REAL MODEL · OpenAI';
     case 'ollama':
@@ -40,6 +42,8 @@ export function providerName(provider: ProviderName): string {
       return 'Azure AI';
     case 'foundry':
       return 'Microsoft Foundry';
+    case 'gemini':
+      return 'Google Gemini (your key)';
     case 'openai':
       return 'OpenAI';
     case 'ollama':

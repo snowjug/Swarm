@@ -13,6 +13,34 @@ export function refusingGateway(error: AppError): ModelGateway {
 }
 
 /**
+ * The same gateway, with the error of a failed call replaced by `reword(error)`. For a funding whose provider speaks
+ * of itself differently (a person's own key: a block is Google's, not "the deployment's content filter"). It changes how
+ * a failure reads and never whether there is one.
+ */
+export function rewordedGateway(
+  inner: ModelGateway,
+  reword: (error: unknown) => unknown,
+): ModelGateway {
+  return {
+    ...(inner.provider ? { provider: inner.provider } : {}),
+    async json<T>(
+      schema: z.ZodType<T>,
+      instructions: string,
+      data: unknown,
+      signal: AbortSignal,
+      maxTokens?: number,
+      options?: JsonOptions<T>,
+    ): Promise<T> {
+      try {
+        return await inner.json(schema, instructions, data, signal, maxTokens, options);
+      } catch (error) {
+        throw reword(error);
+      }
+    },
+  };
+}
+
+/**
  * The same gateway, held to at most `cap(role)` output tokens a call. The router passes the role of every task with its
  * call, and a call that names none is held to what `cap(null)` says. It only ever lowers a limit.
  */

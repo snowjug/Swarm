@@ -5,6 +5,8 @@ export interface DeploymentCapabilities {
   reasoningEffort?: boolean;
   /** False for a deployment that takes an effort but not `minimal` (the o-series): its lowest is `low`. */
   minimalEffort?: boolean;
+  /** False for a provider that does not know `max_completion_tokens` and is asked with `max_tokens` instead. */
+  maxCompletionTokens?: boolean;
 }
 
 export interface CapabilityMemoryOptions {

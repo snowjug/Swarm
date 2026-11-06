@@ -137,7 +137,7 @@ export type EngineMode = SimulationSettings['mode'];
 export type ProjectStatus =
   'draft' | 'ready' | 'queued' | 'running' | 'completed' | 'failed' | 'cancelled';
 export type Stage = 'intake' | 'knowledge' | 'personas' | 'simulation' | 'report' | 'complete';
-export type ProviderName = 'none' | 'ollama' | 'openai' | 'azure' | 'foundry';
+export type ProviderName = 'none' | 'ollama' | 'openai' | 'azure' | 'foundry' | 'gemini';
 export type ProviderAuthMode = 'none' | 'api-key' | 'entra';
 
 export interface SourceDocument {

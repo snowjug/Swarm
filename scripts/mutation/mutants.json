@@ -582,8 +582,8 @@
       "area": "jobs",
       "claim": "A worker takes a job that another worker already holds",
       "file": "backend/src/storage/jobs.ts",
-      "find": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}) AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n             AND state IN (${inList(WAITING)})\n           RETURNING id`,",
-      "replace": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}, 'running') AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n           RETURNING id`,",
+      "find": "             WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}) AND not_before <= ?\n                         ORDER BY not_before, created_at, id LIMIT 1)\n               AND state IN (${inList(WAITING)})\n             RETURNING id`,",
+      "replace": "             WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}, 'running') AND not_before <= ?\n                         ORDER BY not_before, created_at, id LIMIT 1)\n             RETURNING id`,",
       "tests": ["backend/test/jobs.test.ts"]
     },
     {
@@ -1005,7 +1005,7 @@
       "area": "studio",
       "claim": "A chapter is written again by a different model than the one that wrote the report",
       "file": "backend/src/studio/regenerate.ts",
-      "find": "project.execution?.provider !== this.config.provider.name ||\n      project.execution?.model !== this.config.provider.model",
+      "find": "project.execution?.provider !== answering.provider ||\n      project.execution?.model !== answering.model",
       "replace": "false",
       "tests": ["backend/test/studio-regenerate.test.ts"]
     },

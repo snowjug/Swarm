@@ -153,6 +153,7 @@ export function accountRoutes(
         return result;
       });
       if (!report) throw new AppError(404, 'NOT_AVAILABLE', 'This account no longer exists.');
+      context.keys.forget(principal.tenantId);
       return reply
         .header('set-cookie', serializeCookie(context.sessionCookie, '', { maxAge: 0, secure }))
         .code(204)

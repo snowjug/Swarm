@@ -11,6 +11,7 @@ import type { ServerConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import type { ModelUsageSink } from '../models/client.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { parseScenario } from '../scenario/parse.js';
 import type { Repository } from '../storage/repository.js';
 
@@ -89,7 +90,7 @@ export function scenarioRoutes(
           documents,
           model,
           modelAsked: useModel,
-          modelName: config.provider.model,
+          modelName: modelIdentity(config.provider).model,
           signal: controller.signal,
           deadline: AbortSignal.timeout(MODEL_DEADLINE_MS),
         });

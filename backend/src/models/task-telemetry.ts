@@ -91,6 +91,7 @@ const PROVIDERS: Record<ProviderName, true> = {
   openai: true,
   azure: true,
   foundry: true,
+  gemini: true,
 };
 
 const known = (list: object, value: unknown): value is string =>
@@ -152,7 +153,7 @@ function outcomeOfReading(reading: TaskReading, repairs: number): TaskOutcomeKin
 function outcomeOfError(error: unknown, signal: AbortSignal | undefined): TaskOutcomeKind {
   const code = error instanceof AppError ? error.code : '';
   if (signal?.aborted || CANCELLATION_CODES.has(code)) return 'cancelled';
-  return code === 'MODEL_REFUSED' ? 'refused' : 'failed';
+  return code === 'MODEL_REFUSED' || code === 'BYOK_BLOCKED' ? 'refused' : 'failed';
 }
 
 /** Runs a recorder that must not be able to stop the work: one that fails is not made. */

@@ -22,6 +22,7 @@ export const PUBLIC_ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'DELETE /api/account': { kind: 'signed-in' },
   'GET /api/usage': { kind: 'signed-in' },
   'POST /api/byok/connect': { kind: 'signed-in' },
+  'DELETE /api/byok': { kind: 'signed-in' },
   'GET /api/admin/usage': { kind: 'platform' },
   'GET /api/admin/audit': { kind: 'platform' },
   'POST /api/admin/free-tier': { kind: 'platform' },

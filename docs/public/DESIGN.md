@@ -620,33 +620,38 @@ current documentation:
 ### 7.2 Which model
 
 The model list is **asked of the API**, not hard-coded: at "Connect", `GET …/models` with the person's key lists what
-that key can use. The default is chosen from that list by rule: a `gemini-*` model that is a text model (not
-`image`, `tts`, `live`, `audio`, `embedding`, `transcribe`, `veo`, `imagen`, `robotics`, `computer-use`), preferring
-`flash` over others, the highest version number, and a stable name over a `preview` or `exp` one; the person can pick
-any listed model. Model names change quickly, which is why none is written in code or configuration.
+that key can use (`chooseModels`, `backend/src/public/byok/connect.ts`). A model is offered if it is a `gemini-*` text
+model (not `image`, `tts`, `live`, `audio`, `embed`, `transcribe`, `veo`, `imagen`, `robotics`, `computer-use`, `aqa`,
+`learnlm` or `dialog`) with a name that is a name. They are ranked: `flash` first, then `flash-lite`, then `pro`, then the
+rest; within a family a **stable** name before a `preview` or `exp` one; then the highest version. The first is the
+default, so the default is the newest stable flash model the key can use, and a preview is the default only for a
+family that has nothing else. The person can pick any listed model (at most 40 are shown). Model names change quickly,
+which is why none is written in code or configuration.
 
 ### 7.3 Key handling, all mandatory
 
-| Rule                                                                             | How it is met                                                                                                                                                                               | Test                                                                          |
-| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
-| The key lives only in the browser                                                | `sessionStorage` (cleared when the tab closes), never `localStorage`; held in memory by the page and sent per request in the header `X-Swarm-Provider-Key`                                  | UI test: nothing in `localStorage`; e2e                                       |
-| Sent over HTTPS only                                                             | Same origin, `Secure` deployment, HSTS (helmet); the key is accepted only on a request that arrived over TLS in public mode (`x-forwarded-proto` from a trusted proxy)                      | test                                                                          |
-| The server uses it for that request only                                         | Read by a hook into the request's context and **deleted from `request.headers`**; never put in a `Repository` call or any object that is stored                                             | test                                                                          |
-| Never stored: database, logs, traces, metrics, errors, analytics, exports, cache | A **redaction layer** (`redactSecrets`) on the log stream, the error handler, provider error text, audit detail and telemetry attributes; no code path writes the key. `MODEL_CACHE` is off | canary test over logs, responses, exports and **every column of every table** |
-| Sent only to the provider's fixed host                                           | The base URL is a constant in code. A header or body that names a URL, host or proxy is ignored. `redirect: 'error'`; the client's `fetch` target is asserted in tests                      | test                                                                          |
-| Validated with one tiny request on "Connect"                                     | `POST /api/byok/connect` does one `GET …/models` (no tokens used) and answers a plain status: `valid`, `invalid`, `rate-limited`, `quota`, `region`, `unreachable`. It never echoes the key | fake Gemini                                                                   |
-| Only the last 4 characters are shown                                             | Computed in the page from the key it holds. The server does not return any part of the key                                                                                                  | UI test                                                                       |
-| "Forget key"; cleared on sign-out                                                | Clears `sessionStorage` and memory, and the server forgets any in-memory copy for the person's projects                                                                                     | e2e                                                                           |
-| A notice                                                                         | "Your key is used only for your requests and is never saved. Use a key with a spend limit."                                                                                                 | e2e                                                                           |
-| Not a key-validity oracle                                                        | `connect` needs a signed-in account and is limited to 10 a hour per account and per address                                                                                                 | test                                                                          |
+| Rule                                                                             | How it is met                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Test                                                                          |
+| -------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------- |
+| The key lives only in the browser                                                | `sessionStorage` (cleared when the tab closes), never `localStorage`; held in memory by the page and sent per request in the header `X-Swarm-Provider-Key`                                                                                                                                                                                                                                                                                                                                                          | UI test: nothing in `localStorage`; e2e                                       |
+| Sent over HTTPS only                                                             | Same origin, `Secure` deployment, HSTS (helmet); the key is accepted only on a request that arrived over TLS: `request.protocol` must be `https` (behind the platform's proxy that is its `X-Forwarded-Proto`, from the one trusted hop, so a hosted deployment needs `TRUST_PROXY=1`); on anything else the request is refused with `INSECURE_TRANSPORT` and the key is not used                                                                                                                                   | test                                                                          |
+| The server uses it for that request only                                         | The very first `onRequest` hook (`takeByokHeaders`) reads the three headers, registers the key for redaction, and **deletes them from `request.raw.headers` and the raw header list**, so that no later hook, plugin, handler or request log sees it; it lives on only in the funding of the request (an `AsyncLocalStorage` value), and for runs in `EphemeralKeys` (below); never put in a `Repository` call or any object that is stored                                                                         | test                                                                          |
+| Never stored: database, logs, traces, metrics, errors, analytics, exports, cache | A **redaction layer** (`byok/secrets.ts`): every key the server is handed is registered, and recognised in its URL, JSON and base64 forms; Google's key shape, a bearer token, the key header and a `key=` parameter are recognised by shape. It is applied to the log stream, the error handler's message, **every string response** (`onSend`) and audit detail; Google's own error text is never passed on at all (provider failures are raised in our words); no code path writes the key. `MODEL_CACHE` is off | canary test over logs, responses, exports and **every column of every table** |
+| Sent only to the provider's fixed host                                           | The base URL is a constant in code, and the key check builds its address from it and asserts the host. A header, query or body field that names a URL, host or proxy is ignored. `redirect: 'error'`, so a redirect cannot carry the key elsewhere; the client's `fetch` target is asserted in every test                                                                                                                                                                                                           | test                                                                          |
+| Validated with one tiny request on "Connect"                                     | `POST /api/byok/connect` does one `GET …/models` (no tokens used) and answers a plain status: `valid`, `invalid`, `rate-limited`, `quota`, `region`, `unreachable`, `disabled`, always with HTTP 200 (400 only for a request that carries no usable key). It never echoes the key or any text of Google's                                                                                                                                                                                                           | fake Gemini                                                                   |
+| Only the last 4 characters are shown                                             | Computed in the page from the key it holds. The server does not return any part of the key                                                                                                                                                                                                                                                                                                                                                                                                                          | UI test                                                                       |
+| "Forget key"; cleared on sign-out                                                | Clears `sessionStorage` and memory; `DELETE /api/byok` makes the server forget its in-memory copy; sign-out and deleting the account do too                                                                                                                                                                                                                                                                                                                                                                         | e2e                                                                           |
+| A notice                                                                         | "Your key is used only for your requests and is never saved. Use a key with a spend limit."                                                                                                                                                                                                                                                                                                                                                                                                                         | e2e                                                                           |
+| Not a key-validity oracle                                                        | `connect` needs a signed-in account; it and the model chip's check on a key share one limit of 10 an hour per account, and `connect` has the per-address route limit as well                                                                                                                                                                                                                                                                                                                                        | test                                                                          |
 
 **A key is short-lived server memory, not storage.** A run is a queued job and may outlive the request that started it.
 So that a person's run can use their key, the key is kept in an **in-process map** (`EphemeralKeys`), keyed by
-workspace and project, with a 90-minute idle and 4-hour absolute lifetime, never written anywhere, dropped on
-"Forget key", on sign-out, on account deletion and when the process stops. This is the one deviation from "that
-request only" and is decision 4. What keeps it safe: a project records a **non-secret funding marker**
-(`project_funding`: `free` or `byok`), so a BYOK run whose key has gone **stops** with "your key is not saved, so the
-run paused when the server restarted; reconnect your key and resume" and **never falls back to the owner's credits**.
+workspace (a person has one key at a time: the last one their page sent), with a 90-minute idle and 4-hour absolute
+lifetime (the same key is not extended past 4 hours by being used), never written anywhere, dropped on "Forget key",
+on sign-out, on account deletion and when the process stops. This is the one deviation from "that request only" and is
+decision 4. What keeps it safe: a project records a **non-secret funding marker** (`project_funding`: `free` or `byok`),
+set by a request that changes the project when the project is **not working** (a queued or running project keeps what it
+began with, so a later request cannot move a run to another payer), so a BYOK run whose key has gone **stops** with
+"your own key is not saved, so it is needed again" (`BYOK_KEY_NEEDED`) and **never falls back to the owner's credits**.
 Because the map is per process, the public deployment runs **one replica** (decision 4).
 
 ### 7.4 Limits for BYOK
@@ -659,14 +664,58 @@ person's own meter and the admin's view, and are never added to `global`.
 
 ### 7.5 Errors in plain words
 
-One next action each; provider text is never repeated. The mapping covers: bad key (`401`, `403`: "Google did not accept this
-key. Check that you copied all of it, or make a new one in AI Studio"), rate limited (`429`: "Your Google quota is used
-up for the moment. Wait a minute, or try a different model"), quota or billing (`RESOURCE_EXHAUSTED` with a quota
-message, `402`: "Your Google quota or billing does not allow this. Check your plan in AI Studio"), region (`403` with
-a location message, or "not available in your location": "Google does not offer this key's service from where the
-server is. Try another key"), model not found (`404`: pick another model), safety block (the reply was blocked:
-"Google blocked this request for safety reasons. Change the text and try again"), truncated and schema-invalid
-(the existing outcomes, reworded), timeout and unreachable.
+One next action each; provider text is never repeated. Google's errors are not OpenAI's (`code` is a number, `status` is a
+word such as `RESOURCE_EXHAUSTED`, and the error may come in a list), so they are read by `byok/errors.ts` for the kind of
+trouble they name, from the message, the status word, the reasons and the quota's own name, and raised as our own failure
+(`ModelClientDeps.failure`). The mapping: bad key (Google answers **400** `API_KEY_INVALID` for a key it does not know,
+and 401 or 403 for others: `BYOK_KEY_REJECTED`, "Google did not accept this key. Check that you copied all of it, or
+make a new one in AI Studio."), limit per minute (`429`: `BYOK_RATE_LIMITED`, "Your Google quota is used up for the
+moment. Wait a minute, or try a different model."; asked again after the wait), a limit per day or a plan that does not
+allow it (`429` with a per-day quota, "check your plan and billing", `402`, or "the free tier is not available in your
+country, enable billing": `BYOK_QUOTA`, "Your Google quota or billing does not allow this. Check your plan in AI
+Studio."; **not asked again**), region (`400` "User location is not supported": `BYOK_REGION`, "Google does not offer
+this key's service from where the server is. Try another key."), model not found (`404`: `BYOK_MODEL_NOT_FOUND`, "The
+model you chose is not available to your key. Pick another model in settings."), a block (the reply ended with
+`content_filter`: `BYOK_BLOCKED`, "Google blocked this request for safety reasons. Change the text and try again."; a
+refusal in every other way: never answered from rules), a setting Google's compatibility layer does not know (`Unknown
+name "max_completion_tokens"`, `reasoning_effort`, `response_format`: left out, or asked as `max_tokens`, once, and
+remembered for that model), and Google being overloaded or unreachable (`MODEL_HTTP_ERROR` in our words). Truncated and
+schema-invalid replies keep the existing outcomes and wording. The HTTP status of a failure is never 401 or 403, so that
+the page does not take a key problem for an expired session.
+
+### 7.6 Results are labelled with who wrote them
+
+The pilot labels a run, a proposal and a regeneration with the server's configured provider and model. With a person's own
+key that would say the operator's deployment wrote what Gemini wrote, and would let a project be moved from one provider
+to the other without being told (a pilot refuses that: `MODEL_CHANGED`). `models/identity.ts` is an
+`AsyncLocalStorage` that the funding sets when it is a person's own key; every place that records or compares the
+provider and model asks it (`modelIdentity`), and it answers the configured ones when nothing is set, as a pilot always
+did. So a run on a key is recorded as `gemini` and the model the person chose, the proposals say so, and a project that
+was started on one funding is refused (`MODEL_CHANGED`) when it is continued on the other, exactly as a pilot's is.
+
+### 7.7 Kept apart from the operator's
+
+A person's own key gets its **own** memory of what its models refuse (`CapabilityMemory`), its **own** routing
+(`byok/routing.ts`: one model, the one they chose, treated as a thinking model so that each task gets an effort and room
+to finish, no price, no dollar limit), and its **own** counters (`ProviderTelemetry`). So neither can teach the other a
+refusal (a person cannot make the operator's deployment look as if it refuses structured output by choosing a model with
+its name), and a stranger's failures are not the operator's. `GET /api/provider/status` and `POST /api/provider/check`
+describe the key when the request carries one: the provider is `gemini`, the model is the one they chose, the counters
+are their own, and `check` is the one request `connect` makes (it shares its limit).
+
+### 7.8 What the tests do
+
+`byok-parts.test.ts` (33, no server): the redaction layer (exact, encoded and by shape, forgetting, bounded), what a
+request says about a key and how the key is taken out of it, the key store's lifetimes, Google's errors read for their
+kind, the model choice, the key check against the fake Gemini, and the limiter. `byok.test.ts` (34, through the whole
+app with a fake Azure and a fake Gemini, on PostgreSQL with row security): trying a key, running on it (to Google's host
+only, a strict schema, no temperature, the effort, the token field and its fallback, labels), a reply cut off, a reply
+that fails the schema, every plain-language failure and which of them is asked again, a block, the free tier used up or
+switched off (a key is never blocked by it, and the free tier says why it is not available), a key that is gone (the run
+stops and never uses the free tier), transport that is not encrypted, bringing a key switched off, the concurrency cap,
+and a canary key over a whole session in **every log line, every response, every audit entry and every column of every
+table**, with the scan shown to find a key planted in a table and the log shown to remove one written to it. With the
+redaction layer removed, three of those fail, which was checked.
 
 ## 8. Abuse protection (e, Phase 5)
 
@@ -717,18 +766,22 @@ The page decides what to show from the error **code**, never from the message. T
 
 ### Signed in
 
-| Route                                                  | Answer                                                                                                                                                                                                                                                                                                 |
-| ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `GET /api/account`                                     | `{ emailMasked, provider, createdAt, isAdmin, projects: { count, limit }, storage: { usedBytes, limitBytes } }`                                                                                                                                                                                        |
-| `DELETE /api/account`                                  | body `{ confirm: "delete my account" }` → 204, everything deleted (section 4.6), cookie cleared                                                                                                                                                                                                        |
-| `GET /api/usage`                                       | `{ funding: "free" \| "byok", free: { available, reason, resetsAt, today: { calls, callLimit, tokens, tokenLimit, runsLeft, tokensPerRun }, lifetime: { tokens, limit }, inFlight: { calls, limit } }, byok: { enabled, today: { calls, tokens } } }`. `funding` is what **this request** would use    |
-| `POST /api/byok/connect`                               | headers `X-Swarm-Provider: gemini`, `X-Swarm-Provider-Key` → `{ status: "valid"\|"invalid"\|"rate-limited"\|"quota"\|"region"\|"unreachable"\|"disabled", message, models: [{id, label}], defaultModel }`. HTTP 200 for every status. 400 only for a malformed request. The key is never in the answer |
-| `GET /api/provider/status`, `POST /api/provider/check` | existing routes. In public mode: the caller's funding only (`{ configured, provider: "free-tier"\|"gemini", model: label, … }`), no endpoint, deployment or global counters; `check` runs only for BYOK, and for the free tier answers from the ledger without a model call                            |
-| every other existing `/api` route                      | unchanged, and funded by the request's funding                                                                                                                                                                                                                                                         |
+| Route                                                  | Answer                                                                                                                                                                                                                                                                                                                        |
+| ------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET /api/account`                                     | `{ emailMasked, provider, createdAt, isAdmin, projects: { count, limit }, storage: { usedBytes, limitBytes } }`                                                                                                                                                                                                               |
+| `DELETE /api/account`                                  | body `{ confirm: "delete my account" }` → 204, everything deleted (section 4.6), cookie cleared                                                                                                                                                                                                                               |
+| `GET /api/usage`                                       | `{ funding: "free" \| "byok", free: { available, reason, resetsAt, today: { calls, callLimit, tokens, tokenLimit, runsLeft, tokensPerRun }, lifetime: { tokens, limit }, inFlight: { calls, limit } }, byok: { enabled, today: { calls, tokens } } }`. `funding` is what **this request** would use                           |
+| `POST /api/byok/connect`                               | headers `X-Swarm-Provider: gemini`, `X-Swarm-Provider-Key` → `{ status: "valid"\|"invalid"\|"rate-limited"\|"quota"\|"region"\|"unreachable"\|"disabled", message, models: [{id, label}], defaultModel }`. HTTP 200 for every status. 400 only for a malformed request. The key is never in the answer                        |
+| `GET /api/provider/status`, `POST /api/provider/check` | existing routes. In public mode: the caller's funding only (`{ configured, provider: "foundry"\|"gemini", model: "Free tier"\|<their model>, … }`), no endpoint, deployment or global counters; `check` makes no model call on the free tier (it answers from the ledger), and on a key makes the one request `connect` makes |
+| `DELETE /api/byok`                                     | 204. The server forgets the key it holds in memory for this person's runs (the page clears its own copy)                                                                                                                                                                                                                      |
+| every other existing `/api` route                      | unchanged, and funded by the request's funding                                                                                                                                                                                                                                                                                |
 
-BYOK headers (read on any signed-in request, only in public mode, then deleted from the request):
+BYOK headers (read on any signed-in request, only in public mode, taken out of the request by its first hook):
 `X-Swarm-Provider: gemini`, `X-Swarm-Provider-Key: <key>`, `X-Swarm-Provider-Model: <model id>` (optional). The page
-attaches them to changes and to `GET /api/usage`.
+attaches them to changes and to `GET /api/usage`. A request whose headers are not in a form this server reads is
+refused (`INVALID_INPUT`), one sent over a connection that is not encrypted is refused (`INSECURE_TRANSPORT`), and one
+that carries a key while bringing a key is switched off is refused (`NOT_AVAILABLE`; only `connect` answers `disabled`),
+so that a key is never silently taken for a request on the free tier.
 
 ### Platform administrator
 
@@ -778,7 +831,13 @@ by the owner after deploying (the exact checks are in [DEPLOY.md](DEPLOY.md)):
 - Row security on the real Azure Database for PostgreSQL (the start-up self-check refuses to run if it is not in
   force, and PGlite is real PostgreSQL code but not the managed service).
 - Gemini's compatibility endpoint accepting `max_completion_tokens` and every strict schema (the client adapts, and
-  the fake server in the tests encodes what the documentation says, not what the live service does).
+  the fake server in the tests encodes what the documentation says, not what the live service does). Likewise the shape
+  of Google's errors (an invalid key is read as HTTP 400 `API_KEY_INVALID`, a limit per minute is told from one per day
+  by the quota's name in the details, a location problem by its message): they are from Google's troubleshooting guide
+  and from what is known of the service, not from a live key, so the classification is the most likely to need a change
+  once real keys are tried. Whether `GET …/models` on the compatibility endpoint lists ids with a `models/` prefix (both
+  forms are read), and whether Gemini counts hidden thinking tokens in `completion_tokens`, which only changes a
+  person's own meter.
 - Google and GitHub sign-in against the real providers, including the redirect URIs and the GitHub e-mail scope.
 - The model deployment, its quota and its real prices, the budget alert and the action-group webhook (Azure cost data
   is late, and a budget does not stop spend).

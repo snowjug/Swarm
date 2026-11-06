@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Funding } from '../../../shared/public.js';
+import { enterAsModel, runAsModel, type ModelIdentity } from '../models/identity.js';
 
 /**
  * What pays for the model calls of the code that is running now: the free tier, or a person's own key. Like the database
@@ -18,10 +19,19 @@ const storage = new AsyncLocalStorage<FundingContext>();
 
 export const currentFunding = (): FundingContext | undefined => storage.getStore();
 
-export const runWithFunding = <T>(context: FundingContext, operation: () => T): T =>
-  storage.run(context, operation);
+/** Work paid for with a person's own key is labelled as the model they chose, and never as the operator's. */
+const identityOf = (context: FundingContext): ModelIdentity | null =>
+  context.funding === 'byok' && context.byok?.model
+    ? { provider: 'gemini', model: context.byok.model }
+    : null;
+
+export const runWithFunding = <T>(context: FundingContext, operation: () => T): T => {
+  const identity = identityOf(context);
+  return storage.run(context, () => (identity ? runAsModel(identity, operation) : operation()));
+};
 
 /** The form Fastify documents for context that must reach later hooks and the handler: `done` runs inside it. */
 export const enterFunding = (context: FundingContext, done: () => void): void => {
-  storage.run(context, done);
+  const identity = identityOf(context);
+  storage.run(context, () => (identity ? enterAsModel(identity, done) : done()));
 };

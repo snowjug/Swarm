@@ -140,3 +140,52 @@ refuses a call on that call's worst case.
 
 **Open issues**: no real PostgreSQL server was raced (only SQLite threads and PGlite); the test is ready for one
 (`SWARM_TEST_POSTGRES_URL`). Cost is estimated from `MODEL_PRICES`, not read from Azure.
+
+## Phase 4: bring your own key (Google AI Studio / Gemini)
+
+**Done**
+
+- **The provider**: Gemini through its OpenAI-compatible endpoint, host a constant (`byok/provider.ts`), reached by the
+  existing `ModelClient` (strict schema, a reasoning effort, no temperature, the same retry, truncation and repair
+  handling as the Azure path), with `max_completion_tokens` falling back to `max_tokens` once if Google does not know
+  it. Google's errors are read for their kind (`byok/errors.ts`) and raised in our words with a code the page knows;
+  a quota or a bad key is not asked again, a limit per minute is. The models are asked of the API at "Connect" and the
+  default is chosen by rule (`byok/connect.ts`), never named in code.
+- **Key handling**: the first `onRequest` hook takes the three headers out of the request and registers the key; it
+  lives only in the funding of the request and, for a queued run, in an in-memory store per workspace
+  (`byok/keys.ts`: 90 minutes idle, 4 hours absolute, forgotten on "Forget key", sign-out, deletion and shutdown). A key is
+  refused over a connection that is not encrypted, and is never taken as a request for the free tier when bringing a key
+  is off. A **redaction layer** (`byok/secrets.ts`) removes a key from every log line, error message, string response
+  and audit entry, by what the server was handed and by shape.
+- **Routes**: `POST /api/byok/connect` (one request that uses no tokens, five plain statuses, limited per account),
+  `DELETE /api/byok`, and `/api/provider/status|check` that describe the key.
+- **Funding**: a run on a key finds the key in memory, or stops with `BYOK_KEY_NEEDED` and never uses the free tier. A
+  project's funding marker only changes while it is not working. Calls are counted for the person's own meter and
+  concurrency, never against the free tier, so a used-up or switched-off free tier never blocks a key.
+- **Honest labels** (`models/identity.ts`): results, runs and proposals made with a key say `gemini` and the model the
+  person chose, and a project is not moved between funding sources without `MODEL_CHANGED`. The operator's deployment name
+  was in those labels, and is not any more for a key.
+- **Kept apart**: its own memory of refusals, routing and counters, so neither funding teaches the other.
+- The free tier's failures are worded for a stranger (no deployment, endpoint or setting names), with the codes kept.
+- `docs/public/ISOLATION.md` lists every route and what isolates it, generated from the registry and checked by a test.
+
+**Tests**: `byok-parts.test.ts` (33) and `byok.test.ts` (34, through the whole app with a fake Azure and a fake Gemini): a
+valid, invalid, rate-limited, over-quota and wrong-region key, a reply cut off, a reply that fails the schema, a block,
+the token-field and effort fallbacks, the free tier used up and switched off, a run whose key is gone, an unencrypted
+connection, bringing a key switched off, the concurrency cap, and a canary key over a whole session in every log line,
+response, audit entry and table column (with the scan shown to find a planted key and three of the tests shown to fail
+without the redaction layer). The full suite was run once: 9,275 passed; 4 failed, of which two were environmental (a port
+in use; a temporary-folder snapshot while another process wrote there) and passed alone, and two were real and are fixed
+(two security-mutation anchors that Phase 2's indentation had moved, and a link in the deploy guide).
+
+**Next**: Phase 5, abuse protection: rate limits per account and per address, project and storage quotas, headers,
+errors without internals, the bot-check test, SSRF and prompt-injection tests through the public routes.
+
+**Decisions**: one key per person (per workspace), not per project. A key that fails a check is not kept. The default model
+is the newest stable flash model the key lists. Google's quota errors are told apart by the quota's own name (per minute
+or per day), and an unknown 429 is read as a plan limit when it says so and as a limit to wait out when it does not.
+
+**Open issues**: nothing was tried against Google: the compatibility layer's acceptance of `max_completion_tokens` and of
+each strict schema, and the exact shapes of its errors, are from its documentation (section 11 of DESIGN.md). The page does
+not yet call `DELETE /api/byok` on "Forget key" (the key is forgotten by the server after at most 90 idle minutes), and its
+model chip does not send the key with `GET /api/provider/status`: both to be settled when the page is reviewed.

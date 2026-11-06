@@ -27,7 +27,7 @@ export function constraintRoutes(
   app: FastifyInstance,
   repository: Repository,
   createModel: ModelFactory,
-  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model'>,
+  provider: Pick<ProviderConfig, 'configured' | 'reason' | 'model' | 'name'>,
   rateScale = 1,
   simulator?: Simulator,
 ): ConstraintService {

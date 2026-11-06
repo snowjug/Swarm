@@ -19,8 +19,10 @@ import { createPublicGuard } from './guard.js';
 import { publicFundingSource } from './models.js';
 import { accountRoutes } from './routes/account.js';
 import { authRoutes } from './routes/auth.js';
+import { byokRoutes } from './routes/byok.js';
 import { publicProviderRoutes } from './routes/provider.js';
 import { nextResetAt, usageRoutes } from './routes/usage.js';
+import { byokOf } from './byok/provider.js';
 
 export type { PublicEditionOptions } from './context.js';
 
@@ -55,6 +57,7 @@ export function createPublicEdition(input: {
 }): PublicEdition {
   const { config, repository } = input;
   const context = createContext(config, repository, input.options ?? {});
+  const { pub } = context;
   // The repository must have been opened with this edition's storage, or its isolation is not in force.
   const ready = repository.asSystem(() =>
     repository.extend((database) => {
@@ -90,10 +93,7 @@ export function createPublicEdition(input: {
   purge.unref();
 
   const guard = createPublicGuard(context);
-  const funding = publicFundingSource(
-    context,
-    () => new AppError(503, 'BYOK_KEY_REJECTED', 'Using your own key is not available.'),
-  );
+  const funding = publicFundingSource(context);
 
   /** One workspace holds at most this many runs at once, whatever pays for them. */
   const admit = (projectId: string): void => {
@@ -134,12 +134,63 @@ export function createPublicEdition(input: {
         done();
         return;
       }
-      const byok = null;
+      // What the page said about a key of its own was taken out of the request when it arrived (`takeByokHeaders`).
+      const said = byokOf(request);
+      if (said.kind === 'invalid') {
+        done(
+          new AppError(
+            400,
+            'INVALID_INPUT',
+            said.about === 'key'
+              ? 'The key you sent is not in a form this server reads. Copy it again from AI Studio.'
+              : said.about === 'model'
+                ? 'The model you sent is not a model name.'
+                : 'That provider is not one this server can use.',
+          ),
+        );
+        return;
+      }
+      let byok: FundingContext['byok'] = null;
+      if (said.kind === 'ok') {
+        if (!pub.byok.enabled) {
+          // The key check says "switched off" in its own words. Anything else that carries a key is refused, so that a key
+          // is never taken silently as a request for the free tier.
+          if (request.routeOptions.url !== '/api/byok/connect') {
+            done(
+              new AppError(
+                403,
+                'NOT_AVAILABLE',
+                'Using your own key is switched off on this site.',
+              ),
+            );
+            return;
+          }
+        } else {
+          // A key is sent over an encrypted connection or not at all, so that nothing between the person and this server
+          // can read it. Behind the platform's proxy the protocol is the one it reports.
+          if (pub.secureCookies && request.protocol !== 'https') {
+            done(
+              new AppError(
+                400,
+                'INSECURE_TRANSPORT',
+                'Your key was not used: this connection is not encrypted. Open the site over https.',
+              ),
+            );
+            return;
+          }
+          byok = said.byok;
+          context.keys.put(principal.tenantId, said.byok.key, said.byok.model);
+        }
+      }
       const mode = byok ? 'byok' : 'free';
       // A request that changes a project may start model work on it: the project remembers what pays for it (the word
-      // only, never a key), so that a run is never moved onto the owner's credits by the key going away.
+      // only, never a key), so that a run is never moved onto the owner's credits by the key going away. A project that
+      // is working keeps what it began with: a later request cannot move a queued or running run to another payer.
       const id = UNSAFE.has(request.method) ? projectParams.safeParse(request.params) : null;
-      if (id?.success) {
+      if (
+        id?.success &&
+        !(services?.jobs.isBusy(id.data.id) || services?.interaction.isBusy(id.data.id))
+      ) {
         try {
           context.projectFunding.set(id.data.id, mode);
         } catch {
@@ -152,6 +203,8 @@ export function createPublicEdition(input: {
     attach(attached) {
       services = attached;
       // A run is paid for as the project says, in the workspace that owns it, whenever and wherever it is picked up.
+      // A run on its person's own key finds the key in memory; if it is gone the run has no model, and it does not
+      // use the free tier instead.
       attached.jobs.wrapRuns((job, run) => {
         const owner = repository.asSystem(() => repository.ownership(job.projectId));
         if (!owner) return run();
@@ -159,7 +212,7 @@ export function createPublicEdition(input: {
         const ours: FundingContext = {
           workspaceId: owner.tenantId,
           funding: marker,
-          byok: null,
+          byok: marker === 'byok' ? context.keys.get(owner.tenantId) : null,
         };
         return runWithFunding(ours, run);
       });
@@ -192,10 +245,13 @@ export function createPublicEdition(input: {
         resetsAt: () => nextResetAt(context.now()),
       });
       usageRoutes(app, context);
+      byokRoutes(app, context);
       publicProviderRoutes(app, context, config.rateLimitScale);
     },
     close() {
       clearInterval(purge);
+      // A key is memory for a run's length: nothing of it outlives the process, and nothing outlives the edition.
+      context.keys.forgetAll();
     },
   };
 }

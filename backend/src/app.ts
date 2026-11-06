@@ -126,6 +126,13 @@ const DRAIN_FACTOR = 8;
 
 export async function buildApp(options: AppOptions) {
   const { config } = options;
+  // The public edition's code is loaded only when it is asked for, so a pilot never even reads it. In it, a person's own
+  // key is removed from every log line, error message and response, whatever wrote it there (docs/public/DESIGN.md, 7.3).
+  const secrets = config.edition === 'public' ? await import('./public/byok/secrets.js') : null;
+  const logStream = secrets
+    ? secrets.redactingStream(options.logStream ?? process.stdout)
+    : options.logStream;
+  const redact = secrets?.redactSecrets ?? ((text: string) => text);
   const app = Fastify({
     bodyLimit: BODY_LIMIT,
     requestTimeout: 30_000,
@@ -142,8 +149,13 @@ export async function buildApp(options: AppOptions) {
     frameworkErrors: frameworkFailure,
     logger: {
       level: config.logLevel,
-      ...(options.logStream ? { stream: options.logStream } : {}),
-      redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
+      ...(logStream ? { stream: logStream } : {}),
+      redact: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'res.headers.set-cookie',
+        'req.headers["x-swarm-provider-key"]',
+      ],
       serializers: {
         req(request) {
           return {
@@ -155,7 +167,7 @@ export async function buildApp(options: AppOptions) {
       },
     },
   });
-  // The public edition's code is loaded only when it is asked for, so a pilot never even reads it.
+  // The public edition's storage is made only when it is asked for.
   const editionStorage =
     config.edition === 'public' && config.public && !options.repository
       ? (await import('./public/storage/edition.js')).publicEditionStorage(config.public)
@@ -166,6 +178,18 @@ export async function buildApp(options: AppOptions) {
       entra: config.databaseAuth === 'entra',
       ...(editionStorage ? { edition: editionStorage } : {}),
     });
+  // First, so that no hook, plugin or handler after it can see a person's own key in a request: it is taken out of the
+  // request, registered for redaction, and kept only in the funding of the request (public edition only).
+  if (config.edition === 'public') {
+    const { takeByokHeaders } = await import('./public/byok/provider.js');
+    app.addHook('onRequest', async (request) => {
+      takeByokHeaders(request);
+    });
+    // The last line of defence for a response: a key that got into one by any route is removed from it.
+    app.addHook('onSend', async (_request, _reply, payload) =>
+      typeof payload === 'string' ? redact(payload) : payload,
+    );
+  }
   // First, so that every answer, a refusal included, carries the correlation id.
   registerRequestTelemetry(app);
   registerDeployment(app, config.deployment);
@@ -379,7 +403,9 @@ export async function buildApp(options: AppOptions) {
       );
     }
     recordApiError(request, status, failure.code);
-    return reply.code(status).send({ error: { ...failure, requestId: request.id } });
+    return reply
+      .code(status)
+      .send({ error: { ...failure, message: redact(failure.message), requestId: request.id } });
   });
 
   app.get('/api/health', async () => ({

@@ -82,7 +82,12 @@ export interface TaskOutcome<T> {
 export const TASK_REPAIRS = 1;
 
 /** A person or a safety rule said no. Answering from rules would hide that, so it is never a fallback. */
-const NEVER_FALLBACK = new Set(['MODEL_REFUSED', 'RUN_CANCELLED', 'CLIENT_DISCONNECTED']);
+const NEVER_FALLBACK = new Set([
+  'MODEL_REFUSED',
+  'BYOK_BLOCKED',
+  'RUN_CANCELLED',
+  'CLIENT_DISCONNECTED',
+]);
 
 /** What each class of failure says went wrong, without saying what was done about it. */
 const CAUSE: Record<Exclude<ModelFailureCode, 'MODEL_UNEXPECTED'>, string> = {
