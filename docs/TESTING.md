@@ -1104,6 +1104,21 @@ since the premium rebuild, and a heading of the report spec, since the decision 
 [`evaluation/results/ai-latest.md`](../evaluation/results/ai-latest.md) (2026-11-03): two thresholds breached, and the
 live mode not measured. None of this is a run in Azure.
 
+**The run of 6 November 2026 (the public edition, branch `feat/swarm-public-edition`).** On the tree of `bd8f9e1`, on a
+shared four-vCPU machine (load average 12 to 17), none of it against Azure, a real model, Google or GitHub. The typecheck of
+five projects, ESLint with no warnings and Prettier on every tracked file are clean; `npx vitest run` gives **371 files,
+9,322 passed, 2 skipped, 2 failed** (475 of the passed tests are the public edition's; the two failures,
+`foundry-client.test.ts` "stops at once when it is cancelled mid-flight" and `scripts/mutation/run.test.ts`, passed alone);
+`npm run build`, `npm run scan:secrets` (0 findings) and `npm run iac:validate` (83 checks) pass; the mutation checks of the
+`public` area (**44 of 44**) and the 40 pilot mutations on files this branch changed (**40 of 40**) were caught. In
+Playwright: `public` 4 of 4, `model` 52 of 52, the production journey 22 of 22, `local` 353 of 354, `signin` 19 of 20, `lab`
+609 of 614 and the demonstration journey 1 of 8. The failures are not this branch's: the demonstration journey fails the same
+way at the base commit (a statement 937 px down a 900 px screen) and its other six tests then do not run; `lab` has the four
+failures it had (three on the Ask screen, one of Ground on a phone) and one that passed alone; `signin/access.spec.ts:170`
+is a race in the test (it presses Escape and reopens the same menu at once), which failed 4 of 10 runs at the base commit and
+5 of 10 here; `local/panels.spec.ts:210` failed once and passed in three later runs. The details are in section 12 of
+[`docs/public/DESIGN.md`](./public/DESIGN.md).
+
 <!-- TEST COUNTS: the rows npm run check, format:check, test:e2e, test:postgres, mutation:security, npm audit, scan:secrets and audit:ui hold the recorded results of the full run on the tree named in them. Replace them after the next full run, and say which tree and date. -->
 
 | Check                                                    | Command                     | Result recorded then                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                           |

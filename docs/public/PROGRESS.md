@@ -319,3 +319,36 @@ edition, because it expects the pilot's sign-in redirect and its multi-revision 
 refused there, not here); whether the managed PostgreSQL honours the role and row-security setup is checked by the
 application's start-up self-check and by the queries in DEPLOY.md section 10; a restart or a scale to zero forgets every key
 held in memory (people paste it again).
+
+## Phase 8: verification, self-review and delivery
+
+**Done**
+
+- **Browser journeys** (`e2e/public/`, a new `public` Playwright project on its own server with fake Google, Foundry and
+  Gemini): sign up, a free run, the cap reached, a key added, a run on it, the key forgotten, the account deleted, and a check
+  that the key travelled only to this site, in a header; the administrator's switch with two browsers; one person against
+  another's project (with a positive control); sign-out. 4 tests, all pass; the cap-reached step was shown to be checked,
+  because the journey fails when the free allowance is raised to five calls.
+- **Mutation checks for the public edition**: 44 (E1 to E44) added to `scripts/mutation`. First run 40 of 44 caught. E3
+  was an error (a start-up refusal that Vitest reports as a skipped suite), and E4, E22 and E31 survived because a second
+  layer hid them. A test for each: `rls.test.ts` fails every test with the edition's reason; `auth.test.ts` flags an
+  account in its row alone and counts the sessions after a deletion (on two devices); `byok.test.ts` asks the model source
+  what a run would be given once its key is gone (E31 was rewritten to fall through to the operator's deployment, which is
+  the failure its claim names). All 44 caught. The runner's reach check now follows `import('./x')`.
+- **A refused model is said plainly** in the reading of a question (`scenario/parse.ts`, `reading.test.ts`): "The model was
+  not used: ... The rules read this question instead." Inert in a pilot.
+- **Full verification** and **the self-review against the threat model** are in DESIGN section 12, and the dated results in
+  `docs/TESTING.md`. In short: typecheck, lint, format, build, secret scan and iac validation clean; 9,322 unit tests pass (2
+  load flakes that pass alone); the 40 pilot mutations on files this branch changed are all caught; Playwright public 4/4,
+  model 52/52, production journey 22/22, local 353/354, signin 19/20, lab 609/614, demonstration journey 1/8, with every
+  failure shown to be older than this branch, a race in the test, or a flake that passes alone.
+- The README, `docs/TESTING.md` and the repository map point to the public edition.
+
+**Decisions**: the pilot's flaky tests were left as they are (not this branch's to change), and are listed with the evidence;
+the other 126 pilot mutations were not run again because they target files this branch did not change; no dependency was
+added.
+
+**Open issues**: the five remaining risks at the end of DESIGN section 12. Nothing has met a real sign-in, a real model, a
+real Gemini key, Turnstile, Azure Resource Manager or a managed PostgreSQL.
+
+**Delivery**: the branch is pushed and a pull request is opened against `feat/swarm-production-v1`; see the final report.
