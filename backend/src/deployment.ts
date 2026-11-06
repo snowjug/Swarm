@@ -197,6 +197,7 @@ function loopback(hostname: string): boolean {
 
 function authViolations({ config }: Context): string[] {
   const { auth } = config;
+  if (auth.mode === 'public') return publicAuthViolations(config);
   if (auth.mode !== 'entra') {
     return [
       'AUTH_MODE is "none", so nobody would have to sign in. Set AUTH_MODE=entra with AUTH_ENTRA_TENANT_ID, AUTH_ENTRA_AUDIENCE, AUTH_ENTRA_CLIENT_ID and AUTH_ENTRA_REDIRECT_URI.',
@@ -233,6 +234,39 @@ function authViolations({ config }: Context): string[] {
   if (auth.jwksUri && new URL(auth.jwksUri).hostname.toLowerCase() !== MICROSOFT_KEYS_HOST) {
     found.push(
       'AUTH_ENTRA_JWKS_URI is not Microsoft’s key endpoint, so tokens signed by keys fetched from anywhere else would be accepted. Leave it unset.',
+    );
+  }
+  return found;
+}
+
+/** What a hosted public edition must have: every sign-in over https, a session that ends, and an address that is not this machine's. */
+function publicAuthViolations(config: Omit<ServerConfig, 'deployment'>): string[] {
+  const found: string[] = [];
+  const pub = config.public;
+  if (!pub) return ['SWARM_EDITION is public but its settings were not read.'];
+  if (!pub.secureCookies) {
+    found.push(
+      'PUBLIC_BASE_URL is not an https address, so the session cookie would not be Secure. Use https://<the address people open>.',
+    );
+  }
+  if (loopback(new URL(pub.baseUrl).hostname)) {
+    found.push(
+      'PUBLIC_BASE_URL names a loopback address. Use the address people open, derived from the deployed host name.',
+    );
+  }
+  if (pub.session.idleMinutes > MAX_IDLE_MINUTES) {
+    found.push(
+      `AUTH_SESSION_IDLE_MINUTES is ${pub.session.idleMinutes}: a hosted session may sit idle for at most ${MAX_IDLE_MINUTES} minutes.`,
+    );
+  }
+  if (pub.session.absoluteHours > MAX_ABSOLUTE_HOURS) {
+    found.push(
+      `AUTH_SESSION_ABSOLUTE_HOURS is ${pub.session.absoluteHours}: a hosted session may last at most ${MAX_ABSOLUTE_HOURS} hours in all.`,
+    );
+  }
+  if (config.trustedProxies < 1) {
+    found.push(
+      'TRUST_PROXY is 0, so every caller would appear to be the platform’s ingress and the per-address limits and the signup throttle would count everyone as one. Set TRUST_PROXY=1 behind one ingress.',
     );
   }
   return found;
