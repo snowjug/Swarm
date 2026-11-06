@@ -133,8 +133,10 @@ is made, what is refused outright, and what funds a model call.
 
 ### Modules
 
-All public-edition code lives under `backend/src/public/` and is imported only when the edition is `public`, so the
-pilot's module graph is unchanged. Small, reviewed seams touch shared code:
+All public-edition code lives under `backend/src/public/`. The modules that do any work are loaded with a dynamic
+`import()` only when the edition is `public` (`backend/src/app.ts`), so a pilot never reads them; the one public module
+a pilot does import is `public/config.ts`, a pure parser that runs only when `SWARM_EDITION=public`. Small, reviewed
+seams touch shared code:
 
 | Seam                                   | Change                                                                                                 |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------------ |
@@ -166,35 +168,40 @@ pilot's module graph is unchanged. Small, reviewed seams touch shared code:
 New names, all read in `config.ts`. A bad value stops start-up and names the variable, never repeating its value.
 Defaults are deliberately conservative. A value marked **required** must be set in public mode.
 
-| Variable                                      | Default       | Meaning                                                                                  |
-| --------------------------------------------- | ------------- | ---------------------------------------------------------------------------------------- |
-| `SWARM_EDITION`                               | `pilot`       | `pilot` or `public`                                                                      |
-| `PUBLIC_BASE_URL`                             | **required**  | `https://…` origin of the site (`http` only for localhost). Redirect URIs derive from it |
-| `PUBLIC_GOOGLE_CLIENT_ID` / `_CLIENT_SECRET`  | unset         | Google sign-in is offered only when both are set                                         |
-| `PUBLIC_GITHUB_CLIENT_ID` / `_CLIENT_SECRET`  | unset         | GitHub sign-in likewise. At least one provider is required                               |
-| `PUBLIC_ADMIN_EMAILS`                         | empty         | Comma-separated verified e-mails that are platform administrators                        |
-| `PUBLIC_SIGNUPS_ENABLED`                      | `true`        | Starting value of the "signups open" switch (the admin can flip it at run time)          |
-| `PUBLIC_BLOCKED_EMAIL_DOMAINS`                | empty         | Comma-separated domains that cannot sign up (disposable mail)                            |
-| `PUBLIC_MAX_PROJECTS`                         | `10`          | Projects per workspace                                                                   |
-| `PUBLIC_STORAGE_QUOTA_MB`                     | `20`          | Stored text per workspace                                                                |
-| `PUBLIC_DELETED_ACCOUNT_RETENTION_DAYS`       | `30`          | How long the keyed counter of a deleted account is kept (section 4.6)                    |
-| `PUBLIC_ALLOW_RESEARCH`                       | `false`       | Allow the web-research crawler                                                           |
-| `PUBLIC_DB_RUNTIME_ROLE`                      | `swarm_app`   | The role that row security is enforced on (section 5)                                    |
-| `PUBLIC_ALLOW_UNSAFE_SQLITE`                  | `false`       | Development only: SQLite has no row security, so public mode refuses it without this     |
-| `PUBLIC_OPS_KEY_SHA256`                       | unset         | SHA-256 (hex) of the key the budget automation presents (section 6.6)                    |
-| `FREE_TIER_ENABLED`                           | `true`        | Hard switch from the environment; `false` wins over the run-time switch                  |
-| `FREE_USER_DAILY_TOKENS`                      | `60000`       | Tokens (input + output + hidden reasoning) one person may use per UTC day                |
-| `FREE_USER_DAILY_CALLS`                       | `40`          | Model round trips one person may make per UTC day                                        |
-| `FREE_USER_LIFETIME_TOKENS`                   | `300000`      | Tokens one account may ever use on the free tier                                         |
-| `FREE_USER_CONCURRENT_RUNS`                   | `1`           | Runs (queued or running jobs) one workspace may have at once                             |
-| `FREE_USER_CONCURRENT_CALLS`                  | `3`           | Model round trips one person may have in flight                                          |
-| `FREE_GLOBAL_DAILY_TOKENS`                    | `2000000`     | Tokens all free users together may use per UTC day                                       |
-| `FREE_GLOBAL_DAILY_COST_USD`                  | `5`           | Estimated spend all free users together may cause per UTC day                            |
-| `FREE_TOKENS_PER_RUN`                         | `15000`       | Only for the meter: what "one run" is taken to cost                                      |
-| `FREE_ROLE_MAX_OUTPUT_TOKENS`                 | table in code | JSON, per model role, at most these output tokens on the free tier                       |
-| `BYOK_ENABLED`                                | `true`        | Allow people to bring a key                                                              |
-| `BYOK_MAX_CONCURRENT_CALLS`                   | `4`           | Round trips one person may have in flight on their own key                               |
-| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY` | unset         | Bot protection is on only when both are set                                              |
+| Variable                                        | Default       | Meaning                                                                                                                                                                                   |
+| ----------------------------------------------- | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SWARM_EDITION`                                 | `pilot`       | `pilot` or `public`                                                                                                                                                                       |
+| `PUBLIC_BASE_URL`                               | **required**  | `https://…` origin of the site (`http` only for localhost). Redirect URIs derive from it                                                                                                  |
+| `PUBLIC_GOOGLE_CLIENT_ID` / `_CLIENT_SECRET`    | unset         | Google sign-in is offered only when both are set                                                                                                                                          |
+| `PUBLIC_GITHUB_CLIENT_ID` / `_CLIENT_SECRET`    | unset         | GitHub sign-in likewise. At least one provider is required                                                                                                                                |
+| `PUBLIC_ADMIN_EMAILS`                           | empty         | Comma-separated verified e-mails that are platform administrators                                                                                                                         |
+| `PUBLIC_SIGNUPS_ENABLED`                        | `true`        | Starting value of the "signups open" switch (the admin can flip it at run time)                                                                                                           |
+| `PUBLIC_BLOCKED_EMAIL_DOMAINS`                  | empty         | Comma-separated domains that cannot sign up (disposable mail)                                                                                                                             |
+| `PUBLIC_MAX_PROJECTS`                           | `10`          | Projects per workspace                                                                                                                                                                    |
+| `PUBLIC_STORAGE_QUOTA_MB`                       | `20`          | Stored text per workspace                                                                                                                                                                 |
+| `PUBLIC_DELETED_ACCOUNT_RETENTION_DAYS`         | `30`          | How long the keyed counter of a deleted account is kept (section 4.6)                                                                                                                     |
+| `PUBLIC_ALLOW_RESEARCH`                         | `false`       | Allow the web-research crawler                                                                                                                                                            |
+| `PUBLIC_DB_RUNTIME_ROLE`                        | `swarm_app`   | The role that row security is enforced on (section 5)                                                                                                                                     |
+| `PUBLIC_ALLOW_UNSAFE_SQLITE`                    | `false`       | Development only: SQLite has no row security, so public mode refuses it without this                                                                                                      |
+| `PUBLIC_OPS_KEY_SHA256`                         | unset         | SHA-256 (hex) of the key the budget automation presents (section 6.6)                                                                                                                     |
+| `PUBLIC_PEPPER`                                 | **required**  | A secret of at least 32 characters. Keys the hashes of addresses (sign-up throttling) and of deleted accounts. Keep it in Key Vault; changing it forgets the counters of deleted accounts |
+| `PUBLIC_SIGNUPS_PER_IP_PER_DAY`                 | `5`           | New accounts one address may make in 24 hours                                                                                                                                             |
+| `PUBLIC_SIGNUPS_PER_HOUR`                       | `60`          | New accounts the whole site may make in an hour                                                                                                                                           |
+| `PUBLIC_ALLOW_REASONING_DEPLOYMENT`             | `false`       | Lets a deployment that reasons serve the free tier. Off: start-up refuses one                                                                                                             |
+| `AUTH_SESSION_IDLE_MINUTES` / `_ABSOLUTE_HOURS` | `30` / `8`    | A session ends after this long idle, and this long after sign-in (a hosted deployment allows at most 60 and 12)                                                                           |
+| `FREE_TIER_ENABLED`                             | `true`        | Hard switch from the environment; `false` wins over the run-time switch                                                                                                                   |
+| `FREE_USER_DAILY_TOKENS`                        | `60000`       | Tokens (input + output + hidden reasoning) one person may use per UTC day                                                                                                                 |
+| `FREE_USER_DAILY_CALLS`                         | `40`          | Model round trips one person may make per UTC day                                                                                                                                         |
+| `FREE_USER_LIFETIME_TOKENS`                     | `300000`      | Tokens one account may ever use on the free tier                                                                                                                                          |
+| `FREE_USER_CONCURRENT_RUNS`                     | `1`           | Runs (queued or running jobs) one workspace may have at once                                                                                                                              |
+| `FREE_USER_CONCURRENT_CALLS`                    | `3`           | Model round trips one person may have in flight                                                                                                                                           |
+| `FREE_GLOBAL_DAILY_TOKENS`                      | `2000000`     | Tokens all free users together may use per UTC day                                                                                                                                        |
+| `FREE_GLOBAL_DAILY_COST_USD`                    | `5`           | Estimated spend all free users together may cause per UTC day                                                                                                                             |
+| `FREE_TOKENS_PER_RUN`                           | `15000`       | Only for the meter: what "one run" is taken to cost                                                                                                                                       |
+| `FREE_ROLE_MAX_OUTPUT_TOKENS`                   | table in code | JSON, per model role, at most these output tokens on the free tier                                                                                                                        |
+| `BYOK_ENABLED`                                  | `true`        | Allow people to bring a key                                                                                                                                                               |
+| `BYOK_MAX_CONCURRENT_CALLS`                     | `4`           | Round trips one person may have in flight on their own key                                                                                                                                |
+| `TURNSTILE_SITE_KEY` / `TURNSTILE_SECRET_KEY`   | unset         | Bot protection is on only when both are set                                                                                                                                               |
 
 The model for the free tier is configured with the settings that exist: `AI_PROVIDER=foundry`, `AI_MODEL` (the
 non-reasoning deployment, for example a `gpt-4.1-mini` deployment), `FOUNDRY_DEPLOYMENT_PROFILES` declaring it
@@ -382,8 +389,10 @@ schema per tenant), and is listed as a remaining risk, not claimed.
   before the tenant is known, the audit chain's tip, the usage ledger and settings, the job queue's claim and
   upkeep, start-up recovery, telemetry gauges), and `database.asTenant(tenantId, fn)` for a job body, which runs
   in the tenant of the project it works on.
-- **Policies** (created by an idempotent `applyRowSecurity` step, never by a numbered pilot migration; it enables and
-  **forces** row security on every table below, so the owner role is bound as well):
+- **Policies** (created by an idempotent `applyRowSecurity` step, never by a numbered pilot migration; it enables row
+  security on every table below and gives the runtime role only the grants it needs. It does **not** `FORCE` row
+  security: the owner has to be able to migrate data, and the runtime role is never the owner, so the policies bind it
+  all the same, which the start-up self-check proves on the real database):
 
 | Table                                                                                                                                                                                       | Policy (`USING` and `WITH CHECK`)                                                                          |
 | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
@@ -458,10 +467,11 @@ configuration and the right gate. With **no funding context**, the model it retu
 ### 6.2 The ledger
 
 A public-track table `usage_daily(day, subject, calls, input_tokens, output_tokens, reasoning_tokens,
-reserved_tokens, cost_micro_usd, reserved_micro_usd, blocked)`, one row per UTC day per `subject`:
-`u:<workspace id>` for a person and `global` for everyone. `usage_lifetime` holds each account's total.
-`usage_reservations` holds what is reserved and not yet settled, so that a crashed process's reservations can be
-released. The unit of cost is a millionth of a dollar.
+reserved_tokens, cost_micro_usd, reserved_micro_usd, reserved_calls)`, one row per UTC day per `subject`:
+`u:<workspace id>` for a person, `b:<workspace id>` for what a person did on their own key (never counted against any
+cap) and `global` for everyone on the free tier. `usage_lifetime` holds each account's total. `usage_reservations`
+holds what is reserved and not yet settled, so that a crashed process's reservations can be released. `usage_blocked`
+counts refused calls by day and reason. The unit of cost is a millionth of a dollar.
 
 ### 6.3 Reserve, then settle
 
@@ -516,8 +526,10 @@ free-tier rows (section 7), so a used-up free tier never blocks it.
 ### 6.5 Non-reasoning model, and output caps
 
 The free tier is configured on a non-reasoning deployment (section 3). The router's per-role output budget
-(`ROLE_PARAMETERS`) is capped further by `RoutingConfig.maxTokensByRole` (new, optional, unset in the pilot), by
-default `extraction 1500, actor 1200, scenario 1500, critic 1500, synthesis 2000, research-planner 1000`. A
+(`ROLE_PARAMETERS`) is capped further, on the free tier only, by a wrapper around the free-tier client that clamps the
+`maxTokens` of each call to the cap of its role (the router already passes the role with every call), by
+default `extraction 1500, actor 1200, scenario 1500, critic 1500, synthesis 2000, research-planner 1000` and 2000 for a
+call that names no role. A person on their own key gets the router's ordinary budget. A
 deployment that reasons is refused at start-up, so hidden reasoning tokens cannot eat the cap.
 
 ### 6.6 Kill switch and budget automation

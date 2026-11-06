@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import staticFiles from '@fastify/static';
-import Fastify from 'fastify';
+import Fastify, { type FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { publicConfig, type ServerConfig } from './config.js';
 import { registerAuth } from './auth/guard.js';
@@ -45,6 +45,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [url-ingest imports]
 import { evidenceRoutes } from './routes/evidence.js';
 import type { PublicFetcher } from './ingest/url/fetcher.js';
+import type { PublicEditionOptions } from './public/context.js';
 
 // [scenario imports]
 import { scenarioRoutes } from './routes/scenario.js';
@@ -72,6 +73,7 @@ import { ResearchService, type ResearchSeam } from './research/service.js';
 import { decisionRoutes } from './routes/decision.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
+import { EDITION_META_NAME } from '../../shared/public.js';
 
 export interface AppOptions {
   config: ServerConfig;
@@ -99,6 +101,8 @@ export interface AppOptions {
   };
   /** Test hook: the simulator and the pacing of the scenario comparisons that run in this process. */
   analysis?: AnalysisServiceOptions;
+  /** Test hook: how the public edition reaches its identity providers and tells time. Ignored by the pilot. */
+  public?: PublicEditionOptions;
   /** Test hook: how the job queue is run (identity, leases, timers), to model several workers or a crash. */
   jobs?: OrchestratorOptions;
   /** Test hook: read web pages through this fetcher (a stub resolver, or servers on this machine). */
@@ -150,10 +154,16 @@ export async function buildApp(options: AppOptions) {
       },
     },
   });
+  // The public edition's code is loaded only when it is asked for, so a pilot never even reads it.
+  const editionStorage =
+    config.edition === 'public' && config.public && !options.repository
+      ? (await import('./public/storage/edition.js')).publicEditionStorage(config.public)
+      : undefined;
   const repository =
     options.repository ??
     new Repository(config.databaseUrl ?? config.databasePath, {
       entra: config.databaseAuth === 'entra',
+      ...(editionStorage ? { edition: editionStorage } : {}),
     });
   // First, so that every answer, a refusal included, carries the correlation id.
   registerRequestTelemetry(app);
@@ -275,7 +285,26 @@ export async function buildApp(options: AppOptions) {
   });
   const verifier =
     config.auth.mode === 'entra' ? (options.tokenVerifier ?? new TokenVerifier(config.auth)) : null;
-  registerAuth(app, { config: config.auth, repository, ...(verifier ? { verifier } : {}) });
+  const publicEdition =
+    config.edition === 'public'
+      ? (await import('./public/edition.js')).createPublicEdition({
+          config,
+          repository,
+          jobs,
+          interaction,
+          ...(options.public ? { options: options.public } : {}),
+        })
+      : null;
+  // Before anything that reads the database: the scope that row-level security reads is made here.
+  if (publicEdition) app.addHook('onRequest', publicEdition.scopeHook);
+  registerAuth(app, {
+    config: config.auth,
+    repository,
+    ...(verifier ? { verifier } : {}),
+    ...(publicEdition ? { public: publicEdition.guard } : {}),
+  });
+  publicEdition?.registerRoutes(app);
+  if (publicEdition) app.addHook('onClose', async () => publicEdition.close());
   registerAudit(app, repository);
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api')) {
@@ -444,6 +473,21 @@ export async function buildApp(options: AppOptions) {
       ? resolve(process.cwd(), 'frontend', 'dist')
       : options.frontendRoot;
   if (frontend !== null && existsSync(resolve(frontend, 'index.html'))) {
+    // In public mode the page is told which edition it is (and only then): see `shared/public.ts`.
+    const sendIndex: (reply: FastifyReply) => FastifyReply = publicEdition
+      ? (() => {
+          const page = readFileSync(resolve(frontend, 'index.html'), 'utf8').replace(
+            '</head>',
+            `<meta name="${EDITION_META_NAME}" content="public" /></head>`,
+          );
+          return (reply) =>
+            reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(page);
+        })()
+      : (reply) => reply.header('cache-control', 'no-cache').sendFile('index.html');
+    if (publicEdition) {
+      // Registered before the static files, so that the raw file is never served in its place.
+      app.get('/index.html', async (_request, reply) => sendIndex(reply));
+    }
     await app.register(staticFiles, {
       root: frontend,
       prefix: '/',
@@ -460,15 +504,13 @@ export async function buildApp(options: AppOptions) {
         request.method === 'GET' &&
         request.headers.accept?.includes('text/html')
       ) {
-        return reply.header('cache-control', 'no-cache').sendFile('index.html');
+        return sendIndex(reply);
       }
       return reply
         .code(404)
         .send({ error: { code: 'NOT_FOUND', message: 'This resource does not exist.' } });
     });
-    app.get('/', async (_request, reply) =>
-      reply.header('cache-control', 'no-cache').sendFile('index.html'),
-    );
+    app.get('/', async (_request, reply) => sendIndex(reply));
   } else {
     app.setNotFoundHandler((_request, reply) =>
       reply.code(404).send({
@@ -486,5 +528,5 @@ export async function buildApp(options: AppOptions) {
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction, pdf, research, routes };
+  return { app, repository, jobs, interaction, pdf, research, routes, publicEdition };
 }
