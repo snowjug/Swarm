@@ -539,7 +539,7 @@ function loadBaseConfig(
   }
   const databasePath = resolve(input.DATA_DIR, 'swarm-lab.sqlite');
   const databaseUrl = buildDatabaseUrl(input.DATABASE_URL, input.DATABASE_AUTH);
-  const provider = buildProvider(
+  const built = buildProvider(
     input.AI_PROVIDER,
     input.AI_MODEL,
     input.AI_TIMEOUT_MS,
@@ -547,6 +547,11 @@ function loadBaseConfig(
     input.AZURE_OPENAI_AUTH,
     input.AZURE_CLIENT_ID ?? null,
   );
+  // What is wrong with the operator's model is written for the operator, in setting names. A stranger is not told it.
+  const provider: ProviderConfig =
+    pub && !built.configured
+      ? { ...built, reason: 'The free tier is not set up on this site.' }
+      : built;
   const loadedRouting = loadRouting(environment, {
     name: input.AI_PROVIDER,
     model: input.AI_MODEL,
@@ -595,7 +600,10 @@ function loadBaseConfig(
       ),
     },
     routing,
-    urlIngestion: buildUrlIngestion(input),
+    // A stranger cannot make this server try any port: it reads web pages on the two a web page is served on.
+    urlIngestion: pub
+      ? { ...buildUrlIngestion(input), allowedPorts: [80, 443] }
+      : buildUrlIngestion(input),
     // The crawler fetches pages for strangers from this server: off in public unless the operator asks.
     research: pub && !pub.allowResearch ? { ...research, enabled: false } : research,
   };

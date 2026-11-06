@@ -69,6 +69,15 @@ export function publicFundingSource(context: PublicContext): FundingSource {
   const byokTelemetry = new ProviderTelemetry(
     geminiProvider(null, null, config.provider.timeoutMs),
   );
+  /** A refusal of a call is a security event, written once in a while for an account: the reason, and no more. */
+  const refusedFor = (workspaceId: string) => (reason: string) =>
+    context.auditOnce(
+      reason === 'byok-concurrent' ? 'public.byok.blocked' : 'public.free.blocked',
+      workspaceId,
+      reason,
+      {},
+      () => context.users.getByWorkspace(workspaceId)?.id ?? workspaceId,
+    );
   return () => {
     const funding = currentFunding();
     if (!funding) {
@@ -110,6 +119,7 @@ export function publicFundingSource(context: PublicContext): FundingSource {
           funding: { workspaceId: funding.workspaceId, funding: 'byok', byok: null },
           prices: [],
           freeEnabled: () => false,
+          refused: refusedFor(funding.workspaceId),
         }),
         routing: byokRouting(model, config.routing),
         capabilities: byokCapabilities,
@@ -126,6 +136,7 @@ export function publicFundingSource(context: PublicContext): FundingSource {
         funding,
         prices: config.routing.prices,
         freeEnabled: context.freeEnabled,
+        refused: refusedFor(funding.workspaceId),
       }),
       outputCap: (role: ModelRole | null) =>
         (role ? pub.free.roleMaxOutputTokens[role] : undefined) ?? UNNAMED_ROLE_CAP,

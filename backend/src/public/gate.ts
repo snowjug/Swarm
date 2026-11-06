@@ -61,14 +61,22 @@ export function createSpendGate(input: {
   prices: PriceTable;
   /** Whether the free tier may be used at all right now: the environment, the run-time switch, and a model that is set up. */
   freeEnabled: () => boolean;
+  /** Told of each refusal and why, for the record of security events. */
+  refused?: (reason: FreeTierReason | 'byok-concurrent') => void;
 }): SpendGate {
   const { ledger, funding, prices } = input;
+  /** The refusal a call gets. The ledger counts its own refusals; the ones that never reach it are counted here. */
+  const refuse = (reason: FreeTierReason | 'byok-concurrent', counted: boolean): AppError => {
+    if (!counted) ledger.recordBlocked(reason);
+    input.refused?.(reason);
+    return reason === 'byok-concurrent' ? byokBusy() : freeTierRefusal(reason);
+  };
   return {
     begin(request): SpendTicket {
       const heldInput = heldInputTokens(request.inputTokens);
       let microUsd = 0;
       if (funding.funding === 'free') {
-        if (!input.freeEnabled()) throw freeTierRefusal('disabled');
+        if (!input.freeEnabled()) throw refuse('disabled', false);
         const worst = worstCaseCostUsd(
           heldInput,
           request.maxOutputTokens,
@@ -76,7 +84,7 @@ export function createSpendGate(input: {
           prices,
         );
         // A call that cannot be priced cannot be held to a dollar cap: it is not made.
-        if (worst === null) throw freeTierRefusal('disabled');
+        if (worst === null) throw refuse('disabled', false);
         microUsd = toMicro(worst);
       }
       let reservation;
@@ -88,9 +96,7 @@ export function createSpendGate(input: {
           microUsd,
         });
       } catch (error) {
-        if (error instanceof LedgerRefusal) {
-          throw error.reason === 'byok-concurrent' ? byokBusy() : freeTierRefusal(error.reason);
-        }
+        if (error instanceof LedgerRefusal) throw refuse(error.reason, true);
         throw error;
       }
       const costOf = (inputTokens: number, outputTokens: number): number => {

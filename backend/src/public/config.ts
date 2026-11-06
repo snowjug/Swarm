@@ -51,6 +51,18 @@ export interface PublicConfig {
   /** Keys the hashes of addresses and of deleted accounts. A secret. */
   pepper: string;
   signups: { perIpPerDay: number; perHour: number };
+  /**
+   * What one account may do in a window, before the rate limit scale. An address may do three times as much, because a
+   * household or an office shares one.
+   */
+  rates: {
+    writesPer5Min: number;
+    createPerHour: number;
+    storePerHour: number;
+    modelPerHour: number;
+    fetchPerHour: number;
+    extractPerHour: number;
+  };
   free: FreeTierConfig;
   byok: { enabled: boolean; maxConcurrentCalls: number };
   /** A session ends after this long idle, and this long after sign-in whatever happens (`AUTH_SESSION_*`). */
@@ -109,6 +121,12 @@ const environmentSchema = z.object({
   PUBLIC_PEPPER: z.preprocess(unset, z.string().min(32).max(500).optional()),
   PUBLIC_SIGNUPS_PER_IP_PER_DAY: whole(5, 1, 1_000),
   PUBLIC_SIGNUPS_PER_HOUR: whole(60, 1, 100_000),
+  PUBLIC_RATE_WRITES_PER_5MIN: whole(300, 10, 1_000_000),
+  PUBLIC_RATE_CREATE_PER_HOUR: whole(20, 1, 100_000),
+  PUBLIC_RATE_STORE_PER_HOUR: whole(60, 1, 100_000),
+  PUBLIC_RATE_MODEL_PER_HOUR: whole(120, 1, 100_000),
+  PUBLIC_RATE_FETCH_PER_HOUR: whole(30, 1, 100_000),
+  PUBLIC_RATE_EXTRACT_PER_HOUR: whole(30, 1, 100_000),
   FREE_TIER_ENABLED: flag(true),
   FREE_USER_DAILY_TOKENS: whole(60_000, 0, 100_000_000),
   FREE_USER_DAILY_CALLS: whole(40, 0, 100_000),
@@ -259,6 +277,14 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
     signups: {
       perIpPerDay: input.PUBLIC_SIGNUPS_PER_IP_PER_DAY,
       perHour: input.PUBLIC_SIGNUPS_PER_HOUR,
+    },
+    rates: {
+      writesPer5Min: input.PUBLIC_RATE_WRITES_PER_5MIN,
+      createPerHour: input.PUBLIC_RATE_CREATE_PER_HOUR,
+      storePerHour: input.PUBLIC_RATE_STORE_PER_HOUR,
+      modelPerHour: input.PUBLIC_RATE_MODEL_PER_HOUR,
+      fetchPerHour: input.PUBLIC_RATE_FETCH_PER_HOUR,
+      extractPerHour: input.PUBLIC_RATE_EXTRACT_PER_HOUR,
     },
     free,
     byok: { enabled: input.BYOK_ENABLED, maxConcurrentCalls: input.BYOK_MAX_CONCURRENT_CALLS },

@@ -269,14 +269,18 @@ export async function buildApp(options: AppOptions) {
     ...(options.research ?? {}),
   }).attach();
 
+  // The bot check's widget (Cloudflare Turnstile) loads a script and a frame from its own host. The policy is widened for
+  // that host, and only when the check is on; nothing else is ever added to it.
+  const challenge = config.public?.turnstile ? ['https://challenges.cloudflare.com'] : [];
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", ...challenge],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", ...challenge],
+        ...(challenge.length > 0 ? { frameSrc: challenge } : {}),
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -287,6 +291,16 @@ export async function buildApp(options: AppOptions) {
     },
     crossOriginEmbedderPolicy: false,
   });
+  if (config.edition === 'public') {
+    // What the page does not use is denied to it, and to anything that is ever put in it.
+    app.addHook('onSend', async (_request, reply, payload) => {
+      reply.header(
+        'permissions-policy',
+        'accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), usb=(), browsing-topics=()',
+      );
+      return payload;
+    });
+  }
   await app.register(rateLimit, {
     max: 120 * config.rateLimitScale,
     timeWindow: '1 minute',
@@ -341,6 +355,7 @@ export async function buildApp(options: AppOptions) {
   });
   // After the guard has said who is calling: what pays for the model calls of this request.
   if (publicEdition) app.addHook('onRequest', publicEdition.fundingHook);
+  if (publicEdition) app.addHook('onRequest', publicEdition.abuseHook);
   publicEdition?.registerRoutes(app);
   if (publicEdition) app.addHook('onClose', async () => publicEdition.close());
   registerAudit(app, repository);

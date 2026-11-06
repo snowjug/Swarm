@@ -133,6 +133,13 @@ describe('the free tier is held to its caps before a call is made', () => {
       'You have used today’s free runs. They come back at 00:00 UTC, or you can use your own key now.',
     );
     expect(t.foundry.seen).toHaveLength(sent);
+    // The refusal is a security event, written once for the account and the reason, however often it is repeated.
+    await expect(t.call(t.a.workspaceId)).rejects.toMatchObject({ code: 'FREE_TIER_USER_CAP' });
+    const events = t.h.built.repository
+      .asSystem(() => t.h.built.repository.audit.list({ limit: 500 }))
+      .filter((event) => event.action === 'public.free.blocked');
+    expect(events).toHaveLength(1);
+    expect(events[0]).toMatchObject({ actor: t.a.id, detail: { kind: 'user-cap' } });
     // Never past the cap, with what the calls really used or with what was held for them.
     const state = t.ledger.userState(t.a.workspaceId).free;
     expect(state.inputTokens + state.outputTokens + state.reservedTokens).toBeLessThanOrEqual(
@@ -324,6 +331,14 @@ describe('the kill switch', () => {
     });
     await expect(t.call(t.b.workspaceId)).rejects.toMatchObject({ code: 'FREE_TIER_DISABLED' });
     expect(t.foundry.seen.length).toBe(before);
+    // What was turned away while it was off is counted, and written once for each account.
+    expect(t.ledger.blockedByReason(1).disabled).toBeGreaterThanOrEqual(2);
+    const turnedAway = t.h.built.repository
+      .asSystem(() => t.h.built.repository.audit.list({ limit: 500 }))
+      .filter(
+        (event) => event.action === 'public.free.blocked' && event.detail.kind === 'disabled',
+      );
+    expect(turnedAway.map((event) => event.actor).sort()).toEqual([t.a.id, t.b.id].sort());
     const session = (await t.h.app.inject({ method: 'GET', url: '/api/public/session' })).json();
     expect(session.freeTier).toEqual({ available: false, reason: 'disabled' });
     await expect(t.call(t.a.workspaceId)).rejects.toThrow(

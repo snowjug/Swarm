@@ -23,6 +23,9 @@ import { PublicUserStore } from './storage/users.js';
 /** The name of the short-lived cookie that binds a sign-in to the browser that started it. */
 export const LOGIN_COOKIE = 'swarm_login';
 
+/** How long an event that is only written once in a while is kept from being written again. */
+const AUDIT_ONCE_MS = 10 * 60_000;
+
 export interface PublicEditionOptions {
   /** Test hook: the `fetch` the identity providers use. The hosts are constants; nothing replaces a URL. */
   fetcher?: typeof fetch;
@@ -80,6 +83,18 @@ export interface PublicContext {
     actor: string,
     detail?: Record<string, string | number | boolean | null>,
   ): void;
+  /**
+   * `audit`, but once in ten minutes for a scope (the account the event is about) and a kind, so that a person who presses
+   * a button over and over cannot fill the log. The actor is the scope unless another is given, as a function that is
+   * called only when the event is written.
+   */
+  auditOnce(
+    action: string,
+    scope: string,
+    kind: string,
+    detail?: Record<string, string | number | boolean | null>,
+    actor?: string | (() => string),
+  ): void;
 }
 
 export function createContext(
@@ -130,7 +145,9 @@ export function createContext(
   // The free tier counts as used up when less than one run is left of a cap, which is also when the meter says no runs
   // are left. A call is still let in or refused by the ledger alone, on the worst case of that call.
   const runSize = pub.free.tokensPerRun;
-  return {
+  /** When an event of a scope and a kind was last written, for `auditOnce`. */
+  const noted = new Map<string, number>();
+  const context: PublicContext = {
     config,
     pub,
     repository,
@@ -170,5 +187,18 @@ export function createContext(
         detail: scrub(detail),
       });
     },
+    auditOnce(action, scope, kind, detail = {}, actor = scope) {
+      const key = `${action}:${scope}:${kind}`;
+      const at = now();
+      if (at - (noted.get(key) ?? 0) < AUDIT_ONCE_MS) return;
+      noted.set(key, at);
+      while (noted.size > 20_000) {
+        const oldest = noted.keys().next().value;
+        if (oldest === undefined) break;
+        noted.delete(oldest);
+      }
+      context.audit(action, typeof actor === 'function' ? actor() : actor, { kind, ...detail });
+    },
   };
+  return context;
 }

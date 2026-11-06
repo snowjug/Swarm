@@ -18,6 +18,7 @@ import { enterFunding, runWithFunding, type FundingContext } from './funding.js'
 import { createPublicGuard } from './guard.js';
 import { publicFundingSource } from './models.js';
 import { accountRoutes } from './routes/account.js';
+import { createAbuseHook } from './abuse.js';
 import { authRoutes } from './routes/auth.js';
 import { byokRoutes } from './routes/byok.js';
 import { publicProviderRoutes } from './routes/provider.js';
@@ -39,6 +40,8 @@ export interface PublicEdition {
   scopeHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void;
   /** An `onRequest` hook that runs after the guard: says what pays for the model calls of this request. */
   fundingHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void;
+  /** An `onRequest` hook that runs after the funding one: rate limits and quotas, per account and per address. */
+  abuseHook(request: FastifyRequest, reply: FastifyReply, done: HookHandlerDoneFunction): void;
   /** Hands over what the edition needs of the services that were made after it (the queue, the interaction service). */
   attach(services: { jobs: Orchestrator; interaction: InteractionService }): void;
   /** Registers the routes that belong to this edition. Needs `attach` first. */
@@ -128,6 +131,7 @@ export function createPublicEdition(input: {
     scopeHook(_request, _reply, done) {
       enterScope({ tenant: null, system: false }, done);
     },
+    abuseHook: createAbuseHook(context),
     fundingHook(request, _reply, done) {
       const principal = request.principal;
       if (!principal) {

@@ -189,3 +189,48 @@ or per day), and an unknown 429 is read as a plan limit when it says so and as a
 each strict schema, and the exact shapes of its errors, are from its documentation (section 11 of DESIGN.md). The page does
 not yet call `DELETE /api/byok` on "Forget key" (the key is forgotten by the server after at most 90 idle minutes), and its
 model chip does not send the key with `GET /api/provider/status`: both to be settled when the page is reviewed.
+
+## Phase 5: abuse protection
+
+**Done**
+
+- **Rate limits** (`public/abuse.ts`, an `onRequest` hook after the guard): every change an account makes is held to 300
+  in five minutes, and the five kinds of request that cost something (a project made, text stored, work by a model, a web
+  page read, a file read) each have a limit for the account and one of three times that for the address. Defaults:
+  20, 60, 120, 30 and 30 an hour (`PUBLIC_RATE_*`, scaled by `RATE_LIMIT_SCALE`). A refusal is `429 RATE_LIMITED` with
+  `Retry-After` and "Wait N minutes", is counted as a blocked request, and is written as `public.rate.limited`.
+- **Quotas**: `PROJECT_LIMIT` (409) and `STORAGE_LIMIT` (413) when a project is made or text is added; deleting is never
+  refused. Recorded as `public.quota.refused`.
+- **Audit**: `context.auditOnce` writes an event once in ten minutes for an account and a kind, so a hammered button
+  cannot fill the log. `public.free.blocked` and `public.byok.blocked` (the reason) are new, and refusals while the free
+  tier is off or a model cannot be priced are now counted among the blocked requests (they were not).
+- **Headers**: a `Permissions-Policy` that denies every feature the page does not use, in public mode only; the policy
+  is widened for Cloudflare's host only when Turnstile is configured.
+- **Config**: in public mode why the operator's model is not set up is the plain "The free tier is not set up on this
+  site.", and the web is read on ports 80 and 443 only, whatever `URL_INGEST_ALLOWED_PORTS` says.
+- The bot check, the open-redirect rules, the CORS and origin rules, the free-tier failure wording and the admin switches
+  were already built in Phases 2 to 4; they are now tested through the whole stack (below).
+
+**Tests** (`backend/test/public/`): `abuse.test.ts` (20: the limits per account and per address, a window that ends, a
+refused request that counts for nothing, the kinds, the audit throttle and its contents; the quotas; the headers and the
+policy on every kind of answer, CORS, origin
+and host; the bot check with a fake, including a Cloudflare that is down; errors scanned for frames, paths, SQL, table
+names, the deployment and the endpoint's host, in answers, headers and the log; size, type and file limits; a script in a
+document staying text; the record scanned for e-mail, address, key and document text), `ssrf.test.ts` (8: 25 written forms
+of an address inside the network and seven internal names, names that resolve inside, ports, a PDF with every kind of
+reference aimed at a canary, addresses only written in documents, the crawler off; the canary is never reached) and
+`injection.test.ts` (5: a model that obeys a planted instruction is refused on both fundings, the planted text is only
+ever data, a model is sent the caller's own text and nothing of anyone else or any credential). The pilot's suites for the
+files this phase touched (config, deployment, app, auth, url-config, url-route, foundry-config) still pass.
+
+**Next**: Phase 6, the page (built by a helper, to be reviewed and committed), then Phase 7 (infrastructure, built by a
+helper) and Phase 8.
+
+**Decisions**: limits are held in the memory of one process, which is exact with the one replica the template allows
+(DESIGN §11). An address limit is three times an account's, so people who share an address (an office, a school) are not
+held to one person's limit. A refused request counts for nothing: the limits are checked together, and only a request that
+is let in is counted, so being turned away by the address, or by a quota, never uses up an account's own limits.
+
+**Open issues**: the redirect, rebinding and size rules of reading a web page are the fetcher's own and were not tried
+again through the public routes (a test cannot listen on port 80); the rate limits are per process; Turnstile was only
+tried against a fake.
