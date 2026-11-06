@@ -33,6 +33,9 @@ import type {
 import type { BudgetInput, BudgetView } from '../../shared/budget';
 import type { Member, ProjectRole, WorkspaceRole } from './lib/members';
 import type { EditSectionInput, StudioExportFormat, StudioView } from '../../shared/studio';
+import { byokHeaders, clearByok } from './public/byokStore';
+import { NETWORK_WORDS, problemOf, raisesNotice } from './public/problems';
+import { inPublicEdition, signalPublic } from './public/runtime';
 
 export class ApiError extends Error {
   readonly code: string;
@@ -58,10 +61,11 @@ export function onAcceptedChange(listener: (path: string) => void): () => void {
   return () => void changeListeners.delete(listener);
 }
 
-async function checkedFetch(path: string, init: RequestInit = {}): Promise<Response> {
+export async function checkedFetch(path: string, init: RequestInit = {}): Promise<Response> {
   const timeout = AbortSignal.timeout(180_000);
   const signal = init.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
   const unsafe = !['GET', 'HEAD', undefined].includes(init.method?.toUpperCase());
+  const publicEdition = inPublicEdition();
   let response: Response;
   try {
     response = await fetch(path, {
@@ -72,6 +76,8 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
       headers: {
         Accept: 'application/json',
         ...(unsafe ? { 'X-Swarm-CSRF': '1' } : {}),
+        // The public edition only, and only while the person holds a key of their own (public/byokStore.ts).
+        ...(publicEdition ? byokHeaders(init.method, path) : {}),
         ...init.headers,
       },
     });
@@ -81,7 +87,9 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
       throw new ApiError('The server took too long to respond. Try again.', 'TIMEOUT');
     }
     throw new ApiError(
-      'Cannot reach the local server. Check that the backend is running, then retry.',
+      publicEdition
+        ? NETWORK_WORDS
+        : 'Cannot reach the local server. Check that the backend is running, then retry.',
       'NETWORK_ERROR',
     );
   }
@@ -93,7 +101,15 @@ async function checkedFetch(path: string, init: RequestInit = {}): Promise<Respo
       // A proxy or an unavailable server may return a non-JSON response.
     }
     if (response.status === 401 && body?.error?.code === 'SIGN_IN_REQUIRED') {
-      return await signIn();
+      return await (publicEdition ? signedOut('expired') : signIn());
+    }
+    if (publicEdition) {
+      const problem = problemOf(body?.error?.code);
+      if (problem) {
+        if (problem.code === 'ACCOUNT_DISABLED') return await signedOut('disabled');
+        if (raisesNotice(problem.code)) signalPublic({ kind: 'refused', code: problem.code });
+        throw new ApiError(problem.message, problem.code);
+      }
     }
     throw new ApiError(
       body?.error?.message || `The request failed (${response.status}). Please retry.`,
@@ -126,6 +142,17 @@ async function signIn(): Promise<never> {
     'Sign-in did not complete. Allow cookies for this site, then reload to try again.',
     'SIGN_IN_REQUIRED',
   );
+}
+
+/**
+ * The public edition: the server says the person is not signed in, or that the account was switched off. The page goes
+ * back to its sign-in screen, not to the pilot's sign-in address, and the key it held goes with the session.
+ */
+function signedOut(reason: 'expired' | 'disabled'): Promise<never> {
+  clearByok();
+  signalPublic({ kind: 'signed-out', reason });
+  // Nothing that called the server should go on while the page changes.
+  return new Promise<never>(() => undefined);
 }
 
 export async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -276,6 +303,8 @@ export const api = {
     ).budget,
   /** Ends the signed-in session on the server and removes its cookie. */
   signOut: async (signal?: AbortSignal): Promise<void> => {
+    // The public edition: the key goes first, so that it does not travel with the request that ends the session.
+    if (inPublicEdition()) clearByok();
     await checkedFetch('/auth/logout', { method: 'POST', signal });
     // Signing out on purpose is not a sign-in that failed: the next visit may start another at once.
     window.sessionStorage.removeItem(SIGN_IN_ATTEMPT);

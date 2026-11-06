@@ -17,6 +17,7 @@ import { buildLocalGraph } from '../knowledge/graph.js';
 import { createLimiter } from '../limiter.js';
 import { ModelClient } from '../models/client.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { jobLease, type Job, type JobKind, type JobLease, type JobState } from '../storage/jobs.js';
 import type { Repository } from '../storage/repository.js';
 import { annotate, failSpan, inSpan, signals } from '../telemetry/signals.js';
@@ -147,6 +148,19 @@ export class Orchestrator {
     return this.active !== null;
   }
 
+  /**
+   * How the body of a job is run. By default in the workspace of its project, which is what row-level security reads. An
+   * edition can add to it by `wrapRuns`: the public edition says what pays for the model calls of the run.
+   */
+  private enterRun: (job: Job, run: () => Promise<void>) => Promise<void> = (job, run) =>
+    this.repository.inProjectScope(job.projectId, run);
+
+  /** Runs every job inside `wrap` as well as inside its workspace. */
+  wrapRuns(wrap: (job: Job, run: () => Promise<void>) => Promise<void>): void {
+    const inner = this.enterRun;
+    this.enterRun = (job, run) => wrap(job, () => inner(job, run));
+  }
+
   isBusy(id: string): boolean {
     return this.repository.jobs.live(id) !== null;
   }
@@ -199,8 +213,9 @@ export class Orchestrator {
         rounds: [],
         report: null,
         execution: {
-          provider: project.mode === 'local' ? 'none' : this.config.provider.name,
-          model: project.mode === 'local' ? null : this.config.provider.model,
+          provider:
+            project.mode === 'local' ? 'none' : modelIdentity(this.config.provider).provider,
+          model: project.mode === 'local' ? null : modelIdentity(this.config.provider).model,
           modelCalls: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -241,8 +256,8 @@ export class Orchestrator {
         throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.provider.reason);
       if (
         project.execution &&
-        (project.execution.provider !== this.config.provider.name ||
-          project.execution.model !== this.config.provider.model)
+        (project.execution.provider !== modelIdentity(this.config.provider).provider ||
+          project.execution.model !== modelIdentity(this.config.provider).model)
       ) {
         throw new AppError(
           409,
@@ -266,8 +281,9 @@ export class Orchestrator {
         stage: stepStage[step],
         error: null,
         execution: project.execution || {
-          provider: project.mode === 'local' ? 'none' : this.config.provider.name,
-          model: project.mode === 'local' ? null : this.config.provider.model,
+          provider:
+            project.mode === 'local' ? 'none' : modelIdentity(this.config.provider).provider,
+          model: project.mode === 'local' ? null : modelIdentity(this.config.provider).model,
           modelCalls: 0,
           inputTokens: 0,
           outputTokens: 0,
@@ -372,7 +388,8 @@ export class Orchestrator {
     }
     if (!job) return;
     const { projectId } = job;
-    this.activeTask = this.run(job)
+    // A job works on one project, and so for one workspace: it runs in that workspace's scope, which is what row security reads.
+    this.activeTask = (async () => this.enterRun(job, () => this.run(job)))()
       .catch((error: unknown) => this.onFailure(projectId, publicFailure(error).code))
       .finally(() => {
         this.activeTask = null;
@@ -384,9 +401,14 @@ export class Orchestrator {
   /**
    * The upkeep of the queue, done by every process that runs jobs: hand on the jobs of workers
    * that stopped, end jobs that waited too long, and take work that is due. A test calls it directly.
+   * It is the platform's work, taken from the queue's own rows, so it runs as the platform.
    */
   maintain(): void {
     if (this.stopping) return;
+    this.repository.asSystem(() => this.upkeep());
+  }
+
+  private upkeep(): void {
     try {
       for (const { job, outcome } of this.repository.jobs.reap()) this.afterReap(job, outcome);
       for (const job of this.repository.jobs.expireStale(this.expireAfterMs)) {

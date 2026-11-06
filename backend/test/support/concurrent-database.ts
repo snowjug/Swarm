@@ -15,6 +15,11 @@ export function around(
     get broken() {
       return real.broken;
     },
+    get rowSecurity() {
+      return real.rowSecurity;
+    },
+    asSystem: (operation) => real.asSystem(operation),
+    asTenant: (tenantId, operation) => real.asTenant(tenantId, operation),
     exec: (sql) => real.exec(sql),
     transaction: (operation) => real.transaction(operation),
     readSnapshot: (operation) => real.readSnapshot(operation),

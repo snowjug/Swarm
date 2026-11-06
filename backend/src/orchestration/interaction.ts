@@ -11,6 +11,7 @@ import { recordedFigures } from '../grounding/verify.js';
 import { validateCitations } from '../knowledge/graph.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import { ModelClient } from '../models/client.js';
+import { modelIdentity } from '../models/identity.js';
 import { answerSchema } from '../models/schemas.js';
 import { jsonValidated } from '../models/validated.js';
 import { tracedGateway } from '../models/task-telemetry.js';
@@ -126,8 +127,8 @@ export class InteractionService {
     }
     if (
       project.mode === 'llm' &&
-      (project.execution?.provider !== this.config.provider.name ||
-        project.execution?.model !== this.config.provider.model)
+      (project.execution?.provider !== modelIdentity(this.config.provider).provider ||
+        project.execution?.model !== modelIdentity(this.config.provider).model)
     ) {
       throw new AppError(
         409,
@@ -390,8 +391,8 @@ export class InteractionService {
       if (!this.config.provider.configured)
         throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.provider.reason);
       if (
-        project.execution?.provider !== this.config.provider.name ||
-        project.execution.model !== this.config.provider.model
+        project.execution?.provider !== modelIdentity(this.config.provider).provider ||
+        project.execution.model !== modelIdentity(this.config.provider).model
       ) {
         throw new AppError(
           409,

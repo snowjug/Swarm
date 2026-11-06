@@ -14,6 +14,7 @@ import { reportChapterSchema } from '../guided/schemas.js';
 import { searchMemories, timeline } from '../guided/tools.js';
 import { retrieve } from '../knowledge/retrieval.js';
 import type { ModelFactory } from '../models/factory.js';
+import { modelIdentity } from '../models/identity.js';
 import { jsonValidated } from '../models/validated.js';
 import { tracedGateway } from '../models/task-telemetry.js';
 import type { Repository } from '../storage/repository.js';
@@ -80,9 +81,10 @@ export class ModelSectionRegenerator implements SectionRegenerator {
       );
     }
     if (!this.config.provider.configured) return no(this.config.provider.reason);
+    const answering = modelIdentity(this.config.provider);
     if (
-      project.execution?.provider !== this.config.provider.name ||
-      project.execution?.model !== this.config.provider.model
+      project.execution?.provider !== answering.provider ||
+      project.execution?.model !== answering.model
     ) {
       return no(
         'The provider or model differs from the one that wrote this report. Restore that configuration, or start a new experiment.',

@@ -3,10 +3,11 @@ import { z } from 'zod';
 import type { AuthConfig } from '../config.js';
 import { AppError } from '../errors.js';
 import type { Owner, Repository } from '../storage/repository.js';
+import { currentScope } from '../storage/scope.js';
 import type { SessionInfo } from '../storage/sessions.js';
 import { mayOnProject, workspaceRoleOf } from './access.js';
 import { cookieName, readCookie } from './cookies.js';
-import { policyFor } from './policy.js';
+import { policyFor, type Access } from './policy.js';
 import { LOCAL_PRINCIPAL, type Principal } from './principal.js';
 import {
   projectAllows,
@@ -87,6 +88,29 @@ export function requireReadable(repository: Repository, principal: Principal, id
 }
 
 /**
+ * What the public edition plugs into the guard (`SWARM_EDITION=public`): its own route table, the routes it refuses
+ * outright, and the way it knows who is calling. The pilot passes none, and the guard is exactly what it was.
+ */
+export interface PublicGuard {
+  /** What a route needs: the public edition's own routes first, then the table every deployment has. */
+  policy(method: string, routeUrl: string): Access | undefined;
+  /** A route the public edition does not have, answered the same way whoever asks, before anyone is authenticated. */
+  refuses(method: string, routeUrl: string): AppError | null;
+  /** The caller, from the session cookie and nothing else. Throws 401, 403 or a refusal. */
+  authenticate(request: FastifyRequest): Promise<{ principal: Principal; session: SessionInfo }>;
+}
+
+/**
+ * Tells row-level security whose rows this request may see, once the caller is known. The scope object is made before
+ * authentication, and is shared with everything that runs later in the request. Without row security there is no scope
+ * and this does nothing.
+ */
+function bindScope(tenantId: string): void {
+  const scope = currentScope();
+  if (scope && !scope.system) scope.tenant = tenantId;
+}
+
+/**
  * Authenticates and authorises every API request against the table in `policy.ts`, before the
  * request body is read. With `AUTH_MODE=none` the caller is the local user, who owns everything,
  * and nothing is checked: the application is then only as exposed as the address it listens on.
@@ -97,10 +121,22 @@ export function requireReadable(repository: Repository, principal: Principal, id
  */
 export function registerAuth(
   app: FastifyInstance,
-  options: { config: AuthConfig; repository: Repository; verifier?: TokenVerifier },
+  options: {
+    config: AuthConfig;
+    repository: Repository;
+    verifier?: TokenVerifier;
+    public?: PublicGuard;
+  },
 ): void {
   const { config, repository } = options;
   const verifier = config.mode === 'entra' ? (options.verifier ?? new TokenVerifier(config)) : null;
+  const publicGuard = options.public ?? null;
+  // A deployment that is meant to be public must never fall through to "no sign-in, the local user owns everything".
+  if ((config.mode === 'public') !== (publicGuard !== null)) {
+    throw new Error(
+      'The public edition and its guard go together: one without the other is refused.',
+    );
+  }
   app.decorateRequest('principal', null);
   // Set to a fresh object at the start of every API request, below; null only for files and unknown paths.
   app.decorateRequest('membership', null as unknown as Membership);
@@ -155,12 +191,18 @@ export function registerAuth(
     // The single-page app's files and unknown paths hold nothing to protect.
     if (!url?.startsWith('/api')) return;
     request.membership = { workspace: null, project: null };
-    if (!verifier) {
+    if (!verifier && !publicGuard) {
       request.principal = LOCAL_PRINCIPAL;
       request.membership = { workspace: 'owner', project: 'lead' };
       return;
     }
-    const access = policyFor(request.method, url);
+    if (publicGuard) {
+      const refused = publicGuard.refuses(request.method, url);
+      if (refused) throw refused;
+    }
+    const access = publicGuard
+      ? publicGuard.policy(request.method, url)
+      : policyFor(request.method, url);
     if (!access) {
       throw new AppError(
         403,
@@ -170,8 +212,16 @@ export function registerAuth(
     }
     if (access.kind === 'public') return;
 
-    const principal = await authenticate(request);
+    let principal: Principal;
+    if (publicGuard) {
+      const authenticated = await publicGuard.authenticate(request);
+      principal = authenticated.principal;
+      request.session = authenticated.session;
+    } else {
+      principal = await authenticate(request);
+    }
     request.principal = principal;
+    bindScope(principal.tenantId);
     // A signed-in caller that is refused is evidence worth keeping. An anonymous one is not: the
     // log would fill with whatever the internet sends, and the rate limiter already counts it.
     const refuse = (error: AppError): never => {

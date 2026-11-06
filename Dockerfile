@@ -18,6 +18,8 @@ RUN npm ci --omit=dev --ignore-scripts --no-fund \
     && chown node:node /app/data
 COPY --from=build /app/dist ./dist
 COPY --from=build /app/frontend/dist ./frontend/dist
+# The public edition serves these two files as its terms and privacy notice (the pilot never reads them).
+COPY --from=build /app/legal ./legal
 COPY LICENSE NOTICE.md README.md ARCHITECTURE.md ./
 USER node
 EXPOSE 3001

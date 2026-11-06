@@ -1,10 +1,10 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import helmet from '@fastify/helmet';
 import rateLimit from '@fastify/rate-limit';
 import staticFiles from '@fastify/static';
-import Fastify from 'fastify';
+import Fastify, { type FastifyReply } from 'fastify';
 import { ZodError } from 'zod';
 import { publicConfig, type ServerConfig } from './config.js';
 import { registerAuth } from './auth/guard.js';
@@ -24,6 +24,7 @@ import {
   type OrchestratorOptions,
 } from './orchestration/runner.js';
 import { createModelFactory } from './models/factory.js';
+import { refusingGateway } from './models/gateways.js';
 import { ProviderTelemetry } from './models/telemetry.js';
 import { providerRoutes } from './routes/provider.js';
 import { projectRoutes } from './routes/projects.js';
@@ -45,6 +46,7 @@ import { guidedRoutes } from './routes/guided.js';
 // [url-ingest imports]
 import { evidenceRoutes } from './routes/evidence.js';
 import type { PublicFetcher } from './ingest/url/fetcher.js';
+import type { PublicEditionOptions } from './public/context.js';
 
 // [scenario imports]
 import { scenarioRoutes } from './routes/scenario.js';
@@ -72,6 +74,7 @@ import { ResearchService, type ResearchSeam } from './research/service.js';
 import { decisionRoutes } from './routes/decision.js';
 import { PdfService } from './ingest/pdf.js';
 import { APP_VERSION } from '../../shared/types.js';
+import { EDITION_META_NAME } from '../../shared/public.js';
 
 export interface AppOptions {
   config: ServerConfig;
@@ -99,6 +102,8 @@ export interface AppOptions {
   };
   /** Test hook: the simulator and the pacing of the scenario comparisons that run in this process. */
   analysis?: AnalysisServiceOptions;
+  /** Test hook: how the public edition reaches its identity providers and tells time. Ignored by the pilot. */
+  public?: PublicEditionOptions;
   /** Test hook: how the job queue is run (identity, leases, timers), to model several workers or a crash. */
   jobs?: OrchestratorOptions;
   /** Test hook: read web pages through this fetcher (a stub resolver, or servers on this machine). */
@@ -121,6 +126,13 @@ const DRAIN_FACTOR = 8;
 
 export async function buildApp(options: AppOptions) {
   const { config } = options;
+  // The public edition's code is loaded only when it is asked for, so a pilot never even reads it. In it, a person's own
+  // key is removed from every log line, error message and response, whatever wrote it there (docs/public/DESIGN.md, 7.3).
+  const secrets = config.edition === 'public' ? await import('./public/byok/secrets.js') : null;
+  const logStream = secrets
+    ? secrets.redactingStream(options.logStream ?? process.stdout)
+    : options.logStream;
+  const redact = secrets?.redactSecrets ?? ((text: string) => text);
   const app = Fastify({
     bodyLimit: BODY_LIMIT,
     requestTimeout: 30_000,
@@ -137,8 +149,13 @@ export async function buildApp(options: AppOptions) {
     frameworkErrors: frameworkFailure,
     logger: {
       level: config.logLevel,
-      ...(options.logStream ? { stream: options.logStream } : {}),
-      redact: ['req.headers.authorization', 'req.headers.cookie', 'res.headers.set-cookie'],
+      ...(logStream ? { stream: logStream } : {}),
+      redact: [
+        'req.headers.authorization',
+        'req.headers.cookie',
+        'res.headers.set-cookie',
+        'req.headers["x-swarm-provider-key"]',
+      ],
       serializers: {
         req(request) {
           return {
@@ -150,11 +167,29 @@ export async function buildApp(options: AppOptions) {
       },
     },
   });
+  // The public edition's storage is made only when it is asked for.
+  const editionStorage =
+    config.edition === 'public' && config.public && !options.repository
+      ? (await import('./public/storage/edition.js')).publicEditionStorage(config.public)
+      : undefined;
   const repository =
     options.repository ??
     new Repository(config.databaseUrl ?? config.databasePath, {
       entra: config.databaseAuth === 'entra',
+      ...(editionStorage ? { edition: editionStorage } : {}),
     });
+  // First, so that no hook, plugin or handler after it can see a person's own key in a request: it is taken out of the
+  // request, registered for redaction, and kept only in the funding of the request (public edition only).
+  if (config.edition === 'public') {
+    const { takeByokHeaders } = await import('./public/byok/provider.js');
+    app.addHook('onRequest', async (request) => {
+      takeByokHeaders(request);
+    });
+    // The last line of defence for a response: a key that got into one by any route is removed from it.
+    app.addHook('onSend', async (_request, _reply, payload) =>
+      typeof payload === 'string' ? redact(payload) : payload,
+    );
+  }
   // First, so that every answer, a refusal included, carries the correlation id.
   registerRequestTelemetry(app);
   registerDeployment(app, config.deployment);
@@ -169,7 +204,27 @@ export async function buildApp(options: AppOptions) {
   repository.usage.setDefaults(config.modelBudget);
   repository.recoverInterrupted();
   const telemetry = new ProviderTelemetry(config.provider);
-  const modelFactory = options.modelFactory ?? createModelFactory(config, telemetry);
+  // The public edition decides, for every model that is made, what pays for it. It is made before the model factory
+  // for that reason, and is handed the queue and the interaction service once they exist.
+  const publicEdition =
+    config.edition === 'public'
+      ? (await import('./public/edition.js')).createPublicEdition({
+          config,
+          repository,
+          ...(options.public ? { options: options.public } : {}),
+        })
+      : null;
+  const modelFactory =
+    options.modelFactory && publicEdition
+      ? // A model a test supplies still goes nowhere without a signed-in person to make it for.
+        (((onUsage, factoryOptions) => {
+          const decided = publicEdition.funding();
+          return decided instanceof AppError
+            ? refusingGateway(decided)
+            : options.modelFactory!(onUsage, factoryOptions);
+        }) as ModelFactory)
+      : (options.modelFactory ??
+        createModelFactory(config, telemetry, undefined, publicEdition?.funding));
   const jobs = new Orchestrator(
     repository,
     config,
@@ -214,14 +269,18 @@ export async function buildApp(options: AppOptions) {
     ...(options.research ?? {}),
   }).attach();
 
+  // The bot check's widget (Cloudflare Turnstile) loads a script and a frame from its own host. The policy is widened for
+  // that host, and only when the check is on; nothing else is ever added to it.
+  const challenge = config.public?.turnstile ? ['https://challenges.cloudflare.com'] : [];
   await app.register(helmet, {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'"],
+        scriptSrc: ["'self'", ...challenge],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", ...challenge],
+        ...(challenge.length > 0 ? { frameSrc: challenge } : {}),
         fontSrc: ["'self'"],
         objectSrc: ["'none'"],
         frameAncestors: ["'none'"],
@@ -232,6 +291,16 @@ export async function buildApp(options: AppOptions) {
     },
     crossOriginEmbedderPolicy: false,
   });
+  if (config.edition === 'public') {
+    // What the page does not use is denied to it, and to anything that is ever put in it.
+    app.addHook('onSend', async (_request, reply, payload) => {
+      reply.header(
+        'permissions-policy',
+        'accelerometer=(), autoplay=(), camera=(), display-capture=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), midi=(), payment=(), publickey-credentials-get=(), usb=(), browsing-topics=()',
+      );
+      return payload;
+    });
+  }
   await app.register(rateLimit, {
     max: 120 * config.rateLimitScale,
     timeWindow: '1 minute',
@@ -275,7 +344,20 @@ export async function buildApp(options: AppOptions) {
   });
   const verifier =
     config.auth.mode === 'entra' ? (options.tokenVerifier ?? new TokenVerifier(config.auth)) : null;
-  registerAuth(app, { config: config.auth, repository, ...(verifier ? { verifier } : {}) });
+  publicEdition?.attach({ jobs, interaction });
+  // Before anything that reads the database: the scope that row-level security reads is made here.
+  if (publicEdition) app.addHook('onRequest', publicEdition.scopeHook);
+  registerAuth(app, {
+    config: config.auth,
+    repository,
+    ...(verifier ? { verifier } : {}),
+    ...(publicEdition ? { public: publicEdition.guard } : {}),
+  });
+  // After the guard has said who is calling: what pays for the model calls of this request.
+  if (publicEdition) app.addHook('onRequest', publicEdition.fundingHook);
+  if (publicEdition) app.addHook('onRequest', publicEdition.abuseHook);
+  publicEdition?.registerRoutes(app);
+  if (publicEdition) app.addHook('onClose', async () => publicEdition.close());
   registerAudit(app, repository);
   app.addHook('onSend', async (request, reply, payload) => {
     if (request.url.startsWith('/api')) {
@@ -336,7 +418,9 @@ export async function buildApp(options: AppOptions) {
       );
     }
     recordApiError(request, status, failure.code);
-    return reply.code(status).send({ error: { ...failure, requestId: request.id } });
+    return reply
+      .code(status)
+      .send({ error: { ...failure, message: redact(failure.message), requestId: request.id } });
   });
 
   app.get('/api/health', async () => ({
@@ -398,7 +482,9 @@ export async function buildApp(options: AppOptions) {
     ),
     config.rateLimitScale,
   );
-  providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
+  // The pilot's route reports the process's own counters, every caller's included: a public edition tells each person
+  // about their own funding only.
+  if (!publicEdition) providerRoutes(app, config, telemetry, modelFactory, config.rateLimitScale);
   guidedRoutes(app, repository, jobs, interaction, pdf, config.rateLimitScale);
   // [url-ingest routes]
   evidenceRoutes(app, config, config.rateLimitScale, options.urlFetcher, undefined, (input) =>
@@ -444,6 +530,21 @@ export async function buildApp(options: AppOptions) {
       ? resolve(process.cwd(), 'frontend', 'dist')
       : options.frontendRoot;
   if (frontend !== null && existsSync(resolve(frontend, 'index.html'))) {
+    // In public mode the page is told which edition it is (and only then): see `shared/public.ts`.
+    const sendIndex: (reply: FastifyReply) => FastifyReply = publicEdition
+      ? (() => {
+          const page = readFileSync(resolve(frontend, 'index.html'), 'utf8').replace(
+            '</head>',
+            `<meta name="${EDITION_META_NAME}" content="public" /></head>`,
+          );
+          return (reply) =>
+            reply.header('cache-control', 'no-cache').type('text/html; charset=utf-8').send(page);
+        })()
+      : (reply) => reply.header('cache-control', 'no-cache').sendFile('index.html');
+    if (publicEdition) {
+      // Registered before the static files, so that the raw file is never served in its place.
+      app.get('/index.html', async (_request, reply) => sendIndex(reply));
+    }
     await app.register(staticFiles, {
       root: frontend,
       prefix: '/',
@@ -460,15 +561,13 @@ export async function buildApp(options: AppOptions) {
         request.method === 'GET' &&
         request.headers.accept?.includes('text/html')
       ) {
-        return reply.header('cache-control', 'no-cache').sendFile('index.html');
+        return sendIndex(reply);
       }
       return reply
         .code(404)
         .send({ error: { code: 'NOT_FOUND', message: 'This resource does not exist.' } });
     });
-    app.get('/', async (_request, reply) =>
-      reply.header('cache-control', 'no-cache').sendFile('index.html'),
-    );
+    app.get('/', async (_request, reply) => sendIndex(reply));
   } else {
     app.setNotFoundHandler((_request, reply) =>
       reply.code(404).send({
@@ -486,5 +585,5 @@ export async function buildApp(options: AppOptions) {
   });
   app.addHook('onClose', async () => repository.close());
   await app.ready();
-  return { app, repository, jobs, interaction, pdf, research, routes };
+  return { app, repository, jobs, interaction, pdf, research, routes, publicEdition };
 }

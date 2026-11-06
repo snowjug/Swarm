@@ -82,7 +82,12 @@ export interface TaskOutcome<T> {
 export const TASK_REPAIRS = 1;
 
 /** A person or a safety rule said no. Answering from rules would hide that, so it is never a fallback. */
-const NEVER_FALLBACK = new Set(['MODEL_REFUSED', 'RUN_CANCELLED', 'CLIENT_DISCONNECTED']);
+const NEVER_FALLBACK = new Set([
+  'MODEL_REFUSED',
+  'BYOK_BLOCKED',
+  'RUN_CANCELLED',
+  'CLIENT_DISCONNECTED',
+]);
 
 /** What each class of failure says went wrong, without saying what was done about it. */
 const CAUSE: Record<Exclude<ModelFailureCode, 'MODEL_UNEXPECTED'>, string> = {
@@ -101,6 +106,18 @@ const CAUSE: Record<Exclude<ModelFailureCode, 'MODEL_UNEXPECTED'>, string> = {
   MODEL_HTTP_ERROR: 'The model service returned an error',
   MODEL_TRUNCATED: 'The model’s answer was cut short',
   MODEL_CONTEXT_LIMIT: 'The request was too large for the model',
+  FREE_TIER_USER_CAP: 'Today’s free runs are used up',
+  FREE_TIER_GLOBAL_CAP: 'The free tier is used up for today',
+  FREE_TIER_LIFETIME_CAP: 'This account has used its free allowance',
+  FREE_TIER_DISABLED: 'The free tier is switched off right now',
+  FREE_TIER_CONCURRENT: 'A run is already using the free tier',
+  BYOK_KEY_NEEDED: 'Your own key is not saved, so it is needed again',
+  BYOK_KEY_REJECTED: 'Google did not accept your key',
+  BYOK_RATE_LIMITED: 'Your Google quota is used up for the moment',
+  BYOK_QUOTA: 'Your Google quota or billing does not allow this',
+  BYOK_REGION: 'Google does not offer this service where it is asked from',
+  BYOK_MODEL_NOT_FOUND: 'The model you chose is not available to your key',
+  BYOK_BLOCKED: 'Google blocked this request for safety reasons',
 };
 const GENERIC_CAUSE = 'The model could not be used for this step';
 const DETAIL: Record<string, string> = Object.fromEntries(
@@ -138,6 +155,16 @@ const NOT_CURED_BY_ASKING_AGAIN: ReadonlySet<string> = new Set<ModelFailureCode>
   'MODEL_TOKEN_BUDGET',
   'MODEL_COST_BUDGET',
   'MODEL_CONTEXT_LIMIT',
+  'FREE_TIER_USER_CAP',
+  'FREE_TIER_GLOBAL_CAP',
+  'FREE_TIER_LIFETIME_CAP',
+  'FREE_TIER_DISABLED',
+  'BYOK_KEY_NEEDED',
+  'BYOK_KEY_REJECTED',
+  'BYOK_QUOTA',
+  'BYOK_REGION',
+  'BYOK_MODEL_NOT_FOUND',
+  'BYOK_BLOCKED',
 ]);
 
 /**

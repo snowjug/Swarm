@@ -32,6 +32,15 @@ export interface SqlDatabase {
    * operation must only read. Inside a transaction or another snapshot it takes part in that one.
    */
   readSnapshot<T>(operation: () => T): T;
+  /**
+   * True when this database enforces row-level security, so that every statement runs in a scope (see `scope.ts`).
+   * False for SQLite and for the pilot's PostgreSQL, where `asSystem` and `asTenant` just run the operation.
+   */
+  readonly rowSecurity: boolean;
+  /** Runs `operation` as the platform, for work that is about no one tenant. A plain call where there is no row security. */
+  asSystem<T>(operation: () => T): T;
+  /** Runs `operation` as the workspace `tenantId`. A plain call where there is no row security. */
+  asTenant<T>(tenantId: string, operation: () => T): T;
   close(): void;
 }
 
@@ -39,11 +48,20 @@ export interface SqlDatabase {
 export class SqliteDatabase implements SqlDatabase {
   readonly dialect = 'sqlite' as const;
   readonly broken = false;
+  readonly rowSecurity = false;
   inTransaction = false;
   private snapshotting = false;
   private closed = false;
 
   constructor(private readonly database: DatabaseSync) {}
+
+  asSystem<T>(operation: () => T): T {
+    return operation();
+  }
+
+  asTenant<T>(_tenantId: string, operation: () => T): T {
+    return operation();
+  }
 
   exec(sql: string): void {
     this.database.exec(sql);

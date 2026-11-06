@@ -16,6 +16,8 @@ import {
 } from '../../shared/types.js';
 import { withDeployment, type DeploymentConfig } from './deployment.js';
 import { loadResearchConfig, publicResearch, type ResearchConfig } from './research/config.js';
+import { freeTierModelProblems, loadPublicConfig, type PublicConfig } from './public/config.js';
+import { priceFor } from './models/cost.js';
 
 export type ProviderAuth = ProviderAuthMode;
 
@@ -64,8 +66,10 @@ export interface AuthConfig {
    * `none`: one local user, no sign-in (the default, meant for a loopback address).
    * `entra`: every API call needs a Microsoft Entra access token, or a session that was started by
    * signing in with Microsoft Entra through this server (`session`).
+   * `public`: the public edition (`SWARM_EDITION=public`): a session started by signing in with Google or GitHub is the
+   * only way in, and what it needs is in `ServerConfig.public`.
    */
-  mode: 'none' | 'entra';
+  mode: 'none' | 'entra' | 'public';
   /** Entra tenants whose tokens are accepted (lower-case GUIDs). Empty when `mode` is `none`. */
   tenants: ReadonlySet<string>;
   /** The `aud` claim a token must carry: this API's application ID URI or client ID. */
@@ -77,6 +81,10 @@ export interface AuthConfig {
 }
 
 export interface ServerConfig {
+  /** `pilot` (the default) or `public`: docs/public/DESIGN.md. In `pilot` no public-edition code runs. */
+  edition: 'pilot' | 'public';
+  /** The public edition's settings. Null in the pilot. */
+  public: PublicConfig | null;
   host: string;
   port: number;
   /** The SQLite file. Used when `databaseUrl` is null. */
@@ -195,6 +203,7 @@ function buildDatabaseUrl(value: string | undefined, auth: 'password' | 'entra')
 }
 
 const environmentSchema = z.object({
+  SWARM_EDITION: z.enum(['pilot', 'public']).default('pilot'),
   HOST: z.enum(['127.0.0.1', 'localhost', '0.0.0.0', '::']).default('127.0.0.1'),
   PORT: z.coerce.number().int().min(1024).max(65535).default(3001),
   DATA_DIR: z.string().trim().min(1).default('./data'),
@@ -506,7 +515,23 @@ function loadBaseConfig(
     }
     sourceUrl = url.toString();
   }
-  const auth = buildAuth(input);
+  const publicEdition = input.SWARM_EDITION === 'public';
+  if (publicEdition && input.AUTH_MODE !== 'none') {
+    throw new Error('SWARM_EDITION=public does not use AUTH_MODE: leave it unset.');
+  }
+  const pub = publicEdition ? loadPublicConfig(environment) : null;
+  if (pub) {
+    if (!hosts.includes(pub.host)) {
+      throw new Error(
+        'ALLOWED_HOSTS must include the host of PUBLIC_BASE_URL, or every request to the site would be refused.',
+      );
+    }
+    // The page's own origin is always allowed: it is where every request comes from.
+    if (!origins.includes(pub.baseUrl)) origins.push(pub.baseUrl);
+  }
+  const auth: AuthConfig = pub
+    ? { mode: 'public', tenants: new Set(), audience: null, jwksUri: null, session: null }
+    : buildAuth(input);
   if (auth.session && !hosts.includes(new URL(auth.session.redirectUri).hostname)) {
     throw new Error(
       'ALLOWED_HOSTS must include the host of AUTH_ENTRA_REDIRECT_URI, or Entra’s redirect would be refused.',
@@ -514,7 +539,33 @@ function loadBaseConfig(
   }
   const databasePath = resolve(input.DATA_DIR, 'swarm-lab.sqlite');
   const databaseUrl = buildDatabaseUrl(input.DATABASE_URL, input.DATABASE_AUTH);
+  const built = buildProvider(
+    input.AI_PROVIDER,
+    input.AI_MODEL,
+    input.AI_TIMEOUT_MS,
+    environment,
+    input.AZURE_OPENAI_AUTH,
+    input.AZURE_CLIENT_ID ?? null,
+  );
+  // What is wrong with the operator's model is written for the operator, in setting names. A stranger is not told it.
+  const provider: ProviderConfig =
+    pub && !built.configured
+      ? { ...built, reason: 'The free tier is not set up on this site.' }
+      : built;
+  const loadedRouting = loadRouting(environment, {
+    name: input.AI_PROVIDER,
+    model: input.AI_MODEL,
+    timeoutMs: input.AI_TIMEOUT_MS,
+  });
+  // A person's results are never served from a cache that another funding source filled.
+  const routing: RoutingConfig = pub
+    ? { ...loadedRouting, cache: { ...loadedRouting.cache, mode: 'off' } }
+    : loadedRouting;
+  if (pub) publicModelProblems(pub, provider, routing);
+  const research = loadResearchConfig(environment);
   return {
+    edition: pub ? 'public' : 'pilot',
+    public: pub,
     host: input.HOST,
     port: input.PORT,
     databasePath,
@@ -523,14 +574,7 @@ function loadBaseConfig(
     allowedOrigins: new Set(origins),
     allowedHosts: new Set(hosts),
     logLevel: input.LOG_LEVEL,
-    provider: buildProvider(
-      input.AI_PROVIDER,
-      input.AI_MODEL,
-      input.AI_TIMEOUT_MS,
-      environment,
-      input.AZURE_OPENAI_AUTH,
-      input.AZURE_CLIENT_ID ?? null,
-    ),
+    provider,
     sourceUrl,
     auth,
     storageWarning: databaseUrl ? null : storageWarning(databasePath),
@@ -540,27 +584,108 @@ function loadBaseConfig(
     role: input.SWARM_ROLE,
     jobLeaseMs: input.JOB_LEASE_SECONDS * 1_000,
     modelBudget: {
-      callLimit: input.PROJECT_MODEL_CALL_LIMIT,
-      tokenLimit: input.PROJECT_MODEL_TOKEN_LIMIT,
+      callLimit: publicBudget(
+        pub,
+        environment.PROJECT_MODEL_CALL_LIMIT,
+        input.PROJECT_MODEL_CALL_LIMIT,
+        PUBLIC_PROJECT_CALL_LIMIT,
+        'PROJECT_MODEL_CALL_LIMIT',
+      ),
+      tokenLimit: publicBudget(
+        pub,
+        environment.PROJECT_MODEL_TOKEN_LIMIT,
+        input.PROJECT_MODEL_TOKEN_LIMIT,
+        PUBLIC_PROJECT_TOKEN_LIMIT,
+        'PROJECT_MODEL_TOKEN_LIMIT',
+      ),
     },
-    routing: loadRouting(environment, {
-      name: input.AI_PROVIDER,
-      model: input.AI_MODEL,
-      timeoutMs: input.AI_TIMEOUT_MS,
-    }),
-    urlIngestion: buildUrlIngestion(input),
-    research: loadResearchConfig(environment),
+    routing,
+    // A stranger cannot make this server try any port: it reads web pages on the two a web page is served on.
+    urlIngestion: pub
+      ? { ...buildUrlIngestion(input), allowedPorts: [80, 443] }
+      : buildUrlIngestion(input),
+    // The crawler fetches pages for strangers from this server: off in public unless the operator asks.
+    research: pub && !pub.allowResearch ? { ...research, enabled: false } : research,
   };
+}
+
+/** What one project may use of a model when a public deployment's operator says nothing: it is never without a limit. */
+const PUBLIC_PROJECT_CALL_LIMIT = 300;
+const PUBLIC_PROJECT_TOKEN_LIMIT = 400_000;
+
+/**
+ * A project's model limit. A pilot keeps what it was given (0: none). A public edition has a default, and refuses 0,
+ * because a project that is left to run is how a free tier is spent without end.
+ */
+function publicBudget(
+  pub: PublicConfig | null,
+  given: string | undefined,
+  value: number,
+  fallback: number,
+  name: string,
+): number {
+  if (!pub) return value;
+  if (!given?.trim()) return fallback;
+  if (value === 0) {
+    throw new Error(`${name} must be above 0 in the public edition: every project needs a limit.`);
+  }
+  return value;
+}
+
+/** Refuses to start a public edition whose free tier could spend hidden reasoning tokens or an unpriced amount. */
+function publicModelProblems(
+  pub: PublicConfig,
+  provider: ProviderConfig,
+  routing: RoutingConfig,
+): void {
+  const names = new Set<string>();
+  for (const name of [
+    routing.defaultDeployment,
+    routing.fallbackDeployment,
+    ...Object.values(routing.roles),
+  ]) {
+    if (name) names.add(name);
+  }
+  const problems = new Set<string>();
+  const check = (name: string | null) => {
+    const profile = name ? routing.profiles[name] : undefined;
+    for (const problem of freeTierModelProblems({
+      freeEnabled: pub.free.enabled,
+      configured: provider.configured,
+      deployment: name,
+      declaredReasoning: profile?.reasoning === true,
+      reasoningDeploymentSet: routing.reasoningDeployment !== null,
+      priced: name !== null && priceFor(routing.prices, name) !== null,
+      allowReasoning: pub.allowReasoningDeployment,
+    })) {
+      problems.add(problem);
+    }
+  };
+  if (names.size === 0) check(null);
+  for (const name of names) check(name);
+  if (problems.size > 0) throw new Error([...problems].join(' '));
 }
 
 export function publicConfig(config: ServerConfig): AppConfig {
   const { name, model, configured, reason, auth } = config.provider;
+  const shared = config.edition === 'public';
+  // A person's own key can do model work without the operator's model being set up.
+  const modelAssisted = configured || (config.public?.byok.enabled ?? false);
   return {
     version: APP_VERSION,
     deployment: { mode: config.deployment.mode, label: config.deployment.label },
     build: { ...config.deployment.build },
-    // The endpoint, its host and any key stay server-side; only the auth *mode* is public.
-    provider: { name, model, configured, reason, auth },
+    // The endpoint, its host and any key stay server-side; only the auth *mode* is public. In the public edition the
+    // operator's deployment name and set-up notes are not said to strangers either.
+    provider: shared
+      ? {
+          name,
+          model: null,
+          configured,
+          reason: configured ? '' : 'The free tier is not set up.',
+          auth: 'none',
+        }
+      : { name, model, configured, reason, auth },
     limits: {
       maxDocuments: MAX_DOCUMENTS,
       maxDocumentChars: MAX_DOCUMENT_CHARS,
@@ -582,9 +707,9 @@ export function publicConfig(config: ServerConfig): AppConfig {
     features: { constraints: true, participants: true },
     capabilities: {
       local: true,
-      modelAssisted: configured,
+      modelAssisted,
       // What a new question starts with: the model only where one is set up and the operator asked for it.
-      defaultEngine: configured && config.defaultEngine === 'model' ? 'llm' : 'local',
+      defaultEngine: modelAssisted && config.defaultEngine === 'model' ? 'llm' : 'local',
       fileTypes: ['txt', 'md', 'markdown', 'pdf', 'csv', 'json'],
       pdf: true,
       webRetrieval: false,
@@ -594,9 +719,11 @@ export function publicConfig(config: ServerConfig): AppConfig {
       authentication:
         config.auth.mode === 'none'
           ? 'local-single-user'
-          : config.auth.session
-            ? 'entra-session'
-            : 'entra',
+          : config.auth.mode === 'public'
+            ? 'public-session'
+            : config.auth.session
+              ? 'entra-session'
+              : 'entra',
     },
   };
 }

@@ -238,6 +238,7 @@ function describe(code: string): string {
     case 'MODEL_OUTPUT_INVALID':
       return 'The model replied in full, but the reply was not accepted: it was not the JSON asked for or it failed the server’s checks.';
     case 'MODEL_REFUSED':
+    case 'BYOK_BLOCKED':
       return 'The provider declined a request.';
     case 'MODEL_PARAMETER_UNSUPPORTED':
       return 'The deployment rejected a request parameter.';

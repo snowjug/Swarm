@@ -98,7 +98,15 @@ function toEvent(raw: unknown): AuditEvent {
  * Call `record` inside the transaction of the change it describes so the two commit together.
  */
 export class AuditLog {
-  constructor(private readonly database: SqlDatabase) {}
+  /**
+   * `platform` is the database as the platform, for the writes and for the chain as a whole: the chain belongs to no
+   * workspace, and a write has to read the last link, which is another workspace's. It is the same database where
+   * there is no row security. Reading one project's entries goes through `database`, which is scoped.
+   */
+  constructor(
+    private readonly database: SqlDatabase,
+    private readonly platform: SqlDatabase = database,
+  ) {}
 
   /**
    * Adds an entry that commits to the one before it. The read of the last entry and the write of the
@@ -106,13 +114,13 @@ export class AuditLog {
    * sharing a database cannot both extend the same link and fork the chain.
    */
   record(input: AuditInput, now: Date = new Date()): AuditEvent {
-    return this.database.inTransaction
+    return this.platform.inTransaction
       ? this.append(input, now)
-      : this.database.transaction(() => this.append(input, now));
+      : this.platform.transaction(() => this.append(input, now));
   }
 
   private append(input: AuditInput, now: Date): AuditEvent {
-    const last = this.database
+    const last = this.platform
       .prepare('SELECT hash FROM audit_events ORDER BY seq DESC LIMIT 1')
       .get();
     const prevHash = last ? z.object({ hash: z.string() }).parse(last).hash : GENESIS_HASH;
@@ -126,7 +134,7 @@ export class AuditLog {
       detail: sanitizeDetail(input.detail),
     };
     const hash = auditHash(prevHash, base);
-    const inserted = this.database
+    const inserted = this.platform
       .prepare(
         `INSERT INTO audit_events (at, actor, action, target_type, target_id, project_id, detail, prev_hash, hash)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING seq`,
@@ -160,7 +168,7 @@ export class AuditLog {
   verify(): { ok: boolean; checked: number; brokenAt: number | null } {
     let previous = GENESIS_HASH;
     let checked = 0;
-    for (const raw of this.database.prepare('SELECT * FROM audit_events ORDER BY seq').all()) {
+    for (const raw of this.platform.prepare('SELECT * FROM audit_events ORDER BY seq').all()) {
       const event = toEvent(raw);
       const expected = auditHash(previous, event);
       if (event.prevHash !== previous || event.hash !== expected) {

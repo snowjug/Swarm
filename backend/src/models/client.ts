@@ -30,6 +30,7 @@ import {
   type SafetyFinding,
 } from './safety.js';
 import { toStrictSchema, type StrictSchema } from './strict-schema.js';
+import type { SpendGate, SpendTicket } from './spend.js';
 import type { FinishReason, ModelCallEvent, ModelObserver, ModelRejectEvent } from './telemetry.js';
 import type { ModelRole } from './task.js';
 
@@ -88,6 +89,17 @@ export interface ModelClientDeps {
   maxRepairs?: number;
   /** What this process has learned about its deployments. Share one across clients so a refusal is paid for once. */
   capabilities?: CapabilityMemory;
+  /**
+   * Asked before every provider round trip, to keep a promise about spend (the public edition's free tier). Absent
+   * in a pilot: nothing is reserved or settled, and the client behaves exactly as it always has.
+   */
+  spend?: SpendGate | null;
+  /**
+   * Judges a refusal from a provider whose errors are not OpenAI's (a person's own Gemini key). Given the status and the
+   * body (bounded, as text, read once), it returns the failure to raise, or null to have the usual one. It decides how an
+   * error reads and never repeats the body. Absent in a pilot.
+   */
+  failure?: ((status: number, body: string) => ProviderHttpError | null) | null;
 }
 
 interface ChatMessage {
@@ -130,6 +142,8 @@ interface Meter {
   finishReason: FinishReason | null;
   reported: boolean;
   safety: readonly SafetyFinding[];
+  /** True once a request has been handed to the network: from then on the provider may be billing for it. */
+  sent: boolean;
 }
 
 /** What a call to the provider needs besides the conversation. It changes only when a parameter is refused. */
@@ -148,6 +162,11 @@ interface CallPlan extends RequestPlan {
   reasoningEffort: ReasoningEffort | null;
   /** The most the reply may be, in tokens, thinking included: it grows when a reply is cut off at it. */
   maxTokens: number;
+  /**
+   * The name of that limit in the request. `max_completion_tokens` for every provider; a provider that does not know
+   * it (Gemini's compatibility layer is in beta) is asked again with `max_tokens`.
+   */
+  tokenField: 'max_completion_tokens' | 'max_tokens';
   /** Whether this client made the room for thinking that `maxTokens` holds, and so must change it with the effort. */
   madeRoom: boolean;
   /** The effort this client chose, where the route named none: it is the first thing an ambiguous refusal is blamed on. */
@@ -170,6 +189,7 @@ interface CallPlan extends RequestPlan {
     temperature: boolean;
     reasoningEffort: boolean;
     minimalEffort: boolean;
+    maxCompletionTokens: boolean;
   };
 }
 
@@ -331,7 +351,36 @@ export class ModelClient implements ModelGateway {
     this.deps.observer?.onCall(event);
   }
 
-  private async request(body: unknown, signal: AbortSignal, plan: RequestPlan): Promise<unknown> {
+  /**
+   * A round trip that did not give an answer still may have cost something, and what it cost is never left out: a
+   * reply that was refused, cut off or blocked used the tokens it used; a request that timed out or was abandoned after
+   * it was sent may be billed in full, so it is charged at its worst case; one the provider answered with an error
+   * status, or that never left, used nothing.
+   */
+  private settleFailed(spend: SpendTicket, meter: Meter, error: unknown): void {
+    if (meter.reported) {
+      spend.settle({
+        inputTokens: meter.inputTokens,
+        outputTokens: meter.outputTokens,
+        reasoningTokens: meter.reasoningTokens,
+      });
+    } else if (
+      meter.sent &&
+      !(error instanceof ProviderHttpError) &&
+      !(error instanceof AppError && error.code === 'MODEL_UNREACHABLE')
+    ) {
+      spend.settleAtWorstCase();
+    } else {
+      spend.release();
+    }
+  }
+
+  private async request(
+    body: unknown,
+    signal: AbortSignal,
+    plan: RequestPlan,
+    meter?: Meter,
+  ): Promise<unknown> {
     const { name, baseUrl, apiKey, configured } = this.config;
     if (!configured || !baseUrl || name === 'none') {
       throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.reason);
@@ -347,6 +396,7 @@ export class ModelClient implements ModelGateway {
       const requestSignal = AbortSignal.any([signal, timeout]);
       let response: Response;
       try {
+        if (meter) meter.sent = true;
         response = await this.fetcher(url, {
           method: 'POST',
           redirect: 'error',
@@ -389,7 +439,13 @@ export class ModelClient implements ModelGateway {
       // Per-proxy simulation makes many small calls, so a tokens-per-minute quota is throttled far
       // more often than a batched design would be; throttling gets its own, larger retry allowance.
       if (response.status === 429 && throttled < plan.retry.throttle) {
-        await response.body?.cancel();
+        if (this.deps.failure) {
+          // A refusal that says asking again will not help (a quota that is used up) is not asked again.
+          const judged = this.deps.failure(429, await boundedErrorText(response));
+          if (judged && !judged.retryable) throw judged;
+        } else {
+          await response.body?.cancel();
+        }
         await pause(retryDelay(response.headers.get('retry-after'), throttled), signal);
         throttled += 1;
         continue;
@@ -400,10 +456,13 @@ export class ModelClient implements ModelGateway {
         transient += 1;
         continue;
       }
+      const text = await boundedErrorText(response);
+      const judged = this.deps.failure?.(response.status, text) ?? null;
+      if (judged) throw judged;
       throw httpFailure(
         response.status,
         this.config,
-        await providerErrorDetail(response),
+        parseProviderError(text),
         name === 'foundry' ? plan.deployment : null,
       );
     }
@@ -456,6 +515,19 @@ export class ModelClient implements ModelGateway {
             'The model call budget for this operation was exceeded.',
           );
         const inputChars = messages.reduce((total, message) => total + message.content.length, 0);
+        // What a provider counts of a request is more than its messages: the schema it is asked to answer in, and the
+        // framing of each message, are input too.
+        const schemaChars =
+          plan.mode === 'json_schema' && plan.strict
+            ? JSON.stringify(plan.strict.schema).length
+            : 0;
+        const reservedInputTokens = estimateTokens(inputChars + schemaChars + messages.length * 16);
+        // Asked before the call is made, and before anything else is reserved for it: a refusal leaves nothing open.
+        const spend = this.deps.spend?.begin({
+          deployment: plan.deployment ?? '',
+          inputTokens: reservedInputTokens,
+          maxOutputTokens: plan.maxTokens,
+        });
         const ticket: CallTicket | undefined = options.gate?.begin({
           deployment: plan.deployment ?? '',
           inputChars,
@@ -468,6 +540,7 @@ export class ModelClient implements ModelGateway {
           finishReason: null,
           reported: false,
           safety: [],
+          sent: false,
         };
         const structured = this.config.name === 'ollama' ? null : plan.mode;
         const started = performance.now();
@@ -476,6 +549,7 @@ export class ModelClient implements ModelGateway {
         try {
           reply = await this.complete(messages, signal, plan, meter);
         } catch (error) {
+          if (spend) this.settleFailed(spend, meter, error);
           const event: ModelCallEvent = {
             ok: false,
             repair: attempt > 0,
@@ -532,6 +606,20 @@ export class ModelClient implements ModelGateway {
           ...asked,
         };
         answered = { reply, event };
+        // What it used is spent whatever becomes of the reply. A provider that says nothing is charged at an estimate.
+        spend?.settle(
+          reply.tokensReported
+            ? {
+                inputTokens: reply.inputTokens,
+                outputTokens: reply.outputTokens,
+                reasoningTokens: reply.reasoningTokens,
+              }
+            : {
+                inputTokens: reservedInputTokens,
+                outputTokens: estimateTokens(reply.answer.length),
+                reasoningTokens: null,
+              },
+        );
         // The provider answered, and what it used is spent whatever becomes of the reply: the allowance
         // is told now. The call is recorded for the operators once the reply has been judged.
         ticket?.end(event, {
@@ -608,9 +696,13 @@ export class ModelClient implements ModelGateway {
     const route = options.route;
     const deployment = route?.deployment ?? this.config.model;
     const foundry = this.config.name === 'foundry';
+    // Gemini, reached through its OpenAI-compatible endpoint, takes a strict schema and a reasoning effort like a
+    // Foundry deployment does, and no temperature (recent models ignore it and will refuse it).
+    const gemini = this.config.name === 'gemini';
+    const structured = foundry || gemini;
     const known = deployment ? this.capabilities.get(deployment) : {};
     let strict: StrictSchema | null = null;
-    if (foundry && route?.strictSchema !== false && known.jsonSchema !== false) {
+    if (structured && route?.strictSchema !== false && known.jsonSchema !== false) {
       const converted = toStrictSchema(schema, route?.task);
       if (
         converted.ok &&
@@ -623,7 +715,7 @@ export class ModelClient implements ModelGateway {
     // unless a route says otherwise. A deployment that takes no effort says so once, and is not asked again.
     const effortFloor: ReasoningEffort = known.minimalEffort === false ? 'low' : MINIMAL_EFFORT;
     const named = route?.reasoningEffort ?? null;
-    const takesEffort = foundry && known.reasoningEffort !== false;
+    const takesEffort = structured && known.reasoningEffort !== false;
     const chosenEffort = takesEffort && named === null ? STRUCTURED_EFFORT : null;
     const wanted = takesEffort ? (named ?? chosenEffort) : null;
     const reasoningEffort =
@@ -639,6 +731,7 @@ export class ModelClient implements ModelGateway {
       // room for it, unless a router has already made that room.
       maxTokens:
         route?.roomForReasoning === true ? answerTokens : budgetFor(answerTokens, reasoningEffort),
+      tokenField: known.maxCompletionTokens === false ? 'max_tokens' : 'max_completion_tokens',
       madeRoom: route?.roomForReasoning !== true,
       chosenEffort,
       blame: 'open',
@@ -647,7 +740,13 @@ export class ModelClient implements ModelGateway {
       retried: false,
       timeoutMs: route?.timeoutMs ?? this.config.timeoutMs,
       retry: route?.retry ?? { transient: MAX_TRANSIENT_RETRIES, throttle: MAX_THROTTLE_RETRIES },
-      refused: { schema: null, temperature: false, reasoningEffort: false, minimalEffort: false },
+      refused: {
+        schema: null,
+        temperature: false,
+        reasoningEffort: false,
+        minimalEffort: false,
+        maxCompletionTokens: false,
+      },
     };
   }
 
@@ -664,6 +763,15 @@ export class ModelClient implements ModelGateway {
     }
     const { code } = error.detail;
     const parameter = error.detail.param?.toLowerCase() ?? null;
+    if (
+      parameter === 'max_completion_tokens' &&
+      plan.tokenField === 'max_completion_tokens' &&
+      this.config.name === 'gemini'
+    ) {
+      plan.tokenField = 'max_tokens';
+      plan.refused.maxCompletionTokens = true;
+      return true;
+    }
     if (parameter?.startsWith('temperature') && plan.temperature !== null) {
       plan.temperature = null;
       plan.refused.temperature = true;
@@ -731,6 +839,9 @@ export class ModelClient implements ModelGateway {
     if (refused.temperature) this.capabilities.refused(deployment, { temperature: false });
     if (refused.reasoningEffort) this.capabilities.refused(deployment, { reasoningEffort: false });
     if (refused.minimalEffort) this.capabilities.refused(deployment, { minimalEffort: false });
+    if (refused.maxCompletionTokens) {
+      this.capabilities.refused(deployment, { maxCompletionTokens: false });
+    }
     plan.blame = 'cleared';
     plan.blamedEffort = null;
     plan.refused = {
@@ -738,6 +849,7 @@ export class ModelClient implements ModelGateway {
       temperature: false,
       reasoningEffort: false,
       minimalEffort: false,
+      maxCompletionTokens: false,
     };
   }
 
@@ -772,12 +884,13 @@ export class ModelClient implements ModelGateway {
                     },
                   }
                 : { type: 'json_object' },
-            max_completion_tokens: maxTokens,
+            [plan.tokenField]: maxTokens,
             ...(plan.temperature === null ? {} : { temperature: plan.temperature }),
             ...(plan.reasoningEffort === null ? {} : { reasoning_effort: plan.reasoningEffort }),
           },
       signal,
       plan,
+      meter,
     );
     let answer: string;
     let inputTokens = 0;
@@ -1023,9 +1136,9 @@ export function parseProviderError(raw: string): ProviderErrorDetail {
   };
 }
 
-/** Reads a bounded error body for its machine codes. Any failure just means "no detail". */
-export async function providerErrorDetail(response: Response): Promise<ProviderErrorDetail> {
-  if (!response.body) return NO_DETAIL;
+/** Reads a bounded error body as text. Any failure, or a body that is too long, just means "no text". */
+async function boundedErrorText(response: Response): Promise<string> {
+  if (!response.body) return '';
   const reader = response.body.getReader();
   const parts: Uint8Array[] = [];
   let size = 0;
@@ -1036,13 +1149,18 @@ export async function providerErrorDetail(response: Response): Promise<ProviderE
       size += value.byteLength;
       parts.push(value);
     }
-    if (size > MAX_ERROR_BODY_BYTES) return NO_DETAIL;
-    return parseProviderError(new TextDecoder().decode(Buffer.concat(parts)));
+    if (size > MAX_ERROR_BODY_BYTES) return '';
+    return new TextDecoder().decode(Buffer.concat(parts));
   } catch {
-    return NO_DETAIL;
+    return '';
   } finally {
     await reader.cancel().catch(() => undefined);
   }
+}
+
+/** Reads a bounded error body for its machine codes. Any failure just means "no detail". */
+export async function providerErrorDetail(response: Response): Promise<ProviderErrorDetail> {
+  return parseProviderError(await boundedErrorText(response));
 }
 
 /**
@@ -1056,6 +1174,8 @@ export class ProviderHttpError extends AppError {
     message: string,
     public readonly providerStatus: number,
     public readonly detail: ProviderErrorDetail,
+    /** False when asking again cannot help (a quota that is used up): the call is not repeated. */
+    public readonly retryable = true,
   ) {
     super(statusCode, code, message);
     this.name = 'ProviderHttpError';

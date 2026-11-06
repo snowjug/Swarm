@@ -4,7 +4,7 @@
  * itself: it only ever runs as a worker.
  */
 import { workerData } from 'node:worker_threads';
-import type { BridgeReply, BridgeRequest, WorkerConfig } from './bridge.js';
+import type { BridgeContext, BridgeReply, BridgeRequest, WorkerConfig } from './bridge.js';
 
 interface Backend {
   query(
@@ -158,6 +158,51 @@ function describe(error: unknown): BridgeReply {
   };
 }
 
+/** What the session is when nothing was asked for: the connection's own role, which is how the pilot has always run. */
+const DEFAULT_CONTEXT: BridgeContext = { role: null, tenant: '', system: false };
+
+/** What this connection's session is set to now. Null when that is not known: after a rollback, or on a new connection. */
+let applied: BridgeContext | null = DEFAULT_CONTEXT;
+
+const quoteIdentifier = (value: string): string => `"${value.replace(/"/gu, '""')}"`;
+
+/**
+ * Sets the session to what a statement asks for, and only what differs. The role is changed first, because the settings
+ * are only read by a role that is subject to the policies. Anything that fails here fails the statement.
+ */
+async function withContext<T>(
+  database: Backend,
+  wanted: BridgeContext | undefined,
+  call: () => Promise<T>,
+): Promise<T> {
+  const target = wanted ?? DEFAULT_CONTEXT;
+  const before = applied;
+  try {
+    if (before === null || before.role !== target.role) {
+      await database.exec(
+        target.role === null ? 'RESET ROLE' : `SET ROLE ${quoteIdentifier(target.role)}`,
+      );
+    }
+    if (
+      target.role !== null &&
+      (before === null || before.tenant !== target.tenant || before.system !== target.system)
+    ) {
+      await database.query('SELECT set_config($1, $2, false), set_config($3, $4, false)', [
+        'swarm.tenant',
+        target.tenant,
+        'swarm.system',
+        target.system ? 'on' : '',
+      ]);
+    }
+  } catch (error) {
+    // Part of it may have been applied: what the session is set to is no longer known.
+    applied = null;
+    throw error;
+  }
+  applied = target;
+  return call();
+}
+
 /**
  * Runs `call`. When the connection turns out to be lost, and the caller says that a new one may take
  * its place, makes one and runs `call` again, once.
@@ -172,9 +217,15 @@ async function withReconnect<T>(
   } catch (error) {
     if (!retry || !LOST_CONNECTION.test(describeText(error))) throw error;
     await database.reconnect();
+    // A new connection starts with no role and no settings, whatever this one had.
+    applied = null;
     return await call();
   }
 }
+
+const ROLLBACK = /^\s*ROLLBACK\b/iu;
+/** Ending a transaction needs no context, and a rollback must not be preceded by a statement: the transaction may be aborted. */
+const ENDS_TRANSACTION = /^\s*(?:ROLLBACK|COMMIT|END)\b/iu;
 
 async function handle(request: BridgeRequest): Promise<BridgeReply> {
   const database = await open();
@@ -182,7 +233,16 @@ async function handle(request: BridgeRequest): Promise<BridgeReply> {
     case 'ping':
       return { ok: true, rows: [], rowCount: 0 };
     case 'exec':
-      await withReconnect(database, request.retry === true, () => database.exec(request.text));
+      try {
+        await withReconnect(database, request.retry === true, () =>
+          ENDS_TRANSACTION.test(request.text)
+            ? database.exec(request.text)
+            : withContext(database, request.context, () => database.exec(request.text)),
+        );
+      } finally {
+        // What a transaction that is rolled back set is undone with it, so what was applied is no longer known.
+        if (ROLLBACK.test(request.text)) applied = null;
+      }
       return { ok: true, rows: [], rowCount: 0 };
     case 'close':
       await database.close();
@@ -191,7 +251,9 @@ async function handle(request: BridgeRequest): Promise<BridgeReply> {
       return {
         ok: true,
         ...(await withReconnect(database, request.retry, () =>
-          database.query(request.text, request.values),
+          withContext(database, request.context, () =>
+            database.query(request.text, request.values),
+          ),
         )),
       };
   }

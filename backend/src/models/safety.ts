@@ -115,13 +115,18 @@ export function readSafety(response: unknown): SafetyReading {
   return { findings: list, blocked: list.some((finding) => finding.action === 'blocked') };
 }
 
-/** A call the provider declined or blocked. The code is `MODEL_REFUSED` and a refusal is never a fallback. */
+/**
+ * A call the provider declined or blocked. The code is `MODEL_REFUSED` and a refusal is never a fallback. The public
+ * edition words a block on a person's own key for that key's provider, and gives it its own code (`BYOK_BLOCKED`) that is
+ * treated in every way as a refusal.
+ */
 export class ModelRefusedError extends AppError {
   constructor(
     message: string,
     public readonly findings: readonly SafetyFinding[],
+    code: 'MODEL_REFUSED' | 'BYOK_BLOCKED' = 'MODEL_REFUSED',
   ) {
-    super(422, 'MODEL_REFUSED', message);
+    super(422, code, message);
     this.name = 'ModelRefusedError';
   }
 }

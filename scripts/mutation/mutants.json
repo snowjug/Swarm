@@ -582,8 +582,8 @@
       "area": "jobs",
       "claim": "A worker takes a job that another worker already holds",
       "file": "backend/src/storage/jobs.ts",
-      "find": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}) AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n             AND state IN (${inList(WAITING)})\n           RETURNING id`,",
-      "replace": "           WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}, 'running') AND not_before <= ?\n                       ORDER BY not_before, created_at, id LIMIT 1)\n           RETURNING id`,",
+      "find": "             WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}) AND not_before <= ?\n                         ORDER BY not_before, created_at, id LIMIT 1)\n               AND state IN (${inList(WAITING)})\n             RETURNING id`,",
+      "replace": "             WHERE id = (SELECT id FROM jobs WHERE state IN (${inList(WAITING)}, 'running') AND not_before <= ?\n                         ORDER BY not_before, created_at, id LIMIT 1)\n             RETURNING id`,",
       "tests": ["backend/test/jobs.test.ts"]
     },
     {
@@ -1005,7 +1005,7 @@
       "area": "studio",
       "claim": "A chapter is written again by a different model than the one that wrote the report",
       "file": "backend/src/studio/regenerate.ts",
-      "find": "project.execution?.provider !== this.config.provider.name ||\n      project.execution?.model !== this.config.provider.model",
+      "find": "project.execution?.provider !== answering.provider ||\n      project.execution?.model !== answering.model",
       "replace": "false",
       "tests": ["backend/test/studio-regenerate.test.ts"]
     },
@@ -1498,6 +1498,406 @@
       "find": "  if (override !== undefined) value.impact = clampTo(override, 'impact');\n  return { value, spread };",
       "replace": "  if (override !== undefined) value.impact = clampTo(override, 'impact');\n  if (/honey/iu.test(actor.name)) value.impact = -1;\n  return { value, spread };",
       "tests": ["backend/test/neutrality-metamorphic.test.ts"]
+    },
+    {
+      "id": "E1",
+      "area": "public",
+      "claim": "One person can read another person’s rows: the policy that scopes a table to its workspace lets everything through",
+      "file": "backend/src/storage/postgres/row-security.ts",
+      "find": "const check = `${SYSTEM} OR ${IN_TENANT(table.column)}`;",
+      "replace": "const check = 'true';",
+      "tests": ["backend/test/public/rls.test.ts", "backend/test/public/isolation.test.ts"]
+    },
+    {
+      "id": "E2",
+      "area": "public",
+      "claim": "One person can read the rows that hang off another person’s project: the policy that scopes them to the project lets everything through",
+      "file": "backend/src/storage/postgres/row-security.ts",
+      "find": "const check = `${SYSTEM} OR ${OF_PROJECT(name)}`;",
+      "replace": "const check = 'true';",
+      "tests": ["backend/test/public/rls.test.ts", "backend/test/public/isolation.test.ts"]
+    },
+    {
+      "id": "E3",
+      "area": "public",
+      "claim": "The runtime database role may bypass row-level security, so that every policy is ignored",
+      "file": "backend/src/storage/postgres/row-security.ts",
+      "find": "CREATE ROLE ${r} NOLOGIN NOSUPERUSER NOBYPASSRLS NOINHERIT;",
+      "replace": "CREATE ROLE ${r} NOLOGIN NOSUPERUSER BYPASSRLS NOINHERIT;",
+      "tests": ["backend/test/public/rls.test.ts"]
+    },
+    {
+      "id": "E4",
+      "area": "public",
+      "claim": "A switched-off account can go on using its session",
+      "file": "backend/src/public/guard.ts",
+      "find": "if (user.disabled) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E5",
+      "area": "public",
+      "claim": "A change made with a session cookie needs no anti-forgery header, and a cross-site one is let through",
+      "file": "backend/src/public/guard.ts",
+      "find": "if (request.headers[CSRF_HEADER] !== '1' || crossSite) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/auth.test.ts", "backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E6",
+      "area": "public",
+      "claim": "A bearer token is taken as a way to sign in to the public edition",
+      "file": "backend/src/public/guard.ts",
+      "find": "if (request.headers.authorization !== undefined) throw unauthenticated();",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E7",
+      "area": "public",
+      "claim": "Every signed-in person is a platform administrator",
+      "file": "backend/src/public/guard.ts",
+      "find": "platformAdmin: pub.adminEmails.has(user.email),",
+      "replace": "platformAdmin: true,",
+      "tests": ["backend/test/public/auth.test.ts", "backend/test/public/freetier.test.ts"]
+    },
+    {
+      "id": "E8",
+      "area": "public",
+      "claim": "A Google ID token is accepted whatever nonce it carries, so one that was made for another sign-in can be replayed",
+      "file": "backend/src/public/identity/google.ts",
+      "find": "if (typeof claims.nonce !== 'string' || !same(claims.nonce, input.nonce)) {",
+      "replace": "if (typeof claims.nonce !== 'string') {",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E9",
+      "area": "public",
+      "claim": "An e-mail address Google has not verified is accepted",
+      "file": "backend/src/public/identity/google.ts",
+      "find": "const verified = claims.email_verified === true || claims.email_verified === 'true';",
+      "replace": "const verified = true;",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E10",
+      "area": "public",
+      "claim": "An ID token that someone other than Google issued is accepted",
+      "file": "backend/src/public/identity/google.ts",
+      "find": "        issuer: [...GOOGLE.issuers],\n",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E11",
+      "area": "public",
+      "claim": "An ID token that was made for another application is accepted",
+      "file": "backend/src/public/identity/google.ts",
+      "find": "        audience: this.credentials.clientId,\n",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E12",
+      "area": "public",
+      "claim": "A sign-in can be finished by a browser other than the one that started it",
+      "file": "backend/src/public/storage/login.ts",
+      "find": "if (row.binding_hash !== sha256Hex(binding)) return null;",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E13",
+      "area": "public",
+      "claim": "A sign-in started with one provider can be finished with another",
+      "file": "backend/src/public/storage/login.ts",
+      "find": "if (row.provider !== provider) return null;",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E14",
+      "area": "public",
+      "claim": "A sign-in that was started long ago can still be finished",
+      "file": "backend/src/public/storage/login.ts",
+      "find": "if (this.now() - row.created_at > LOGIN_TTL_MS) return null;",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E15",
+      "area": "public",
+      "claim": "A sign-in attempt can be finished more than once",
+      "file": "backend/src/public/storage/login.ts",
+      "find": "this.database.prepare('DELETE FROM public_login_attempts WHERE state_hash = ?').run(hash);",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E16",
+      "area": "public",
+      "claim": "After signing in a person can be sent to any address, which is an open redirect",
+      "file": "backend/src/public/routes/auth.ts",
+      "find": "returnTo: safeReturnTo(body.returnTo),",
+      "replace": "returnTo: typeof body.returnTo === 'string' ? body.returnTo : '/',",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E17",
+      "area": "public",
+      "claim": "An account can be made with an e-mail domain the owner has blocked",
+      "file": "backend/src/public/routes/auth.ts",
+      "find": "if (pub.blockedEmailDomains.has(domain)) return back('blocked', 'email-domain', 'anonymous');",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E18",
+      "area": "public",
+      "claim": "Accounts can be made from one address without limit",
+      "file": "backend/src/public/routes/auth.ts",
+      "find": "if (!context.signups.allows(request.ip))\n        return back('blocked', 'signup-throttled', 'anonymous');",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E19",
+      "area": "public",
+      "claim": "New accounts are made while sign-ups are closed",
+      "file": "backend/src/public/routes/auth.ts",
+      "find": "if (!context.signupsOpen()) return back('closed', 'signups-closed', 'anonymous');",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E20",
+      "area": "public",
+      "claim": "An account that has been switched off can sign in again",
+      "file": "backend/src/public/routes/auth.ts",
+      "find": "if (user.disabled) return back('disabled', 'disabled', user.id);",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E21",
+      "area": "public",
+      "claim": "Deleting an account leaves its projects behind",
+      "file": "backend/src/public/storage/users.ts",
+      "find": "this.database.prepare('DELETE FROM projects WHERE tenant_id = ?').run(workspace);",
+      "replace": "",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E22",
+      "area": "public",
+      "claim": "Deleting an account leaves its sessions valid",
+      "file": "backend/src/public/storage/users.ts",
+      "find": "          .prepare('DELETE FROM sessions WHERE principal_id = ? OR tenant_id = ?')",
+      "replace": "          .prepare('DELETE FROM sessions WHERE (principal_id = ? OR tenant_id = ?) AND 1 = 0')",
+      "tests": ["backend/test/public/auth.test.ts"]
+    },
+    {
+      "id": "E23",
+      "area": "public",
+      "claim": "A person can use more free tokens in a day than the cap",
+      "file": "backend/src/public/storage/ledger.ts",
+      "find": "          L.userDailyTokens,\n          L.userDailyCalls,",
+      "replace": "          Number.MAX_SAFE_INTEGER,\n          L.userDailyCalls,",
+      "tests": ["backend/test/public/ledger.test.ts", "backend/test/public/freetier.test.ts"]
+    },
+    {
+      "id": "E24",
+      "area": "public",
+      "claim": "The free tier as a whole can spend more tokens in a day than its global cap",
+      "file": "backend/src/public/storage/ledger.ts",
+      "find": ".run(tokens, microUsd, day, tokens, L.globalDailyTokens, microUsd, L.globalDailyMicroUsd);",
+      "replace": ".run(tokens, microUsd, day, tokens, Number.MAX_SAFE_INTEGER, microUsd, L.globalDailyMicroUsd);",
+      "tests": [
+        "backend/test/public/ledger.test.ts",
+        "backend/test/public/ledger-race.test.ts",
+        "backend/test/public/freetier.test.ts"
+      ]
+    },
+    {
+      "id": "E25",
+      "area": "public",
+      "claim": "An account can use more free tokens in its life than the lifetime cap",
+      "file": "backend/src/public/storage/ledger.ts",
+      "find": ".run(tokens, at, own, tokens, L.userLifetimeTokens);",
+      "replace": ".run(tokens, at, own, tokens, Number.MAX_SAFE_INTEGER);",
+      "tests": ["backend/test/public/ledger.test.ts", "backend/test/public/freetier.test.ts"]
+    },
+    {
+      "id": "E26",
+      "area": "public",
+      "claim": "A person on their own key is counted against the free tier’s caps",
+      "file": "backend/src/public/storage/ledger.ts",
+      "find": "if (funding === 'byok') {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/ledger.test.ts", "backend/test/public/byok.test.ts"]
+    },
+    {
+      "id": "E27",
+      "area": "public",
+      "claim": "The administrator’s switch does not turn the free tier off",
+      "file": "backend/src/public/context.ts",
+      "find": "pub.free.enabled && config.provider.configured && settings.flag('free_tier_enabled', true);",
+      "replace": "pub.free.enabled && config.provider.configured;",
+      "tests": ["backend/test/public/freetier.test.ts"]
+    },
+    {
+      "id": "E28",
+      "area": "public",
+      "claim": "A model call is made on the owner’s credits while the free tier is switched off",
+      "file": "backend/src/public/gate.ts",
+      "find": "if (!input.freeEnabled()) throw refuse('disabled', false);",
+      "replace": "",
+      "tests": ["backend/test/public/freetier.test.ts"]
+    },
+    {
+      "id": "E29",
+      "area": "public",
+      "claim": "Anyone can turn the free tier off with the budget webhook, whatever key they present",
+      "file": "backend/src/public/routes/usage.ts",
+      "find": "if (!offered || !sameHash(offered, pub.opsKeySha256)) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/freetier.test.ts", "backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E30",
+      "area": "public",
+      "claim": "A person’s own key is accepted over a connection that is not encrypted",
+      "file": "backend/src/public/edition.ts",
+      "find": "if (pub.secureCookies && request.protocol !== 'https') {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/byok.test.ts"]
+    },
+    {
+      "id": "E31",
+      "area": "public",
+      "claim": "A run that needs a person’s own key, and has none, goes on at the owner’s expense",
+      "file": "backend/src/public/models.ts",
+      "find": "if (funding.funding === 'byok') {",
+      "replace": "if (funding.funding === 'byok' && funding.byok) {",
+      "tests": ["backend/test/public/byok.test.ts"]
+    },
+    {
+      "id": "E32",
+      "area": "public",
+      "claim": "A key the server was handed is not removed from a log line or an answer",
+      "file": "backend/src/public/byok/secrets.ts",
+      "find": "if (out.includes(secret)) out = out.split(secret).join(MASK);",
+      "replace": "",
+      "tests": ["backend/test/public/byok-parts.test.ts", "backend/test/public/byok.test.ts"]
+    },
+    {
+      "id": "E33",
+      "area": "public",
+      "claim": "A key of Google’s shape that the server was not handed is not removed from a log line or an answer",
+      "file": "backend/src/public/byok/secrets.ts",
+      "find": "  [/\\bAIza[0-9A-Za-z_-]{35}(?![0-9A-Za-z_-])/gu, MASK],\n",
+      "replace": "",
+      "tests": ["backend/test/public/byok-parts.test.ts"]
+    },
+    {
+      "id": "E34",
+      "area": "public",
+      "claim": "The headers that carry a person’s key stay in the request, where a log or a hook can read them",
+      "file": "backend/src/public/byok/provider.ts",
+      "find": "for (const name of Object.values(BYOK_HEADERS)) delete request.raw.headers[name];",
+      "replace": "",
+      "tests": ["backend/test/public/byok.test.ts", "backend/test/public/byok-parts.test.ts"]
+    },
+    {
+      "id": "E35",
+      "area": "public",
+      "claim": "A failure of the owner’s model is told to a stranger in the provider’s own words, with the names of the deployment and the endpoint",
+      "file": "backend/src/public/models.ts",
+      "find": "reword: freeFailureWords,",
+      "replace": "",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E36",
+      "area": "public",
+      "claim": "One address can make as many costly requests as it likes by using many accounts",
+      "file": "backend/src/public/abuse.ts",
+      "find": "        { limiter: perAddress[kind], key: request.ip, kind, scope: 'address' },\n",
+      "replace": "",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E37",
+      "area": "public",
+      "claim": "An account can make changes as fast as it likes",
+      "file": "backend/src/public/abuse.ts",
+      "find": "checks.push({ limiter: writes, key: principal.id, kind: 'writes', scope: 'account' });",
+      "replace": "",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E38",
+      "area": "public",
+      "claim": "A workspace can hold more projects than the owner allows",
+      "file": "backend/src/public/abuse.ts",
+      "find": "repository.count(principal.tenantId) >= pub.maxProjects",
+      "replace": "false",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E39",
+      "area": "public",
+      "claim": "A workspace can store more text than the owner allows",
+      "file": "backend/src/public/abuse.ts",
+      "find": "if (used >= pub.storageQuotaBytes) {",
+      "replace": "if (false) {",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E40",
+      "area": "public",
+      "claim": "A request that is refused still uses up the limits of the account it came from",
+      "file": "backend/src/public/abuse.ts",
+      "find": "const over = checks.find((check) => check.limiter.retryAfterMs(check.key) > 0);",
+      "replace": "const over = checks.find((check) => !check.limiter.allow(check.key));",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E41",
+      "area": "public",
+      "claim": "When the bot check cannot be completed, a sign-in is let through",
+      "file": "backend/src/public/bot.ts",
+      "find": "} catch {\n        return false;\n      }",
+      "replace": "} catch {\n        return true;\n      }",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E42",
+      "area": "public",
+      "claim": "The page’s content policy allows Cloudflare’s host even when the bot check is off",
+      "file": "backend/src/app.ts",
+      "find": "const challenge = config.public?.turnstile ? ['https://challenges.cloudflare.com'] : [];",
+      "replace": "const challenge = ['https://challenges.cloudflare.com'];",
+      "tests": ["backend/test/public/abuse.test.ts"]
+    },
+    {
+      "id": "E43",
+      "area": "public",
+      "claim": "A stranger can make the server read a web page on any port the operator allowed",
+      "file": "backend/src/config.ts",
+      "find": "? { ...buildUrlIngestion(input), allowedPorts: [80, 443] }",
+      "replace": "? { ...buildUrlIngestion(input) }",
+      "tests": ["backend/test/public/ssrf.test.ts"]
+    },
+    {
+      "id": "E44",
+      "area": "public",
+      "claim": "The web crawler runs for strangers although the owner did not turn it on",
+      "file": "backend/src/config.ts",
+      "find": "research: pub && !pub.allowResearch ? { ...research, enabled: false } : research,",
+      "replace": "research,",
+      "tests": ["backend/test/public/ssrf.test.ts"]
     }
   ]
 }

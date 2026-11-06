@@ -40,6 +40,7 @@ import {
 } from '../design/ui';
 import { MODE_LABELS, MODE_SUMMARIES, UI_MODES, type UiMode } from '../lib/mode';
 import { THEME_LABELS, PREFERENCES, type ThemePreference } from '../lib/theme';
+import { usePublicSlots } from '../public/slots';
 import { paletteShortcut } from './commands';
 
 const THEME_ICONS: Record<ThemePreference, typeof Sun> = {
@@ -98,6 +99,9 @@ export function SettingsMenu({
   sourceUrl: string | null;
 }) {
   const motion = useMotionPreference();
+  // The public edition replaces the account part of this menu, and has no one to share a project with. Without it,
+  // there are no slots and the menu is what it always was.
+  const publicSlots = usePublicSlots();
   const trigger = useRef<HTMLButtonElement>(null);
   const wantsPalette = useRef(false);
   return (
@@ -196,7 +200,7 @@ export function SettingsMenu({
                 Model budget
               </MenuItem>
             )}
-            {project.onAccess && (
+            {project.onAccess && !publicSlots && (
               <MenuItem icon={<Users size={16} />} onSelect={project.onAccess}>
                 Who has access
               </MenuItem>
@@ -204,16 +208,22 @@ export function SettingsMenu({
           </>
         )}
         <MenuSeparator />
-        <MenuLabel>{account.label}</MenuLabel>
-        {account.onPeople && (
-          <MenuItem icon={<Users size={16} />} onSelect={account.onPeople}>
-            People
-          </MenuItem>
-        )}
-        {account.onSignOut && (
-          <MenuItem icon={<LogOut size={16} />} onSelect={account.onSignOut}>
-            Sign out
-          </MenuItem>
+        {publicSlots ? (
+          publicSlots.menu
+        ) : (
+          <>
+            <MenuLabel>{account.label}</MenuLabel>
+            {account.onPeople && (
+              <MenuItem icon={<Users size={16} />} onSelect={account.onPeople}>
+                People
+              </MenuItem>
+            )}
+            {account.onSignOut && (
+              <MenuItem icon={<LogOut size={16} />} onSelect={account.onSignOut}>
+                Sign out
+              </MenuItem>
+            )}
+          </>
         )}
         <div className="sw-settings__about">
           <span>Swarm{version ? ` v${version}` : ''} · AGPL-3.0</span>
