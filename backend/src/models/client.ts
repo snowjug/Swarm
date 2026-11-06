@@ -30,6 +30,7 @@ import {
   type SafetyFinding,
 } from './safety.js';
 import { toStrictSchema, type StrictSchema } from './strict-schema.js';
+import type { SpendGate, SpendTicket } from './spend.js';
 import type { FinishReason, ModelCallEvent, ModelObserver, ModelRejectEvent } from './telemetry.js';
 import type { ModelRole } from './task.js';
 
@@ -88,6 +89,11 @@ export interface ModelClientDeps {
   maxRepairs?: number;
   /** What this process has learned about its deployments. Share one across clients so a refusal is paid for once. */
   capabilities?: CapabilityMemory;
+  /**
+   * Asked before every provider round trip, to keep a promise about spend (the public edition's free tier). Absent
+   * in a pilot: nothing is reserved or settled, and the client behaves exactly as it always has.
+   */
+  spend?: SpendGate | null;
 }
 
 interface ChatMessage {
@@ -130,6 +136,8 @@ interface Meter {
   finishReason: FinishReason | null;
   reported: boolean;
   safety: readonly SafetyFinding[];
+  /** True once a request has been handed to the network: from then on the provider may be billing for it. */
+  sent: boolean;
 }
 
 /** What a call to the provider needs besides the conversation. It changes only when a parameter is refused. */
@@ -331,7 +339,36 @@ export class ModelClient implements ModelGateway {
     this.deps.observer?.onCall(event);
   }
 
-  private async request(body: unknown, signal: AbortSignal, plan: RequestPlan): Promise<unknown> {
+  /**
+   * A round trip that did not give an answer still may have cost something, and what it cost is never left out: a
+   * reply that was refused, cut off or blocked used the tokens it used; a request that timed out or was abandoned after
+   * it was sent may be billed in full, so it is charged at its worst case; one the provider answered with an error
+   * status, or that never left, used nothing.
+   */
+  private settleFailed(spend: SpendTicket, meter: Meter, error: unknown): void {
+    if (meter.reported) {
+      spend.settle({
+        inputTokens: meter.inputTokens,
+        outputTokens: meter.outputTokens,
+        reasoningTokens: meter.reasoningTokens,
+      });
+    } else if (
+      meter.sent &&
+      !(error instanceof ProviderHttpError) &&
+      !(error instanceof AppError && error.code === 'MODEL_UNREACHABLE')
+    ) {
+      spend.settleAtWorstCase();
+    } else {
+      spend.release();
+    }
+  }
+
+  private async request(
+    body: unknown,
+    signal: AbortSignal,
+    plan: RequestPlan,
+    meter?: Meter,
+  ): Promise<unknown> {
     const { name, baseUrl, apiKey, configured } = this.config;
     if (!configured || !baseUrl || name === 'none') {
       throw new AppError(503, 'MODEL_NOT_CONFIGURED', this.config.reason);
@@ -347,6 +384,7 @@ export class ModelClient implements ModelGateway {
       const requestSignal = AbortSignal.any([signal, timeout]);
       let response: Response;
       try {
+        if (meter) meter.sent = true;
         response = await this.fetcher(url, {
           method: 'POST',
           redirect: 'error',
@@ -456,6 +494,19 @@ export class ModelClient implements ModelGateway {
             'The model call budget for this operation was exceeded.',
           );
         const inputChars = messages.reduce((total, message) => total + message.content.length, 0);
+        // What a provider counts of a request is more than its messages: the schema it is asked to answer in, and the
+        // framing of each message, are input too.
+        const schemaChars =
+          plan.mode === 'json_schema' && plan.strict
+            ? JSON.stringify(plan.strict.schema).length
+            : 0;
+        const reservedInputTokens = estimateTokens(inputChars + schemaChars + messages.length * 16);
+        // Asked before the call is made, and before anything else is reserved for it: a refusal leaves nothing open.
+        const spend = this.deps.spend?.begin({
+          deployment: plan.deployment ?? '',
+          inputTokens: reservedInputTokens,
+          maxOutputTokens: plan.maxTokens,
+        });
         const ticket: CallTicket | undefined = options.gate?.begin({
           deployment: plan.deployment ?? '',
           inputChars,
@@ -468,6 +519,7 @@ export class ModelClient implements ModelGateway {
           finishReason: null,
           reported: false,
           safety: [],
+          sent: false,
         };
         const structured = this.config.name === 'ollama' ? null : plan.mode;
         const started = performance.now();
@@ -476,6 +528,7 @@ export class ModelClient implements ModelGateway {
         try {
           reply = await this.complete(messages, signal, plan, meter);
         } catch (error) {
+          if (spend) this.settleFailed(spend, meter, error);
           const event: ModelCallEvent = {
             ok: false,
             repair: attempt > 0,
@@ -532,6 +585,20 @@ export class ModelClient implements ModelGateway {
           ...asked,
         };
         answered = { reply, event };
+        // What it used is spent whatever becomes of the reply. A provider that says nothing is charged at an estimate.
+        spend?.settle(
+          reply.tokensReported
+            ? {
+                inputTokens: reply.inputTokens,
+                outputTokens: reply.outputTokens,
+                reasoningTokens: reply.reasoningTokens,
+              }
+            : {
+                inputTokens: reservedInputTokens,
+                outputTokens: estimateTokens(reply.answer.length),
+                reasoningTokens: null,
+              },
+        );
         // The provider answered, and what it used is spent whatever becomes of the reply: the allowance
         // is told now. The call is recorded for the operators once the reply has been judged.
         ticket?.end(event, {
@@ -778,6 +845,7 @@ export class ModelClient implements ModelGateway {
           },
       signal,
       plan,
+      meter,
     );
     let answer: string;
     let inputTokens = 0;

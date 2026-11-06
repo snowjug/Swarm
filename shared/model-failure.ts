@@ -36,6 +36,19 @@ export const MODEL_FAILURE_CODES = [
   'MODEL_PARAMETER_UNSUPPORTED',
   'MODEL_HTTP_ERROR',
   'MODEL_CONTEXT_LIMIT',
+  // The public edition: the free tier cannot be used, or the person's own key could not be.
+  'FREE_TIER_USER_CAP',
+  'FREE_TIER_GLOBAL_CAP',
+  'FREE_TIER_LIFETIME_CAP',
+  'FREE_TIER_DISABLED',
+  'FREE_TIER_CONCURRENT',
+  'BYOK_KEY_NEEDED',
+  'BYOK_KEY_REJECTED',
+  'BYOK_RATE_LIMITED',
+  'BYOK_QUOTA',
+  'BYOK_REGION',
+  'BYOK_MODEL_NOT_FOUND',
+  'BYOK_BLOCKED',
   'MODEL_UNEXPECTED',
 ] as const;
 export type ModelFailureCode = (typeof MODEL_FAILURE_CODES)[number];

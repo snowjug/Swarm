@@ -182,6 +182,16 @@ export class JobStore {
    * Queues a job, unless this project already has one with the same idempotency key, in which case
    * that one is returned: asking twice for the same thing is one job.
    */
+  /**
+   * Called before a new job is queued, and throws to refuse it. An edition uses it to hold one workspace to a number of
+   * runs at once. None in a pilot.
+   */
+  private admission: ((projectId: string) => void) | null = null;
+
+  setAdmission(admit: ((projectId: string) => void) | null): void {
+    this.admission = admit;
+  }
+
   enqueue(input: {
     id: string;
     projectId: string;
@@ -197,6 +207,7 @@ export class JobStore {
         input.idempotencyKey,
       )[0];
       if (existing) return { job: existing, duplicate: true };
+      this.admission?.(input.projectId);
       const at = this.now();
       this.database
         .prepare(

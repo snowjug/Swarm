@@ -147,6 +147,19 @@ export class Orchestrator {
     return this.active !== null;
   }
 
+  /**
+   * How the body of a job is run. By default in the workspace of its project, which is what row-level security reads. An
+   * edition can add to it by `wrapRuns`: the public edition says what pays for the model calls of the run.
+   */
+  private enterRun: (job: Job, run: () => Promise<void>) => Promise<void> = (job, run) =>
+    this.repository.inProjectScope(job.projectId, run);
+
+  /** Runs every job inside `wrap` as well as inside its workspace. */
+  wrapRuns(wrap: (job: Job, run: () => Promise<void>) => Promise<void>): void {
+    const inner = this.enterRun;
+    this.enterRun = (job, run) => wrap(job, () => inner(job, run));
+  }
+
   isBusy(id: string): boolean {
     return this.repository.jobs.live(id) !== null;
   }
@@ -373,7 +386,7 @@ export class Orchestrator {
     if (!job) return;
     const { projectId } = job;
     // A job works on one project, and so for one workspace: it runs in that workspace's scope, which is what row security reads.
-    this.activeTask = (async () => this.repository.inProjectScope(projectId, () => this.run(job)))()
+    this.activeTask = (async () => this.enterRun(job, () => this.run(job)))()
       .catch((error: unknown) => this.onFailure(projectId, publicFailure(error).code))
       .finally(() => {
         this.activeTask = null;

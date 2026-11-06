@@ -13,6 +13,11 @@ export interface CapabilityMemoryOptions {
   /** The most deployments and schemas remembered; the oldest is forgotten first. */
   maxEntries?: number;
   now?: () => number;
+  /**
+   * What the operator has said about a deployment, believed always and for as long as the process runs: a deployment
+   * declared not to reason is never sent an effort, so that the first call to it is not a request that is bound to be refused.
+   */
+  declared?: Readonly<Record<string, DeploymentCapabilities>>;
 }
 
 interface Entry<T> {
@@ -30,6 +35,7 @@ export class CapabilityMemory {
   private readonly ttlMs: number;
   private readonly maxEntries: number;
   private readonly now: () => number;
+  private readonly declared: Readonly<Record<string, DeploymentCapabilities>>;
   private readonly deployments = new Map<string, Entry<DeploymentCapabilities>>();
   private readonly schemas = new Map<string, Entry<true>>();
 
@@ -37,16 +43,18 @@ export class CapabilityMemory {
     this.ttlMs = options.ttlMs ?? 3_600_000;
     this.maxEntries = options.maxEntries ?? 128;
     this.now = options.now ?? Date.now;
+    this.declared = options.declared ?? {};
   }
 
   get(deployment: string): DeploymentCapabilities {
+    const declared = this.declared[deployment];
     const entry = this.deployments.get(deployment);
-    if (!entry) return {};
+    if (!entry) return declared ?? {};
     if (entry.until <= this.now()) {
       this.deployments.delete(deployment);
-      return {};
+      return declared ?? {};
     }
-    return entry.value;
+    return declared ? { ...entry.value, ...declared } : entry.value;
   }
 
   /**

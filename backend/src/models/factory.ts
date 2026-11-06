@@ -1,19 +1,41 @@
-import type { ServerConfig } from '../config.js';
+import type { ServerConfig, ProviderConfig } from '../config.js';
+import { AppError } from '../errors.js';
 import { TaskCache } from './cache.js';
 import { CapabilityMemory } from './capabilities.js';
 import { ModelClient, type ModelGateway, type ModelUsageSink } from './client.js';
 import { budgetLimit, OperationBudget } from './cost.js';
 import { entraTokenProvider, type TokenProvider } from './entra.js';
+import { cappedGateway, refusingGateway } from './gateways.js';
 import type { RoutingConfig } from './routing-config.js';
 import { createRouter, type Router } from './router.js';
 import { createTaskRunner, type TaskRunner } from './runner.js';
-import type { TaskObserver } from './task.js';
+import type { SpendGate } from './spend.js';
+import type { ModelRole, TaskObserver } from './task.js';
 import type { ProviderTelemetry } from './telemetry.js';
 
 export type ModelFactory = (
   onUsage: ModelUsageSink,
   options?: { maxCalls: number },
 ) => ModelGateway;
+
+/**
+ * How one model is to be reached and paid for, decided at the moment it is made. A pilot never decides: every model is
+ * the operator's, reached as configured. The public edition decides from who is asking: the operator's deployment under
+ * the free tier's gate, or the person's own provider and key.
+ */
+export interface ModelFunding {
+  /** Where the model is reached and with what credentials. */
+  provider: ProviderConfig;
+  /** Test hook: the `fetch` to use. */
+  fetcher?: typeof fetch;
+  /** Asked before every round trip. */
+  spend?: SpendGate | null;
+  /** Holds each call to at most this many output tokens, by the role of the task. */
+  outputCap?: ((role: ModelRole | null) => number) | null;
+}
+
+/** What decides, or the reason that nothing may be made. */
+export type FundingSource = () => ModelFunding | AppError;
 
 /**
  * Builds the production model factory. One Entra token provider, one telemetry collector and one
@@ -26,15 +48,45 @@ export function createModelFactory(
   tokens: TokenProvider | null = config.provider.auth === 'entra'
     ? entraTokenProvider({ managedIdentityClientId: config.provider.managedIdentityClientId })
     : null,
+  funding?: FundingSource,
 ): ModelFactory {
-  const capabilities = new CapabilityMemory();
+  const capabilities = new CapabilityMemory(
+    // In the public edition every deployment is a non-reasoning one (start-up refuses any other), so none is sent an
+    // effort, and the first call to it is not a request that is bound to be refused. A pilot keeps learning it from a
+    // refusal, as it always has.
+    config.edition === 'public'
+      ? {
+          declared: Object.fromEntries(
+            [
+              config.routing.defaultDeployment,
+              config.routing.fallbackDeployment,
+              ...Object.values(config.routing.roles),
+            ]
+              .filter((name): name is string => Boolean(name))
+              .filter((name) => config.routing.profiles[name]?.reasoning !== true)
+              .map((name) => [name, { reasoningEffort: false }]),
+          ),
+        }
+      : {},
+  );
   telemetry.usePrices(config.routing.prices);
-  return (onUsage, options) =>
-    new ModelClient(config.provider, onUsage, undefined, options?.maxCalls ?? 16, {
-      tokens,
-      observer: telemetry,
-      capabilities,
-    });
+  return (onUsage, options) => {
+    const decided = funding?.();
+    if (decided instanceof AppError) return refusingGateway(decided);
+    const client = new ModelClient(
+      decided?.provider ?? config.provider,
+      onUsage,
+      decided?.fetcher,
+      options?.maxCalls ?? 16,
+      {
+        tokens,
+        observer: telemetry,
+        capabilities,
+        ...(decided?.spend ? { spend: decided.spend } : {}),
+      },
+    );
+    return decided?.outputCap ? cappedGateway(client, decided.outputCap) : client;
+  };
 }
 
 interface Shared {
