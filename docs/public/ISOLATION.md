@@ -6,140 +6,145 @@ generates `isolation.test.ts`, which runs an attack on every project route and t
 taken away, so that what is left is the database (row-level security). A route that is added is in both without
 anyone remembering to add it. How the isolation is built is in [DESIGN.md](DESIGN.md), section 5.
 
-119 routes. By access: not-api 3, platform 6, project 82, public 7, refused 6, signed-in 10, workspace 5.
+124 routes. By access: not-api 4, platform 6, project 82, public 11, refused 6, signed-in 10, workspace 5.
 
 ## What each kind of route is held by
 
-| Access    | What keeps one person out of another’s data                                                                                                                                                       | Proved by                                                                                                      |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------- |
-| public    | Holds nothing of any person: a status, a document, a sign-in step, or a switch that needs its own key.                                                                                            | `auth.test.ts`, `freetier.test.ts`                                                                             |
-| signed-in | Answers with the caller’s own data only. What is read is chosen by the session, and no request value names a person or a workspace.                                                               | `isolation.test.ts` (own account, usage, audit trail, lists)                                                   |
-| workspace | Acts in the caller’s workspace, which is the session’s. A request cannot name another one, and a new project is always the caller’s.                                                              | `isolation.test.ts` (lists, comparisons, no workspace chosen by a body)                                        |
-| project   | Answered as if the project did not exist when it is not the caller’s, the same answer as for an id that never existed. With the application’s checks removed, the database returns nothing of it. | `isolation.test.ts` (every project route as another person, then again with the checks removed), `rls.test.ts` |
-| platform  | An administrator only (by verified address, read on every request). It reads usage rows and switches, never a project, and the database gives it no way to.                                       | `isolation.test.ts` (the administrator as attacker), `freetier.test.ts`                                        |
-| refused   | Not available in the public edition: 404 whoever asks, before anything about the caller is read. Nobody is ever added to a workspace or a project.                                                | `auth.test.ts` (members routes), `isolation.test.ts`                                                           |
-| not-api   | Not a data route: the page, the files it is made of, and the sign-in redirects.                                                                                                                   | `auth.test.ts`                                                                                                 |
+| Access | What keeps one person out of another’s data | Proved by |
+| ------ | ------------------------------------------- | --------- |
+| public | Holds nothing of any person: a status, a document, a sign-in step, or a switch that needs its own key. | `auth.test.ts`, `freetier.test.ts` |
+| signed-in | Answers with the caller’s own data only. What is read is chosen by the session, and no request value names a person or a workspace. | `isolation.test.ts` (own account, usage, audit trail, lists) |
+| workspace | Acts in the caller’s workspace, which is the session’s. A request cannot name another one, and a new project is always the caller’s. | `isolation.test.ts` (lists, comparisons, no workspace chosen by a body) |
+| project | Answered as if the project did not exist when it is not the caller’s, the same answer as for an id that never existed. With the application’s checks removed, the database returns nothing of it. | `isolation.test.ts` (every project route as another person, then again with the checks removed), `rls.test.ts` |
+| platform | An administrator only (by verified address, read on every request). It reads usage rows and switches, never a project, and the database gives it no way to. | `isolation.test.ts` (the administrator as attacker), `freetier.test.ts` |
+| refused | Not available in the public edition: 404 whoever asks, before anything about the caller is read. Nobody is ever added to a workspace or a project. | `auth.test.ts` (members routes), `isolation.test.ts` |
+| not-api | Not a data route: the page, the files it is made of, and the sign-in redirects. | `auth.test.ts` |
 
 ## Every route
 
-| Route                                                           | Access    |
-| --------------------------------------------------------------- | --------- |
-| `DELETE /api/account`                                           | signed-in |
-| `GET /api/account`                                              | signed-in |
-| `GET /api/admin/audit`                                          | platform  |
-| `POST /api/admin/free-tier`                                     | platform  |
-| `POST /api/admin/signups`                                       | platform  |
-| `GET /api/admin/usage`                                          | platform  |
-| `POST /api/admin/users/:id/disable`                             | platform  |
-| `GET /api/audit/verify`                                         | platform  |
-| `DELETE /api/byok`                                              | signed-in |
-| `POST /api/byok/connect`                                        | signed-in |
-| `GET /api/config`                                               | signed-in |
-| `POST /api/documents/extract`                                   | workspace |
-| `POST /api/evidence/url`                                        | workspace |
-| `GET /api/health`                                               | public    |
-| `GET /api/health/live`                                          | public    |
-| `GET /api/health/ready`                                         | public    |
-| `POST /api/ops/free-tier/off`                                   | public    |
-| `GET /api/projects`                                             | signed-in |
-| `POST /api/projects`                                            | workspace |
-| `DELETE /api/projects/:id`                                      | project   |
-| `GET /api/projects/:id`                                         | project   |
-| `GET /api/projects/:id/actors`                                  | project   |
-| `PUT /api/projects/:id/actors`                                  | project   |
-| `POST /api/projects/:id/actors/generate`                        | project   |
-| `GET /api/projects/:id/analysis`                                | project   |
-| `POST /api/projects/:id/analysis`                               | project   |
-| `GET /api/projects/:id/analysis/:aid`                           | project   |
-| `POST /api/projects/:id/analysis/:aid/cancel`                   | project   |
-| `GET /api/projects/:id/audit`                                   | project   |
-| `POST /api/projects/:id/branches`                               | project   |
-| `GET /api/projects/:id/brief`                                   | project   |
-| `POST /api/projects/:id/brief`                                  | project   |
-| `GET /api/projects/:id/brief/export`                            | project   |
-| `GET /api/projects/:id/budget`                                  | project   |
-| `PUT /api/projects/:id/budget`                                  | project   |
-| `POST /api/projects/:id/cancel`                                 | project   |
-| `GET /api/projects/:id/chat`                                    | project   |
-| `POST /api/projects/:id/chat`                                   | project   |
-| `GET /api/projects/:id/claims/:claimId`                         | project   |
-| `POST /api/projects/:id/claims/:claimId/review`                 | project   |
-| `GET /api/projects/:id/compare`                                 | project   |
-| `POST /api/projects/:id/conflicts/:conflictId/review`           | project   |
-| `GET /api/projects/:id/constraints`                             | project   |
-| `PUT /api/projects/:id/constraints`                             | project   |
-| `GET /api/projects/:id/constraints/counterfactuals`             | project   |
-| `POST /api/projects/:id/constraints/counterfactuals`            | project   |
-| `GET /api/projects/:id/constraints/gate`                        | project   |
-| `POST /api/projects/:id/constraints/propose`                    | project   |
-| `POST /api/projects/:id/constraints/review`                     | project   |
-| `GET /api/projects/:id/critiques`                               | project   |
-| `PUT /api/projects/:id/critiques/:cid/response`                 | project   |
-| `POST /api/projects/:id/critiques/run`                          | project   |
-| `GET /api/projects/:id/decision`                                | project   |
-| `PATCH /api/projects/:id/environment`                           | project   |
-| `GET /api/projects/:id/evidence`                                | project   |
-| `POST /api/projects/:id/evidence/documents`                     | project   |
-| `GET /api/projects/:id/export`                                  | project   |
-| `PUT /api/projects/:id/intervention`                            | project   |
-| `GET /api/projects/:id/jobs`                                    | project   |
-| `GET /api/projects/:id/ledger`                                  | project   |
-| `GET /api/projects/:id/members`                                 | refused   |
-| `DELETE /api/projects/:id/members/:principalId`                 | refused   |
-| `PUT /api/projects/:id/members/:principalId`                    | refused   |
-| `GET /api/projects/:id/memories`                                | project   |
-| `POST /api/projects/:id/pause`                                  | project   |
-| `GET /api/projects/:id/research`                                | project   |
-| `POST /api/projects/:id/research`                               | project   |
-| `POST /api/projects/:id/research/cancel`                        | project   |
-| `POST /api/projects/:id/research/finish`                        | project   |
-| `POST /api/projects/:id/research/pause`                         | project   |
-| `POST /api/projects/:id/research/resume`                        | project   |
-| `POST /api/projects/:id/research/sources`                       | project   |
-| `POST /api/projects/:id/run`                                    | project   |
-| `GET /api/projects/:id/scenario`                                | project   |
-| `PUT /api/projects/:id/scenario`                                | project   |
-| `GET /api/projects/:id/stakeholders`                            | project   |
-| `PUT /api/projects/:id/stakeholders`                            | project   |
-| `DELETE /api/projects/:id/stakeholders/:participantId`          | project   |
-| `PATCH /api/projects/:id/stakeholders/:participantId`           | project   |
-| `POST /api/projects/:id/stakeholders/:participantId/regenerate` | project   |
-| `GET /api/projects/:id/stakeholders/:participantId/why`         | project   |
-| `POST /api/projects/:id/stakeholders/accept`                    | project   |
-| `POST /api/projects/:id/stakeholders/add-missing`               | project   |
-| `POST /api/projects/:id/stakeholders/approve`                   | project   |
-| `POST /api/projects/:id/stakeholders/discover`                  | project   |
-| `POST /api/projects/:id/stakeholders/merge-duplicates`          | project   |
-| `POST /api/projects/:id/stakeholders/propose`                   | project   |
-| `GET /api/projects/:id/stakeholders/validation`                 | project   |
-| `POST /api/projects/:id/steps/:step`                            | project   |
-| `GET /api/projects/:id/studio`                                  | project   |
-| `POST /api/projects/:id/studio`                                 | project   |
-| `POST /api/projects/:id/studio/approve`                         | project   |
-| `GET /api/projects/:id/studio/export`                           | project   |
-| `POST /api/projects/:id/studio/reopen`                          | project   |
-| `POST /api/projects/:id/studio/request-changes`                 | project   |
-| `PUT /api/projects/:id/studio/sections/:sectionId`              | project   |
-| `PUT /api/projects/:id/studio/sections/:sectionId/lock`         | project   |
-| `POST /api/projects/:id/studio/sections/:sectionId/notes`       | project   |
-| `POST /api/projects/:id/studio/sections/:sectionId/proposal`    | project   |
-| `POST /api/projects/:id/studio/sections/:sectionId/regenerate`  | project   |
-| `POST /api/projects/:id/studio/sections/:sectionId/restore`     | project   |
-| `POST /api/projects/:id/studio/submit`                          | project   |
-| `POST /api/projects/:id/surveys`                                | project   |
-| `POST /api/projects/:id/surveys/:surveyId/cancel`               | project   |
-| `POST /api/provider/check`                                      | workspace |
-| `GET /api/provider/status`                                      | signed-in |
-| `GET /api/public/legal/:doc`                                    | public    |
-| `GET /api/public/session`                                       | public    |
-| `GET /api/public/status`                                        | public    |
-| `POST /api/scenario/parse`                                      | workspace |
-| `GET /api/session`                                              | signed-in |
-| `GET /api/usage`                                                | signed-in |
-| `GET /api/workspace`                                            | signed-in |
-| `GET /api/workspace/members`                                    | refused   |
-| `DELETE /api/workspace/members/:principalId`                    | refused   |
-| `PUT /api/workspace/members/:principalId`                       | refused   |
-| `GET /auth/callback/:provider`                                  | not-api   |
-| `POST /auth/logout`                                             | not-api   |
-| `POST /auth/start/:provider`                                    | not-api   |
+| Route | Access |
+| ----- | ------ |
+| `DELETE /api/account` | signed-in |
+| `GET /api/account` | signed-in |
+| `GET /api/admin/audit` | platform |
+| `POST /api/admin/free-tier` | platform |
+| `POST /api/admin/signups` | platform |
+| `GET /api/admin/usage` | platform |
+| `POST /api/admin/users/:id/disable` | platform |
+| `GET /api/audit/verify` | platform |
+| `DELETE /api/byok` | signed-in |
+| `POST /api/byok/connect` | signed-in |
+| `GET /api/config` | signed-in |
+| `POST /api/documents/extract` | workspace |
+| `POST /api/evidence/url` | workspace |
+| `GET /api/health` | public |
+| `GET /api/health/live` | public |
+| `GET /api/health/ready` | public |
+| `POST /api/ops/free-tier/off` | public |
+| `POST /api/ops/free-tier/on` | public |
+| `POST /api/ops/signups/off` | public |
+| `POST /api/ops/signups/on` | public |
+| `GET /api/ops/usage` | public |
+| `GET /api/projects` | signed-in |
+| `POST /api/projects` | workspace |
+| `DELETE /api/projects/:id` | project |
+| `GET /api/projects/:id` | project |
+| `GET /api/projects/:id/actors` | project |
+| `PUT /api/projects/:id/actors` | project |
+| `POST /api/projects/:id/actors/generate` | project |
+| `GET /api/projects/:id/analysis` | project |
+| `POST /api/projects/:id/analysis` | project |
+| `GET /api/projects/:id/analysis/:aid` | project |
+| `POST /api/projects/:id/analysis/:aid/cancel` | project |
+| `GET /api/projects/:id/audit` | project |
+| `POST /api/projects/:id/branches` | project |
+| `GET /api/projects/:id/brief` | project |
+| `POST /api/projects/:id/brief` | project |
+| `GET /api/projects/:id/brief/export` | project |
+| `GET /api/projects/:id/budget` | project |
+| `PUT /api/projects/:id/budget` | project |
+| `POST /api/projects/:id/cancel` | project |
+| `GET /api/projects/:id/chat` | project |
+| `POST /api/projects/:id/chat` | project |
+| `GET /api/projects/:id/claims/:claimId` | project |
+| `POST /api/projects/:id/claims/:claimId/review` | project |
+| `GET /api/projects/:id/compare` | project |
+| `POST /api/projects/:id/conflicts/:conflictId/review` | project |
+| `GET /api/projects/:id/constraints` | project |
+| `PUT /api/projects/:id/constraints` | project |
+| `GET /api/projects/:id/constraints/counterfactuals` | project |
+| `POST /api/projects/:id/constraints/counterfactuals` | project |
+| `GET /api/projects/:id/constraints/gate` | project |
+| `POST /api/projects/:id/constraints/propose` | project |
+| `POST /api/projects/:id/constraints/review` | project |
+| `GET /api/projects/:id/critiques` | project |
+| `PUT /api/projects/:id/critiques/:cid/response` | project |
+| `POST /api/projects/:id/critiques/run` | project |
+| `GET /api/projects/:id/decision` | project |
+| `PATCH /api/projects/:id/environment` | project |
+| `GET /api/projects/:id/evidence` | project |
+| `POST /api/projects/:id/evidence/documents` | project |
+| `GET /api/projects/:id/export` | project |
+| `PUT /api/projects/:id/intervention` | project |
+| `GET /api/projects/:id/jobs` | project |
+| `GET /api/projects/:id/ledger` | project |
+| `GET /api/projects/:id/members` | refused |
+| `DELETE /api/projects/:id/members/:principalId` | refused |
+| `PUT /api/projects/:id/members/:principalId` | refused |
+| `GET /api/projects/:id/memories` | project |
+| `POST /api/projects/:id/pause` | project |
+| `GET /api/projects/:id/research` | project |
+| `POST /api/projects/:id/research` | project |
+| `POST /api/projects/:id/research/cancel` | project |
+| `POST /api/projects/:id/research/finish` | project |
+| `POST /api/projects/:id/research/pause` | project |
+| `POST /api/projects/:id/research/resume` | project |
+| `POST /api/projects/:id/research/sources` | project |
+| `POST /api/projects/:id/run` | project |
+| `GET /api/projects/:id/scenario` | project |
+| `PUT /api/projects/:id/scenario` | project |
+| `GET /api/projects/:id/stakeholders` | project |
+| `PUT /api/projects/:id/stakeholders` | project |
+| `DELETE /api/projects/:id/stakeholders/:participantId` | project |
+| `PATCH /api/projects/:id/stakeholders/:participantId` | project |
+| `POST /api/projects/:id/stakeholders/:participantId/regenerate` | project |
+| `GET /api/projects/:id/stakeholders/:participantId/why` | project |
+| `POST /api/projects/:id/stakeholders/accept` | project |
+| `POST /api/projects/:id/stakeholders/add-missing` | project |
+| `POST /api/projects/:id/stakeholders/approve` | project |
+| `POST /api/projects/:id/stakeholders/discover` | project |
+| `POST /api/projects/:id/stakeholders/merge-duplicates` | project |
+| `POST /api/projects/:id/stakeholders/propose` | project |
+| `GET /api/projects/:id/stakeholders/validation` | project |
+| `POST /api/projects/:id/steps/:step` | project |
+| `GET /api/projects/:id/studio` | project |
+| `POST /api/projects/:id/studio` | project |
+| `POST /api/projects/:id/studio/approve` | project |
+| `GET /api/projects/:id/studio/export` | project |
+| `POST /api/projects/:id/studio/reopen` | project |
+| `POST /api/projects/:id/studio/request-changes` | project |
+| `PUT /api/projects/:id/studio/sections/:sectionId` | project |
+| `PUT /api/projects/:id/studio/sections/:sectionId/lock` | project |
+| `POST /api/projects/:id/studio/sections/:sectionId/notes` | project |
+| `POST /api/projects/:id/studio/sections/:sectionId/proposal` | project |
+| `POST /api/projects/:id/studio/sections/:sectionId/regenerate` | project |
+| `POST /api/projects/:id/studio/sections/:sectionId/restore` | project |
+| `POST /api/projects/:id/studio/submit` | project |
+| `POST /api/projects/:id/surveys` | project |
+| `POST /api/projects/:id/surveys/:surveyId/cancel` | project |
+| `POST /api/provider/check` | workspace |
+| `GET /api/provider/status` | signed-in |
+| `GET /api/public/legal/:doc` | public |
+| `GET /api/public/session` | public |
+| `GET /api/public/status` | public |
+| `POST /api/scenario/parse` | workspace |
+| `GET /api/session` | signed-in |
+| `GET /api/usage` | signed-in |
+| `GET /api/workspace` | signed-in |
+| `GET /api/workspace/members` | refused |
+| `DELETE /api/workspace/members/:principalId` | refused |
+| `PUT /api/workspace/members/:principalId` | refused |
+| `GET /auth/callback/:provider` | not-api |
+| `POST /auth/guest` | not-api |
+| `POST /auth/logout` | not-api |
+| `POST /auth/start/:provider` | not-api |

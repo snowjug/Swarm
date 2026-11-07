@@ -66,6 +66,9 @@ export function accountRoutes(
         label: provider.label,
       })),
       signupsOpen: context.signupsOpen(),
+      // A visitor can start as a guest only when the owner turned it on and new visitors are being let in.
+      guestMode: pub.guestMode && context.signupsOpen(),
+      guestRetentionHours: pub.guests.retentionHours,
       bot: context.bot ? { kind: 'turnstile', siteKey: context.bot.siteKey } : null,
       freeTier: freeTier(),
       byokEnabled: pub.byok.enabled,
@@ -73,9 +76,10 @@ export function accountRoutes(
       legal: { terms: '/legal/terms', privacy: '/legal/privacy' },
       user: who
         ? {
-            emailMasked: maskEmail(who.user.email),
+            emailMasked: who.user.provider === 'guest' ? 'guest' : maskEmail(who.user.email),
             provider: who.user.provider,
-            isAdmin: context.isAdmin(who.user.email),
+            guest: who.user.provider === 'guest',
+            isAdmin: who.user.provider !== 'guest' && context.isAdmin(who.user.email),
             createdAt: new Date(who.user.createdAt).toISOString(),
           }
         : null,
@@ -121,8 +125,9 @@ export function accountRoutes(
     const user = users.get(principal.id);
     if (!user) throw new AppError(401, 'SIGN_IN_REQUIRED', 'Sign in to continue.');
     const view: AccountView = {
-      emailMasked: maskEmail(user.email),
+      emailMasked: user.provider === 'guest' ? 'guest' : maskEmail(user.email),
       provider: user.provider,
+      guest: user.provider === 'guest',
       createdAt: new Date(user.createdAt).toISOString(),
       isAdmin: principal.platformAdmin,
       projects: { count: repository.count(principal.tenantId), limit: pub.maxProjects },
