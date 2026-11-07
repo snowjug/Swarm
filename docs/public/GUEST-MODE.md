@@ -26,14 +26,14 @@ record there has an identifier that begins `g_`, a sign-up's begins `s_`, and ea
 
 ## What a guest may do
 
-| Limit                           | Guest (default)             | Signed in (unchanged)       | Variable                                                         |
-| ------------------------------- | --------------------------- | --------------------------- | ---------------------------------------------------------------- |
-| Tokens a day                    | 80,000                      | 60,000                      | `FREE_GUEST_DAILY_TOKENS`, `FREE_USER_DAILY_TOKENS`              |
-| Model calls a day               | 60                          | 40                          | `FREE_GUEST_DAILY_CALLS`, `FREE_USER_DAILY_CALLS`                |
-| Tokens for the life of the guest | 240,000                    | 300,000                     | `FREE_GUEST_LIFETIME_TOKENS`, `FREE_USER_LIFETIME_TOKENS`        |
-| Runs at once                    | 2                           | 1                           | `FREE_GUEST_CONCURRENT_RUNS`, `FREE_USER_CONCURRENT_RUNS`        |
-| Calls at once                   | 4                           | 3                           | `FREE_GUEST_CONCURRENT_CALLS`, `FREE_USER_CONCURRENT_CALLS`      |
-| Size of a "run" (the meter only) | 15,000 tokens              | 15,000 tokens               | `FREE_GUEST_TOKENS_PER_RUN`, `FREE_TOKENS_PER_RUN`               |
+| Limit                            | Guest (default) | Signed in (unchanged) | Variable                                                    |
+| -------------------------------- | --------------- | --------------------- | ----------------------------------------------------------- |
+| Tokens a day                     | 80,000          | 60,000                | `FREE_GUEST_DAILY_TOKENS`, `FREE_USER_DAILY_TOKENS`         |
+| Model calls a day                | 60              | 40                    | `FREE_GUEST_DAILY_CALLS`, `FREE_USER_DAILY_CALLS`           |
+| Tokens for the life of the guest | 240,000         | 300,000               | `FREE_GUEST_LIFETIME_TOKENS`, `FREE_USER_LIFETIME_TOKENS`   |
+| Runs at once                     | 2               | 1                     | `FREE_GUEST_CONCURRENT_RUNS`, `FREE_USER_CONCURRENT_RUNS`   |
+| Calls at once                    | 4               | 3                     | `FREE_GUEST_CONCURRENT_CALLS`, `FREE_USER_CONCURRENT_CALLS` |
+| Size of a "run" (the meter only) | 15,000 tokens   | 15,000 tokens         | `FREE_GUEST_TOKENS_PER_RUN`, `FREE_TOKENS_PER_RUN`          |
 
 The caps that bind everyone together are unchanged and shared: `FREE_GLOBAL_DAILY_TOKENS` and `FREE_GLOBAL_DAILY_COST_USD`
 (2,000,000 tokens and US$5 by default; the demonstration deployment sets 5,000,000 and US$15). The ledger is the same atomic
@@ -70,27 +70,27 @@ With no sign-in there is no administrator session, and the budget webhook can on
 (`PUBLIC_OWNER_KEY_SHA256`, the SHA-256 of a key you keep in a file; sent only in the header `X-Swarm-Owner-Key`, never in an
 address) is the way to operate the site:
 
-| Call                                | Does                                         |
-| ----------------------------------- | -------------------------------------------- |
-| `POST /api/ops/free-tier/off`       | turns the free tier off (the kill switch)    |
-| `POST /api/ops/free-tier/on`        | turns it on again                            |
-| `POST /api/ops/signups/off`         | stops new guests and new accounts (close)    |
-| `POST /api/ops/signups/on`          | lets them in again                           |
-| `GET /api/ops/usage`                | the usage meter: spend by day, top users, refusals, the switches |
+| Call                          | Does                                                             |
+| ----------------------------- | ---------------------------------------------------------------- |
+| `POST /api/ops/free-tier/off` | turns the free tier off (the kill switch)                        |
+| `POST /api/ops/free-tier/on`  | turns it on again                                                |
+| `POST /api/ops/signups/off`   | stops new guests and new accounts (close)                        |
+| `POST /api/ops/signups/on`    | lets them in again                                               |
+| `GET /api/ops/usage`          | the usage meter: spend by day, top users, refusals, the switches |
 
 Each is rate limited, compared by hash in constant time, answers 404 when no owner key is configured, and is recorded without the
 key. The key is in no log, answer or audit entry (tested).
 
 ## Configuration
 
-| Variable                          | Default | Meaning                                                    |
-| --------------------------------- | ------- | ---------------------------------------------------------- |
-| `PUBLIC_GUEST_MODE`               | `false` | visitors may start with no sign-in                         |
-| `PUBLIC_GUESTS_PER_IP_PER_HOUR`   | `10`    | new guests one address may make in an hour                 |
-| `PUBLIC_GUESTS_PER_HOUR`          | `300`   | new guests in all in an hour                               |
-| `PUBLIC_GUEST_RETENTION_HOURS`    | `24`    | hours without use before a guest's data is deleted         |
-| `FREE_GUEST_*`                    | above   | the guest allowance                                        |
-| `PUBLIC_OWNER_KEY_SHA256`         | unset   | turns the owner's routes on                                |
+| Variable                        | Default | Meaning                                            |
+| ------------------------------- | ------- | -------------------------------------------------- |
+| `PUBLIC_GUEST_MODE`             | `false` | visitors may start with no sign-in                 |
+| `PUBLIC_GUESTS_PER_IP_PER_HOUR` | `10`    | new guests one address may make in an hour         |
+| `PUBLIC_GUESTS_PER_HOUR`        | `300`   | new guests in all in an hour                       |
+| `PUBLIC_GUEST_RETENTION_HOURS`  | `24`    | hours without use before a guest's data is deleted |
+| `FREE_GUEST_*`                  | above   | the guest allowance                                |
+| `PUBLIC_OWNER_KEY_SHA256`       | unset   | turns the owner's routes on                        |
 
 With guest mode on, `PUBLIC_GOOGLE_*` and `PUBLIC_GITHUB_*` are optional (the server refuses to start with neither only when guest
 mode is off). The Bicep template follows ([DEPLOY.md](DEPLOY.md)): the guard that wants a sign-in provider holds when guest mode is on.
