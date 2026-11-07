@@ -36,6 +36,8 @@ gemini.keys.add(E2E_KEY);
 foundry.reply = (_call, body) => foundry.ok(undefined, frameOf(questionIn(body)));
 gemini.reply = (_call, seen) => gemini.ok(frameOf(questionIn(seen.body)));
 
+const guestMode = process.env.E2E_PUBLIC_GUEST === '1';
+
 const h = await publicApp(
   {
     ...foundryEnvironment,
@@ -49,6 +51,18 @@ const h = await publicApp(
     PUBLIC_SIGNUPS_PER_IP_PER_DAY: '1000',
     PUBLIC_SIGNUPS_PER_HOUR: '1000',
     RATE_LIMIT_SCALE: '1000',
+    // Guest mode, as it is deployed: no sign-in provider at all, and a visitor starts with one press.
+    ...(guestMode
+      ? {
+          PUBLIC_GUEST_MODE: 'true',
+          PUBLIC_GOOGLE_CLIENT_ID: '',
+          PUBLIC_GOOGLE_CLIENT_SECRET: '',
+          PUBLIC_GITHUB_CLIENT_ID: '',
+          PUBLIC_GITHUB_CLIENT_SECRET: '',
+          PUBLIC_GUESTS_PER_IP_PER_HOUR: process.env.E2E_PUBLIC_GUESTS_PER_IP ?? '30',
+          FREE_GUEST_DAILY_CALLS: process.env.E2E_PUBLIC_GUEST_CALLS ?? '60',
+        }
+      : {}),
   },
   { serve: true, public: { modelFetcher: foundry.fetch, byokFetcher: gemini.fetch } },
 );
