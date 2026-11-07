@@ -57,6 +57,9 @@ param storageQuotaMb = int(readEnvironmentVariable('SWARM_PUBLIC_STORAGE_QUOTA_M
 param deletedAccountRetentionDays = int(readEnvironmentVariable('SWARM_PUBLIC_DELETED_ACCOUNT_RETENTION_DAYS', '30'))
 param signupsPerIpPerDay = int(readEnvironmentVariable('SWARM_PUBLIC_SIGNUPS_PER_IP_PER_DAY', '5'))
 param signupsPerHour = int(readEnvironmentVariable('SWARM_PUBLIC_SIGNUPS_PER_HOUR', '60'))
+// What one address may request in a minute (30 to 1200, default 120). Raise it for a site that many people open from one shared address,
+// such as a demonstration room: the page's own files and the polling of a run count against it. The scale stays 1.
+param ipRequestsPerMinute = int(readEnvironmentVariable('SWARM_PUBLIC_IP_REQUESTS_PER_MINUTE', '120'))
 // A hosted deployment allows at most 60 idle minutes and 12 hours in all.
 param sessionIdleMinutes = int(readEnvironmentVariable('SWARM_PUBLIC_SESSION_IDLE_MINUTES', '30'))
 param sessionAbsoluteHours = int(readEnvironmentVariable('SWARM_PUBLIC_SESSION_ABSOLUTE_HOURS', '8'))

@@ -179,6 +179,7 @@ const EVERYTHING = {
   SWARM_PUBLIC_FREE_USER_DAILY_TOKENS: '30000',
   SWARM_PUBLIC_SIGNUPS_PER_IP_PER_DAY: '3',
   SWARM_PUBLIC_SIGNUPS_PER_HOUR: '30',
+  SWARM_PUBLIC_IP_REQUESTS_PER_MINUTE: '240',
   SWARM_PUBLIC_SESSION_IDLE_MINUTES: '20',
   SWARM_PUBLIC_SESSION_ABSOLUTE_HOURS: '6',
   SWARM_PUBLIC_GUEST_MODE: 'true',
@@ -253,6 +254,7 @@ const PARAMETER_OF: Record<string, string> = {
   PUBLIC_ALLOW_RESEARCH: 'allowResearch',
   PUBLIC_SIGNUPS_PER_IP_PER_DAY: 'signupsPerIpPerDay',
   PUBLIC_SIGNUPS_PER_HOUR: 'signupsPerHour',
+  PUBLIC_IP_REQUESTS_PER_MINUTE: 'ipRequestsPerMinute',
   PUBLIC_GUEST_MODE: 'guestMode',
   PUBLIC_GUESTS_PER_IP_PER_HOUR: 'guestsPerIpPerHour',
   PUBLIC_GUESTS_PER_HOUR: 'guestsPerHour',
@@ -704,6 +706,7 @@ describe.skipIf(!bicep || postgresRun)(
         expect(changed).toMatchObject({
           PUBLIC_SIGNUPS_PER_IP_PER_DAY: '3',
           PUBLIC_SIGNUPS_PER_HOUR: '30',
+          PUBLIC_IP_REQUESTS_PER_MINUTE: '240',
           AUTH_SESSION_IDLE_MINUTES: '20',
           AUTH_SESSION_ABSOLUTE_HOURS: '6',
         });
@@ -837,7 +840,7 @@ describe.skipIf(!bicep || postgresRun)(
         expect(get(main, 'parameters', 'ownerKey')).toBeUndefined();
       });
 
-      it("takes the application's default and range for every guest limit (backend/src/public/config.ts)", () => {
+      it("takes the application's default and range for every guest limit and for the requests of one address (backend/src/public/config.ts)", () => {
         const source = readFileSync(
           join(REPO_ROOT, 'backend', 'src', 'public', 'config.ts'),
           'utf8',
@@ -853,9 +856,13 @@ describe.skipIf(!bicep || postgresRun)(
         }
         const limits = Object.entries(PARAMETER_OF).filter(
           ([name]) =>
-            /^(?:PUBLIC_GUESTS?_|FREE_GUEST_)/u.test(name) && name !== 'PUBLIC_GUEST_MODE',
+            (/^(?:PUBLIC_GUESTS?_|FREE_GUEST_)/u.test(name) && name !== 'PUBLIC_GUEST_MODE') ||
+            name === 'PUBLIC_IP_REQUESTS_PER_MINUTE',
         );
-        expect(limits, 'the nine guest limits of the table').toHaveLength(9);
+        expect(
+          limits,
+          'the nine guest limits of the table and the requests of one address',
+        ).toHaveLength(10);
         for (const [name, parameter] of limits) {
           const [fallback, min, max] = application.get(name) ?? [];
           expect(fallback, `${name} is read with whole() in config.ts`).toBeDefined();

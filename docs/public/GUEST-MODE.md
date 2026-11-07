@@ -54,6 +54,8 @@ Anyone with the link can use the free tier; that is the point, and what bounds i
 - **Rates and quotas**: per account and per address, on every route that costs something (`abuse.ts`), and 10 projects and
   20 MB per workspace, as for anyone.
 - **Deleting and starting again** gives a fresh allowance. That is what the address throttle is for, and why the global cap stays.
+- **Many people behind one address** share the throttle above and the general request limit of one address
+  (`PUBLIC_IP_REQUESTS_PER_MINUTE`, 120 a minute, the page's own files included). A deployment for a room raises both on purpose.
 - Turnstile is off by default and, when both keys are set, is asked for on `POST /auth/guest` too.
 
 ## Data
@@ -83,14 +85,15 @@ key. The key is in no log, answer or audit entry (tested).
 
 ## Configuration
 
-| Variable                        | Default | Meaning                                            |
-| ------------------------------- | ------- | -------------------------------------------------- |
-| `PUBLIC_GUEST_MODE`             | `false` | visitors may start with no sign-in                 |
-| `PUBLIC_GUESTS_PER_IP_PER_HOUR` | `10`    | new guests one address may make in an hour         |
-| `PUBLIC_GUESTS_PER_HOUR`        | `300`   | new guests in all in an hour                       |
-| `PUBLIC_GUEST_RETENTION_HOURS`  | `24`    | hours without use before a guest's data is deleted |
-| `FREE_GUEST_*`                  | above   | the guest allowance                                |
-| `PUBLIC_OWNER_KEY_SHA256`       | unset   | turns the owner's routes on                        |
+| Variable                        | Default | Meaning                                             |
+| ------------------------------- | ------- | --------------------------------------------------- |
+| `PUBLIC_GUEST_MODE`             | `false` | visitors may start with no sign-in                  |
+| `PUBLIC_GUESTS_PER_IP_PER_HOUR` | `10`    | new guests one address may make in an hour          |
+| `PUBLIC_GUESTS_PER_HOUR`        | `300`   | new guests in all in an hour                        |
+| `PUBLIC_GUEST_RETENTION_HOURS`  | `24`    | hours without use before a guest's data is deleted  |
+| `PUBLIC_IP_REQUESTS_PER_MINUTE` | `120`   | requests one address may make in a minute (30-1200) |
+| `FREE_GUEST_*`                  | above   | the guest allowance                                 |
+| `PUBLIC_OWNER_KEY_SHA256`       | unset   | turns the owner's routes on                         |
 
 With guest mode on, `PUBLIC_GOOGLE_*` and `PUBLIC_GITHUB_*` are optional (the server refuses to start with neither only when guest
 mode is off). The Bicep template follows ([DEPLOY.md](DEPLOY.md)): the guard that wants a sign-in provider holds when guest mode is on.

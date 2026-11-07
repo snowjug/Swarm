@@ -80,6 +80,12 @@ export interface PublicConfig {
   pepper: string;
   signups: { perIpPerDay: number; perHour: number };
   /**
+   * What one address may ask of the site in a minute, before the rate limit scale: the page's own files count, and so does the
+   * polling of a run in progress. An office or a demonstration room shares one address, so a deployment may raise it. The costly
+   * routes have limits of their own and the ledger holds the spending, whatever this is.
+   */
+  ipRequestsPerMinute: number;
+  /**
    * What one account may do in a window, before the rate limit scale. An address may do three times as much, because a
    * household or an office shares one.
    */
@@ -160,6 +166,7 @@ const environmentSchema = z.object({
   PUBLIC_PEPPER: z.preprocess(unset, z.string().min(32).max(500).optional()),
   PUBLIC_SIGNUPS_PER_IP_PER_DAY: whole(5, 1, 1_000),
   PUBLIC_SIGNUPS_PER_HOUR: whole(60, 1, 100_000),
+  PUBLIC_IP_REQUESTS_PER_MINUTE: whole(120, 30, 1_200),
   PUBLIC_RATE_WRITES_PER_5MIN: whole(300, 10, 1_000_000),
   PUBLIC_RATE_CREATE_PER_HOUR: whole(20, 1, 100_000),
   PUBLIC_RATE_STORE_PER_HOUR: whole(60, 1, 100_000),
@@ -338,6 +345,7 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
       perIpPerDay: input.PUBLIC_SIGNUPS_PER_IP_PER_DAY,
       perHour: input.PUBLIC_SIGNUPS_PER_HOUR,
     },
+    ipRequestsPerMinute: input.PUBLIC_IP_REQUESTS_PER_MINUTE,
     rates: {
       writesPer5Min: input.PUBLIC_RATE_WRITES_PER_5MIN,
       createPerHour: input.PUBLIC_RATE_CREATE_PER_HOUR,

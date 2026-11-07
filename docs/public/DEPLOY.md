@@ -781,6 +781,7 @@ new account is made.
 | `SWARM_PUBLIC_GUEST_MODE`                  | `false`  | `true`: visitors may start with no sign-in                             |
 | `SWARM_PUBLIC_GUESTS_PER_IP_PER_HOUR`      | `10`     | New guests one address may make in an hour (1 to 1000)                 |
 | `SWARM_PUBLIC_GUESTS_PER_HOUR`             | `300`    | New guests the whole site may make in an hour (1 to 100000)            |
+| `SWARM_PUBLIC_IP_REQUESTS_PER_MINUTE`      | `120`    | Requests one address may make to the site in a minute (30 to 1200)     |
 | `SWARM_PUBLIC_GUEST_RETENTION_HOURS`       | `24`     | A guest's data is deleted after this many hours without use (1 to 168) |
 | `SWARM_PUBLIC_FREE_GUEST_DAILY_TOKENS`     | `80000`  | Tokens one guest may use per UTC day (0 to 100000000)                  |
 | `SWARM_PUBLIC_FREE_GUEST_DAILY_CALLS`      | `60`     | Model round trips one guest may make per UTC day (0 to 100000)         |
@@ -794,6 +795,14 @@ A `0` in the three token and call caps means a guest may use **none** of the fre
 template lets be `0`). Guests draw on the same global daily caps as everybody, `FREE_GLOBAL_DAILY_TOKENS` and
 `FREE_GLOBAL_DAILY_COST_USD`: with no sign-in in the way, those and the address throttle are what bound the cost of a flood, so choose
 them first (section 11). Keep these variables in your environment file and export them on every apply, like all the others.
+
+**Many people behind one address.** One address may make 120 requests a minute to the site (`SWARM_PUBLIC_IP_REQUESTS_PER_MINUTE`). The
+page's own files count, a first visit makes 25 to 30 requests, and a run that is being watched adds one every second or two, so a room
+of people on one office or conference address is soon answered with `429 RATE_LIMITED`. For a demonstration raise it (`600` is
+five times as much) and keep it in your environment file. It widens no spending cap: the costly routes have limits of their own, and
+the ledger and the global daily caps are separate. Do **not** use `RATE_LIMIT_SCALE` for this: a hosted deployment refuses to start
+with it above 1 (the template fixes it at 1). New guests are counted per address too, so a room of more than
+`SWARM_PUBLIC_GUESTS_PER_IP_PER_HOUR` people that all press "Try it now" in one hour will also need that raised.
 
 **The owner key.** With no sign-in there is no administrator session and no Admin page, and the budget webhook can only turn the free
 tier **off**. The owner key is how you operate the site. Make it once and **keep it**: it is a secret, so a file outside the

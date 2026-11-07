@@ -139,6 +139,11 @@ param signupsPerIpPerDay int = 5
 @maxValue(100000)
 param signupsPerHour int = 60
 
+@description('Requests one address may make to the site in a minute (PUBLIC_IP_REQUESTS_PER_MINUTE): the page\'s own files count, and so does the polling of a run in progress. An office or a demonstration room shares one address, so a deployment may raise it. The costly routes have limits of their own and the ledger holds the spending, whatever this is. RATE_LIMIT_SCALE stays 1: a hosted deployment refuses to start with more.')
+@minValue(30)
+@maxValue(1200)
+param ipRequestsPerMinute int = 120
+
 @description('Minutes a session may sit idle before it ends (AUTH_SESSION_IDLE_MINUTES). A hosted deployment allows at most 60: the application refuses to start with more, so a larger value is refused here instead.')
 @minValue(5)
 @maxValue(60)
@@ -698,6 +703,7 @@ var publicEnvironment = concat(
     { name: 'PUBLIC_OPS_KEY_SHA256', value: toLower(opsKeySha256) }
     { name: 'PUBLIC_SIGNUPS_PER_IP_PER_DAY', value: string(signupsPerIpPerDay) }
     { name: 'PUBLIC_SIGNUPS_PER_HOUR', value: string(signupsPerHour) }
+    { name: 'PUBLIC_IP_REQUESTS_PER_MINUTE', value: string(ipRequestsPerMinute) }
     // The session limits of a hosted deployment (at most 60 idle minutes and 12 hours), which the parameters cannot exceed.
     { name: 'AUTH_SESSION_IDLE_MINUTES', value: string(sessionIdleMinutes) }
     { name: 'AUTH_SESSION_ABSOLUTE_HOURS', value: string(sessionAbsoluteHours) }
