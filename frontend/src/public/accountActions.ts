@@ -16,7 +16,10 @@ export async function signOutOfPublic(): Promise<void> {
   browser.assign('/');
 }
 
-/** Deletes the account and everything in it, then clears the tab and returns to the landing page with a line about it. */
+/**
+ * Deletes the account and everything in it, then clears the tab (the key first) and returns to the landing page with a
+ * line about it. A guest's "Delete my data" is this same request, so it leaves the same way.
+ */
 export async function deleteAccountForGood(): Promise<void> {
   await publicApi.deleteAccount();
   clearTabState();

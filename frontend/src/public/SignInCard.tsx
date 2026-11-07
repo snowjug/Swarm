@@ -3,6 +3,7 @@ import { Github, LogIn } from 'lucide-react';
 import { Button, Notice } from '../design/ui';
 import type { PublicProviderInfo, PublicSession } from '../../../shared/public';
 import { browser } from './browser';
+import { BotCheck } from './BotCheck';
 import { PageLink } from './PageLink';
 import { navigationTarget, returnPathOf } from './pages';
 import { signInFailure } from './problems';
@@ -84,28 +85,7 @@ export function SignInCard({
           ))}
         </div>
       )}
-      {session.bot && (
-        <div className="sw-pub-signin__check">
-          <div ref={check.container} />
-          {check.phase === 'loading' && (
-            <p className="sw-caption" role="status">
-              Checking that you are a person…
-            </p>
-          )}
-          {check.phase === 'failed' && (
-            <Notice
-              tone="error"
-              action={
-                <Button size="sm" variant="glass" onClick={check.retry}>
-                  Try again
-                </Button>
-              }
-            >
-              The check that you are a person did not load.
-            </Notice>
-          )}
-        </div>
-      )}
+      {session.bot && <BotCheck check={check} />}
       {error && <Notice tone="error">{error}</Notice>}
       {!session.signupsOpen && (
         <Notice tone="info">

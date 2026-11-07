@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
-import type { PublicProviderId, PublicSession } from '../../../shared/public';
+import type {
+  PublicAccountProvider,
+  PublicProviderId,
+  PublicSession,
+} from '../../../shared/public';
+import { guestHours } from './guest';
 import { fetchSession } from './publicApi';
 import { sitePath, PAGE_PATHS } from './pages';
 import { isFreeTierReason, type NoteKind } from './problems';
@@ -18,7 +23,8 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 /**
  * Reads the answer of `/api/public/session` into the shape the page uses, or null when it is not that answer (a page
- * from a proxy, or a server of the other edition). A field that is missing takes the value that hides nothing.
+ * from a proxy, or a server of the other edition). A field that is missing takes the value that hides nothing: no
+ * guest mode, and the default number of hours a guest's data is kept.
  */
 export function parseSession(raw: unknown): PublicSession | null {
   if (!isRecord(raw) || raw.edition !== 'public' || typeof raw.signedIn !== 'boolean') return null;
@@ -37,7 +43,8 @@ export function parseSession(raw: unknown): PublicSession | null {
     raw.signedIn && isRecord(raw.user)
       ? {
           emailMasked: String(raw.user.emailMasked ?? ''),
-          provider: String(raw.user.provider ?? '') as PublicProviderId,
+          provider: String(raw.user.provider ?? '') as PublicAccountProvider,
+          guest: raw.user.guest === true || raw.user.provider === 'guest',
           isAdmin: raw.user.isAdmin === true,
           createdAt: String(raw.user.createdAt ?? ''),
         }
@@ -48,6 +55,8 @@ export function parseSession(raw: unknown): PublicSession | null {
     signedIn: raw.signedIn,
     providers,
     signupsOpen: raw.signupsOpen !== false,
+    guestMode: raw.guestMode === true,
+    guestRetentionHours: guestHours(raw.guestRetentionHours),
     bot,
     freeTier: {
       available: free.available !== false,
@@ -80,7 +89,11 @@ export function parseSession(raw: unknown): PublicSession | null {
  * Asks the server once who the visitor is. Nothing else in the public edition is asked before this answer is in, and it
  * is a plain request: a visitor who is not signed in is an answer to read, not a failure.
  */
-export function useGateSession(): { gate: Gate; retry: () => void } {
+export function useGateSession(): {
+  gate: Gate;
+  retry: () => void;
+  startedAsGuest: () => Promise<boolean>;
+} {
   const [gate, setGate] = useState<Gate>({ phase: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
@@ -124,5 +137,23 @@ export function useGateSession(): { gate: Gate; retry: () => void } {
   );
 
   const retry = useCallback(() => setAttempt((count) => count + 1), []);
-  return { gate, retry };
+
+  /**
+   * The visitor has just started a guest session: reads the session again, so that the gate shows the application.
+   * False when the server answers and says nobody is signed in (the browser did not keep the cookie). An answer that
+   * cannot be read at all is left to the gate's own screens, which can ask again.
+   */
+  const startedAsGuest = useCallback(async (): Promise<boolean> => {
+    const reply = await fetchSession();
+    const session = reply.ok ? parseSession(reply.data) : null;
+    if (session?.signedIn) {
+      setGate({ phase: 'ready', session, note: null });
+      return true;
+    }
+    if (session) return false;
+    setAttempt((count) => count + 1);
+    return true;
+  }, []);
+
+  return { gate, retry, startedAsGuest };
 }

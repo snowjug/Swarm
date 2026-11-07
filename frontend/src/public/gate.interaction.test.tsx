@@ -13,6 +13,9 @@ import { inPublicEdition, setPublicEdition } from './runtime';
 import { parseSession } from './useGateSession';
 import {
   accountView,
+  guestAccountView,
+  guestSession,
+  signedInGuest,
   signedInSession,
   signedOutSession,
   statusView,
@@ -230,6 +233,81 @@ describe('a page with the tag: the gate', () => {
     expect(note.textContent).toMatch(/switched off/u);
   });
 
+  it('lets a visitor in as a guest with one press: no sign-in, a session started, the session read again, then the application', async () => {
+    let started = false;
+    const server = fakeServer({
+      'GET /api/public/session': () => (started ? signedInGuest() : guestSession()),
+      'POST /auth/guest': () => {
+        started = true;
+        return { started: true };
+      },
+      'GET /api/usage': usageView(),
+      'GET /api/account': guestAccountView(),
+    });
+    at('/?project=gone');
+    const user = userEvent.setup();
+    render(<Root />);
+    await user.click(await screen.findByTestId('try-it-now'));
+    expect(await screen.findByTestId('app')).toBeTruthy();
+    expect(screen.queryByTestId('landing')).toBeNull();
+    expect(server.to('POST /auth/guest')).toHaveLength(1);
+    expect(server.to('POST /auth/guest')[0]!.headers['x-swarm-csrf']).toBe('1');
+    expect(server.to('GET /api/public/session')).toHaveLength(2);
+    await waitFor(() => expect(server.to('GET /api/usage')).toHaveLength(1));
+    expect(server.unexpected).toEqual([]);
+    expect(window.location.search).toBe('');
+  });
+
+  it('says so, and stays on the landing page, when the browser does not keep the session that was started', async () => {
+    const server = fakeServer({
+      'GET /api/public/session': guestSession(),
+      'POST /auth/guest': { started: true },
+    });
+    const user = userEvent.setup();
+    render(<Root />);
+    await user.click(await screen.findByTestId('try-it-now'));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/allows cookies/u);
+    expect(screen.getByTestId('landing')).toBeTruthy();
+    expect(screen.queryByTestId('app')).toBeNull();
+    expect(server.to('POST /auth/guest')).toHaveLength(1);
+    expect(server.to('GET /api/public/session')).toHaveLength(2);
+  });
+
+  it('hands the page to the gate’s own screens, which can ask again, when the session cannot be read after a guest session was started', async () => {
+    let started = false;
+    fakeServer({
+      'GET /api/public/session': () => (started ? failure(503, 'MAINTENANCE') : guestSession()),
+      'POST /auth/guest': () => {
+        started = true;
+        return { started: true };
+      },
+    });
+    const user = userEvent.setup();
+    render(<Root />);
+    await user.click(await screen.findByTestId('try-it-now'));
+    expect(await screen.findByTestId('maintenance')).toBeTruthy();
+    expect(screen.queryByTestId('landing')).toBeNull();
+  });
+
+  it('sends a guest whose session ended to the landing page, where “Try it now” is, and forgets the key', async () => {
+    fakeServer({
+      'GET /api/public/session': signedInGuest(),
+      'GET /api/usage': usageView(),
+      'GET /api/account': guestAccountView(),
+      'GET /api/config': failure(401, 'SIGN_IN_REQUIRED'),
+    });
+    render(<Root />);
+    expect(await screen.findByTestId('app')).toBeTruthy();
+    setByokKey(TEST_KEY, 'gemini-2.5-flash');
+    void request('/api/config');
+    const note = await screen.findByTestId('landing-note');
+    expect(note.getAttribute('data-kind')).toBe('expired');
+    expect(note.textContent).toBe('Your session ended. Press Try it now to start again.');
+    expect(screen.getByTestId('try-it-now')).toBeTruthy();
+    expect(screen.getByTestId('guest-note')).toBeTruthy();
+    expect(holdsByokKey()).toBe(false);
+  });
+
   it('shows the pages that need no session whatever the answer to the session is', async () => {
     const server = fakeServer({
       'GET /api/public/session': failure(503, 'MAINTENANCE'),
@@ -282,5 +360,36 @@ describe('a person who answers a page of the public edition with json', () => {
     expect(answer(0)).toBe(0);
     for (const odd of [undefined, '7', -1, 1.5, 1000, null])
       expect(answer(odd), String(odd)).toBe(30);
+  });
+
+  it('reads guest mode and the hours a guest’s data is kept, and takes what hides nothing when they are missing or odd', () => {
+    const read = (fields: Record<string, unknown>) =>
+      parseSession({ edition: 'public', signedIn: false, ...fields })!;
+    expect(read({})).toMatchObject({ guestMode: false, guestRetentionHours: 24 });
+    expect(read({ guestMode: true, guestRetentionHours: 12 })).toMatchObject({
+      guestMode: true,
+      guestRetentionHours: 12,
+    });
+    for (const odd of ['true', 1, null]) expect(read({ guestMode: odd }).guestMode).toBe(false);
+    for (const odd of [undefined, '12', 0, -1, null, 1e9])
+      expect(read({ guestRetentionHours: odd }).guestRetentionHours, String(odd)).toBe(24);
+  });
+
+  it('reads a guest as a guest, and everyone else as not one', () => {
+    const user = (fields: Record<string, unknown>) =>
+      parseSession({
+        edition: 'public',
+        signedIn: true,
+        user: {
+          emailMasked: 'x',
+          isAdmin: false,
+          createdAt: '2026-11-01T09:00:00.000Z',
+          ...fields,
+        },
+      })!.user!;
+    expect(user({ provider: 'guest', guest: true })).toMatchObject({ guest: true });
+    expect(user({ provider: 'guest' }).guest).toBe(true);
+    expect(user({ provider: 'google', guest: false }).guest).toBe(false);
+    expect(user({ provider: 'google' }).guest).toBe(false);
   });
 });

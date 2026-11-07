@@ -10,7 +10,13 @@ import { legalBlocks } from './legalText';
 import { navigationTarget, pageOfPath, returnPathOf, sitePath } from './pages';
 import { setPublicEdition } from './runtime';
 import { StatusPage } from './StatusPage';
-import { adminView, signedInSession, signedOutSession, statusView } from './test/fixtures';
+import {
+  adminView,
+  guestSession,
+  signedInSession,
+  signedOutSession,
+  statusView,
+} from './test/fixtures';
 import { failure, fakeServer, json } from './test/server';
 
 // The pages that need no session or little: status, the legal texts, the FAQ, and the administrator's usage page.
@@ -75,6 +81,14 @@ describe('the status page', () => {
     const page = screen.getByTestId('status-page');
     await waitFor(() => expect(page.getAttribute('data-status')).toBe('maintenance'));
     expect(within(page).getByText('Swarm is down for maintenance.')).toBeTruthy();
+  });
+
+  it('calls the row for new accounts “New visitors” where guests can start', async () => {
+    fakeServer({ 'GET /api/public/status': statusView({ signupsOpen: false }) });
+    renderWithApp(<StatusPage session={guestSession()} />);
+    const row = await screen.findByTestId('status-signups');
+    expect(within(row).getByText('New visitors')).toBeTruthy();
+    expect(within(row).getByText('Closed for now')).toBeTruthy();
   });
 
   it('shows the owner’s note as text, whatever it holds', async () => {
@@ -268,6 +282,43 @@ describe('the FAQ', () => {
     );
     expect(screen.getByTestId('faq').textContent).toContain('You can sign in with GitHub.');
     expect(screen.getByTestId('faq').textContent).not.toContain('Google and GitHub');
+  });
+
+  it('answers “Do I need an account?” first, with the hours the server gives, and only where guests can start', () => {
+    const questionsOf = () =>
+      within(screen.getByTestId('faq'))
+        .getAllByRole('heading', { level: 3 })
+        .map((heading) => heading.textContent);
+    const guests = renderWithApp(<Faq session={guestSession({ guestRetentionHours: 12 })} />);
+    expect(questionsOf()[0]).toBe('Do I need an account?');
+    expect(screen.getByTestId('faq').textContent).toContain(
+      'No. Press Try it now and you get a private temporary workspace. Guest data is deleted after 12 hours without use. Signing in is optional where it is offered.',
+    );
+    guests.unmount();
+
+    renderWithApp(<Faq session={signedOutSession({ guestMode: false })} />);
+    expect(questionsOf()).toHaveLength(7);
+    expect(questionsOf()).not.toContain('Do I need an account?');
+  });
+
+  it('names no provider and no signing out on a site that is only for guests, and still does where providers are listed', () => {
+    const only = renderWithApp(<Faq session={guestSession()} />);
+    const text = () => screen.getByTestId('faq').textContent ?? '';
+    expect(
+      screen.queryByRole('button', { name: 'Which providers can I sign in with?' }),
+    ).toBeNull();
+    expect(text()).toContain('Deleting your data does both too');
+    expect(text()).not.toContain('Signing out');
+    only.unmount();
+
+    renderWithApp(
+      <Faq session={guestSession({ providers: [{ id: 'github', label: 'GitHub' }] })} />,
+    );
+    expect(
+      screen.getByRole('button', { name: 'Which providers can I sign in with?' }),
+    ).toBeTruthy();
+    expect(text()).toContain('You can sign in with GitHub.');
+    expect(text()).toContain('Signing out, or deleting your data, does both too');
   });
 
   it('says the days the site keeps the counter for, whatever it is set to, and nothing of one it does not keep', () => {

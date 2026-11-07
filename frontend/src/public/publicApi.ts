@@ -11,6 +11,8 @@ import {
   type PublicSession,
   type PublicStatus,
   type StartedSignIn,
+  type StartedGuest,
+  type StartGuest,
   type StartSignIn,
   type UsageView,
 } from '../../../shared/public';
@@ -18,9 +20,10 @@ import { checkedFetch, jsonBody, request } from '../api';
 
 /**
  * Every request the public edition makes of its own. The ones that need no session (the session itself, the status,
- * the legal texts, the start of a sign-in) use a plain `fetch`, so that a 401 is an answer to read and not a reason to
- * leave for the pilot's sign-in address. The ones for a signed-in person go through the API client, which adds the
- * change header, the person's own key where one is held, and the calm wording of the public error codes.
+ * the legal texts, the start of a sign-in or of a guest session) use a plain `fetch`, so that a 401 is an answer to
+ * read and not a reason to leave for the pilot's sign-in address. The ones for a signed-in person go through the API
+ * client, which adds the change header, the person's own key where one is held, and the calm wording of the public
+ * error codes.
  */
 
 export type Reply<T> =
@@ -69,6 +72,14 @@ export const fetchLegal = (doc: LegalDocument) => plain<LegalText>(`/api/public/
 
 export const startSignIn = (provider: string, body: StartSignIn) =>
   plain<StartedSignIn>(`/auth/start/${encodeURIComponent(provider)}`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+
+/** Asks for a temporary private workspace with no sign-in. The session cookie is in the answer's headers, never in the page. */
+export const startGuest = (body: StartGuest = {}) =>
+  plain<StartedGuest>('/auth/guest', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),

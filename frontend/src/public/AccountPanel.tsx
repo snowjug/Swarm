@@ -8,6 +8,7 @@ import { DELETE_CONFIRMATION, type AccountView, type PublicSession } from '../..
 import { count } from '../lib/format';
 import { deleteAccountForGood, signOutOfPublic } from './accountActions';
 import { formatBytes, formatDay } from './format';
+import { guestHours, guestReminderWords } from './guest';
 import { PAGE_PATHS } from './pages';
 import { publicApi } from './publicApi';
 
@@ -52,8 +53,27 @@ function DeleteExplanation({ days }: { days: number }) {
 }
 
 /**
+ * What deleting a guest's data asks: nothing to type, as there is nothing to confuse it with. The question and what it
+ * removes are the dialog's title and description; this is what else the person should know.
+ */
+function GuestDeleteNote({ privacy }: { privacy: string }) {
+  return (
+    <div className="sw-pub-account__explain">
+      <p>
+        You will go back to the start page, and any Google key you added is forgotten. The{' '}
+        <a href={privacy} target="_blank" rel="noreferrer">
+          Privacy notice <ExternalLink size={12} aria-hidden="true" />
+        </a>{' '}
+        says what is kept after a deletion.
+      </p>
+    </div>
+  );
+}
+
+/**
  * The person's account: who they are signed in as, how much room they have used, a way to sign out, and a way to delete
- * the account and everything in it that asks for a phrase to be typed first.
+ * the account and everything in it that asks for a phrase to be typed first. A guest has no address and nothing to sign
+ * out of: they see "Guest", a reminder that their data is temporary, and a way to delete their data that needs no phrase.
  */
 export function AccountPanel({
   open,
@@ -102,16 +122,21 @@ export function AccountPanel({
   };
 
   const account = load.phase === 'ready' ? load.view : null;
+  const guest = account?.guest === true || session.user?.guest === true;
   const deleting = view === 'delete';
-  const confirmed = phrase === DELETE_CONFIRMATION;
+  const confirmed = guest || phrase === DELETE_CONFIRMATION;
   return (
     <Dialog open={lifecycle.open} onOpenChange={lifecycle.onOpenChange}>
       <DialogContent
-        title={deleting ? 'Delete your account?' : 'Your account'}
+        title={deleting ? (guest ? 'Delete my data?' : 'Delete your account?') : 'Your account'}
         description={
           deleting
-            ? 'Read this first. It is the last step.'
-            : 'Who you are signed in as, and what you have used.'
+            ? guest
+              ? 'This removes your projects and cannot be undone.'
+              : 'Read this first. It is the last step.'
+            : guest
+              ? 'Your temporary workspace, and what you have used.'
+              : 'Who you are signed in as, and what you have used.'
         }
         tone={deleting ? 'danger' : undefined}
         className="sw-pub-dialog"
@@ -119,7 +144,7 @@ export function AccountPanel({
           deleting ? (
             <>
               <Button variant="ghost" disabled={working !== null} onClick={() => setView('main')}>
-                Keep my account
+                {guest ? 'Keep my data' : 'Keep my account'}
               </Button>
               <Button
                 variant="danger"
@@ -129,7 +154,7 @@ export function AccountPanel({
                 disabled={!confirmed || working !== null}
                 onClick={() => void leave('delete')}
               >
-                Delete my account and all my data
+                {guest ? 'Delete my data' : 'Delete my account and all my data'}
               </Button>
             </>
           ) : (
@@ -147,24 +172,28 @@ export function AccountPanel({
             </Notice>
           )}
           {deleting ? (
-            <>
-              <DeleteExplanation days={session.retentionDays ?? 30} />
-              <Field
-                label={`To confirm, type: ${DELETE_CONFIRMATION}`}
-                hint="Type it exactly, in lower case."
-              >
-                <Input
-                  autoComplete="off"
-                  autoCapitalize="off"
-                  autoCorrect="off"
-                  spellCheck={false}
-                  data-testid="account-delete-confirm-input"
-                  value={phrase}
-                  disabled={working !== null}
-                  onChange={(event) => setPhrase(event.target.value)}
-                />
-              </Field>
-            </>
+            guest ? (
+              <GuestDeleteNote privacy={session.legal.privacy} />
+            ) : (
+              <>
+                <DeleteExplanation days={session.retentionDays ?? 30} />
+                <Field
+                  label={`To confirm, type: ${DELETE_CONFIRMATION}`}
+                  hint="Type it exactly, in lower case."
+                >
+                  <Input
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck={false}
+                    data-testid="account-delete-confirm-input"
+                    value={phrase}
+                    disabled={working !== null}
+                    onChange={(event) => setPhrase(event.target.value)}
+                  />
+                </Field>
+              </>
+            )
           ) : (
             <>
               {load.phase === 'loading' && (
@@ -197,17 +226,19 @@ export function AccountPanel({
               {account && (
                 <dl className="sw-pub-account__list">
                   <div>
-                    <dt>E-mail</dt>
-                    <dd data-testid="account-email">{account.emailMasked}</dd>
+                    <dt>{guest ? 'Using Swarm as' : 'E-mail'}</dt>
+                    <dd data-testid="account-email">{guest ? 'Guest' : account.emailMasked}</dd>
                   </div>
+                  {!guest && (
+                    <div>
+                      <dt>Signed in with</dt>
+                      <dd data-testid="account-provider">
+                        {providerLabel(session, account.provider)}
+                      </dd>
+                    </div>
+                  )}
                   <div>
-                    <dt>Signed in with</dt>
-                    <dd data-testid="account-provider">
-                      {providerLabel(session, account.provider)}
-                    </dd>
-                  </div>
-                  <div>
-                    <dt>Account created</dt>
+                    <dt>{guest ? 'Started' : 'Account created'}</dt>
                     <dd>
                       <time dateTime={account.createdAt}>{formatDay(account.createdAt)}</time>
                     </dd>
@@ -243,6 +274,11 @@ export function AccountPanel({
                   </div>
                 </dl>
               )}
+              {guest && (
+                <p className="sw-caption" data-testid="guest-reminder">
+                  {guestReminderWords(guestHours(session.guestRetentionHours))}
+                </p>
+              )}
               <nav className="sw-pub-account__links" aria-label="About this site">
                 {[
                   ['Terms', session.legal.terms],
@@ -259,16 +295,18 @@ export function AccountPanel({
                 ))}
               </nav>
               <div className="sw-pub-account__actions">
-                <Button
-                  variant="glass"
-                  data-testid="account-signout"
-                  busy={working === 'sign-out'}
-                  busyLabel="Signing out"
-                  disabled={working !== null}
-                  onClick={() => void leave('sign-out')}
-                >
-                  Sign out
-                </Button>
+                {!guest && (
+                  <Button
+                    variant="glass"
+                    data-testid="account-signout"
+                    busy={working === 'sign-out'}
+                    busyLabel="Signing out"
+                    disabled={working !== null}
+                    onClick={() => void leave('sign-out')}
+                  >
+                    Sign out
+                  </Button>
+                )}
                 <Button
                   variant="danger"
                   data-testid="account-delete"
@@ -279,7 +317,7 @@ export function AccountPanel({
                     setView('delete');
                   }}
                 >
-                  Delete my account and all my data
+                  {guest ? 'Delete my data' : 'Delete my account and all my data'}
                 </Button>
               </div>
             </>
