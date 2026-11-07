@@ -34,3 +34,48 @@ person is written here. Times are UTC, 7 November 2026. Newest information last.
 - 14:18 foundation what-if clean (only `Create`); create started and finished at 14:28 (9 m 24 s).
 - 14:24 early image built in the registry.
 - 14:30 pepper stored in Key Vault.
+- 14:30 to 14:49 guest mode built on `feat/swarm-guest-mode` (backend, frontend, template, a browser journey; PR #3).
+- 14:51 image built from the pushed commit `c6261aa`, 2 m 36 s; the app ran it by digest.
+- 14:56 app what-if clean; create `swarm-public-20261107-2` finished at 15:01 (5 m 20 s).
+- 15:03 first live check: 21 of 22 (the one miss was too strict a pattern in my own script). In a real browser 4 of 5: the model call through the page failed, with `429` on reads and font files.
+- 15:07 cause found: one address may make 120 requests a minute, the page's own files and the polling included. The first fix, `RATE_LIMIT_SCALE=5`, was dropped before it was deployed because a hosted deployment refuses to start with the scale above 1 (`backend/src/deployment.ts`); the site would have gone down. Replaced by `PUBLIC_IP_REQUESTS_PER_MINUTE` (decision 18).
+- 15:20 `494ae56` pushed after the new tests (5, one mutation checked), typecheck, eslint, the template's 86 checks and 116 tests, and the 538 tests of the public, security and deployment suites.
+- 15:25 image built from `494ae56` (2 m 29 s), tag locked. What-if at 15:28: 14 `Modify` entries, all array shifts or references the preview cannot resolve apart from the new setting, the new image and the new build address; the probes are identical by type. Create `swarm-public-20261107-3` finished at 15:33 (4 m 55 s): revision `ca-swarm-public--0000001`, healthy, one replica, 100 % of traffic.
+- 15:34 live checks on the new revision are in the table below.
+- 15:40 the row-security catalog checks of DEPLOY.md section 10 were run on the managed database with a temporary Entra administrator (the VM's identity), which was removed again straight after. The firewall rule for Azure addresses already allowed the VM, so none was added.
+- 15:42 the VM identity's temporary `Key Vault Secrets Officer` role on the vault was removed. The identity keeps Owner on the subscription.
+
+## Results on the live site (revision `ca-swarm-public--0000001`, build `494ae56`)
+
+| Check                                                                                                                           | Result                                                                                                    |
+| ------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| DEPLOY.md section 10 without a browser: health live and ready, status, session, page tag, plain HTTP redirected, budget webhook | pass (22 of 22 in the functional script)                                                                  |
+| Landing page over HTTPS with "Try it now" and no sign-in wall                                                                   | pass                                                                                                      |
+| A guest session: `__Host-` cookie, HttpOnly, Secure, SameSite=Lax; a guest is not an administrator                              | pass                                                                                                      |
+| The no-model sample runs (0 tokens)                                                                                             | pass, by curl and in a real browser                                                                       |
+| One real model call on the guest tier (gpt-4.1-mini, managed identity)                                                          | pass: 2,269 tokens by curl; in the page "Read by a model", read in 4 s                                    |
+| A second guest cannot list, open or delete the first guest's project                                                            | pass                                                                                                      |
+| Kill switch off and on again (owner key and budget webhook key)                                                                 | pass; the free tier ends **on**                                                                           |
+| Per-address limit on new guests (10 an hour)                                                                                    | pass: refused with a plain message after exactly 10 in the hour                                           |
+| General per-address limit is 600 a minute                                                                                       | pass: of 650 separate connections 600 were answered and 50 refused                                        |
+| One browser's whole flow, no refusal                                                                                            | pass: 136 requests in its busiest minute, 0 refused (the old limit of 120 would have bitten)              |
+| Row security on the managed database (6 catalog checks)                                                                         | pass: `swarm_app` cannot log in, is not a superuser and cannot bypass; 26 tables enabled with 27 policies |
+| Console log since the redeploy                                                                                                  | 0 warnings or errors                                                                                      |
+| Browser journey in the real browser (landing, Try it now, sample, real model call, Delete my data)                              | pass (5 of 5)                                                                                             |
+
+Not tested: Google and GitHub sign-in (no OAuth app exists), Gemini with a real key, the budget action group firing by itself (a budget
+notice cannot be forced), Turnstile (off).
+
+## Roll back, lower the limits, close
+
+All three leave the owner key in `~/.swarm-public/owner-key`; it is never written here.
+
+- **Previous image** (guest mode without the per-address setting): `crswarmpublic2loy4jqfswbw2.azurecr.io/swarm@sha256:83e238abac970d1f14bad2b339f6ed78cdbb3f5ec83a032b2b11c4da0e456755`
+  (commit `c6261aa`; saved in `~/.swarm-public/image-ref-guest-1`). Fast: `az containerapp update -g rg-swarm-public -n ca-swarm-public --image <that reference>`.
+  Durable: export that reference as `SWARM_PUBLIC_CONTAINER_IMAGE` and its commit as `SWARM_PUBLIC_BUILD_SHA`, and apply the template again. The image of
+  the commit before guest mode cannot run here: it needs a sign-in provider.
+- **Lower the limits**: `az containerapp update -g rg-swarm-public -n ca-swarm-public --set-env-vars FREE_GUEST_DAILY_TOKENS=40000 FREE_GLOBAL_DAILY_TOKENS=2000000 FREE_GLOBAL_DAILY_COST_USD=5`,
+  and make `~/swarm-public.env` say the same, or the next apply puts them back.
+- **Close**: free tier off (the model stops, the no-model sample still works) with `POST /api/ops/free-tier/off`, no new visitors with `POST /api/ops/signups/off`,
+  both with the header `X-Swarm-Owner-Key`; `/on` undoes each. Stop the site: `az containerapp revision deactivate -g rg-swarm-public -n ca-swarm-public --revision ca-swarm-public--0000001`
+  (`activate` brings it back).
