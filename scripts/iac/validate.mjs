@@ -27,6 +27,7 @@ import {
 } from './bicep.mjs';
 import {
   PUBLIC_FOUNDATION_ENV,
+  PUBLIC_GUEST_ENV,
   PUBLIC_PARAM_FILE,
   PUBLIC_PLACEHOLDER_ENV,
   PUBLIC_REQUIRED_VARIABLES,
@@ -177,10 +178,12 @@ for (const [profile, file] of Object.entries(PARAM_FILES)) {
 
 // The public edition (infra/public): a template at SUBSCRIPTION scope that reuses the pilot's modules. Its templates are built
 // and linted above with the others; here its parameter file is compiled and the deployment evaluated, in both phases of its
-// deployment (docs/public/DEPLOY.md): first without the container app, then with it.
+// deployment (docs/public/DEPLOY.md): first without the container app, then with it; and with it in guest mode, which needs no
+// OAuth client and so no provider secret.
 const publicProfiles = {
   'public (first deployment, no app)': PUBLIC_FOUNDATION_ENV,
   'public (with the app)': PUBLIC_PLACEHOLDER_ENV,
+  'public (with the app, guest mode, no OAuth client)': PUBLIC_GUEST_ENV,
 };
 
 for (const [profile, environment] of Object.entries(publicProfiles)) {

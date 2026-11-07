@@ -10,6 +10,10 @@ belongs in a file in the repository.
 > every model call as it is made and does not depend on Azure's billing. The budget is the second line: at 100 and 120
 > percent it e-mails you and calls a webhook that turns the free tier **off** (it cannot turn it on). Choose the caps first.
 
+> **No sign-in?** With `SWARM_PUBLIC_GUEST_MODE=true` a visitor presses "Try it now" and gets a temporary private workspace, and
+> **no OAuth app and no OAuth secret is needed**: [section 6](#6-the-oauth-apps) becomes optional and [section 7](#7-the-secrets)
+> needs only the pepper. Read [section 19](#19-guest-mode-no-sign-in) before you register anything.
+
 Decisions only you can make (the caps, the model and its quota, the legal text, the domain, the budget, who the
 administrators are) are in [DECISIONS-FOR-OWNER.md](DECISIONS-FOR-OWNER.md). The design is in [DESIGN.md](DESIGN.md);
 this guide builds to its section 3 (configuration) and section 11 (what cannot be verified here).
@@ -34,6 +38,7 @@ this guide builds to its section 3 (configuration) and section 11 (what cannot b
 16. [Teardown](#16-teardown)
 17. [When a deployment is refused](#17-when-a-deployment-is-refused)
 18. [What was not verified](#18-what-was-not-verified)
+19. [Guest mode (no sign-in)](#19-guest-mode-no-sign-in)
 
 ## 1. What is created, and in what order
 
@@ -45,7 +50,7 @@ reuses the pilot's modules by reference and changes none of them, and a name tha
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
 | Resource group, user-assigned managed identity                | The identity is the only credential holder: database, model, registry, vault and telemetry all use its Entra token             |
 | Log Analytics workspace, Application Insights                 | Local (key) authentication off                                                                                                 |
-| Key Vault                                                     | RBAC, soft delete, **purge protection** (90 days). Holds four secrets that you put there; none is in the template              |
+| Key Vault                                                     | RBAC, soft delete, **purge protection** (90 days). Holds up to four secrets that you put there; none is in the template        |
 | Container Registry (Basic)                                    | Admin user off, no anonymous pull; the identity pulls with `AcrPull`                                                           |
 | PostgreSQL flexible server (Burstable B1ms), database `swarm` | Microsoft Entra only, TLS required. The app's identity is the server's administrator                                           |
 | Container Apps environment (Consumption profile)              |                                                                                                                                |
@@ -61,7 +66,7 @@ deployment (it must exist) and adds the one role assignment on the account. It c
 must not hold a secret. So the order is fixed:
 
 1. `deployApp=false`: everything except the app. The outputs give the site's address.
-2. By hand: register the OAuth apps with that address, put the secrets in the vault, build the image.
+2. By hand: register the OAuth apps with that address (not needed in guest mode, [section 19](#19-guest-mode-no-sign-in)), put the secrets in the vault, build the image.
 3. `deployApp=true`: the app, with references to secrets that now exist.
 
 **Why single-revision mode and one replica** (both differ from the pilot, and the template fixes them). A person's own model key
@@ -177,13 +182,15 @@ export SWARM_PUBLIC_BUDGET_CURRENCY=<three letters, your billing currency>      
 export SWARM_PUBLIC_ADMIN_EMAILS=<your verified Google or GitHub address, comma separated>
 export SWARM_PUBLIC_SOURCE_URL=<public https address of the exact source version>             # AGPL-3.0, section 13
 # Decide before you register the OAuth apps (section 12): export SWARM_PUBLIC_BASE_URL=https://<your domain>
+# No sign-in and no OAuth apps (section 19):            export SWARM_PUBLIC_GUEST_MODE=true
 # Closed first deployment (section 11):                 export SWARM_PUBLIC_INGRESS_ALLOWED_CIDRS=<your address>/32
 # Every cap has a default from DESIGN.md section 3. To change one, set it here, for example:
 #   export SWARM_PUBLIC_FREE_GLOBAL_DAILY_COST_USD=2.50
 ```
 
 The caps, their variables and their defaults are in [`main.bicepparam`](../../infra/public/main.bicepparam). None can be 0 (use
-`SWARM_PUBLIC_FREE_TIER_ENABLED=false` to switch the free tier off), session lifetimes cannot pass the hosted limits (60 idle
+`SWARM_PUBLIC_FREE_TIER_ENABLED=false` to switch the free tier off; the one exception is a guest's tokens and calls,
+[section 19](#19-guest-mode-no-sign-in)), session lifetimes cannot pass the hosted limits (60 idle
 minutes, 12 hours), and `SWARM_PUBLIC_MIN_REPLICAS` is 1 or 0 (**default 1**: scaling to zero would end a long run and drop every
 bring-your-own-key held in memory). Two groups you may want to adjust early: sign-up throttling
 (`SWARM_PUBLIC_SIGNUPS_PER_IP_PER_DAY`, default 5, and `SWARM_PUBLIC_SIGNUPS_PER_HOUR`, default 60) and the session lifetimes
@@ -252,6 +259,9 @@ PostgreSQL server keeps its name for a few minutes while it is dropped (`ServerN
 
 ## 6. The OAuth apps
 
+**Skip this section in guest mode** ([section 19](#19-guest-mode-no-sign-in)): with `SWARM_PUBLIC_GUEST_MODE=true` no OAuth app is
+needed. Do it only if you also want people to be able to sign in.
+
 Register them under an account you control and will not lose (decision 7). You need the two redirect URIs of section 5. The
 page's address is `https://<app>.<environment domain>` unless you set `SWARM_PUBLIC_BASE_URL`; with a custom domain, decide the
 domain **first** (section 12) so that these are the final addresses. Register Google, GitHub, or both.
@@ -282,9 +292,10 @@ and the account is refused without one. It asks Google for `openid email` and re
 
 ## 7. The secrets
 
-Four secrets go in the vault, by you, with a data-plane role that the template gives to nobody. **Never** put a value on a
-command line, in a file in the repository, in a ticket or in `$SWARM_*`. `az keyvault secret set` prints the secret in its reply:
-every command below ends in `--output none`.
+Up to four secrets go in the vault, by you, with a data-plane role that the template gives to nobody. **In guest mode with no OAuth
+app, only `public-pepper` is needed** (and `turnstile-secret-key` if you use Turnstile): skip the provider rows below. **Never** put a
+value on a command line, in a file in the repository, in a ticket or in `$SWARM_*`. `az keyvault secret set` prints the secret in its
+reply: every command below ends in `--output none`.
 
 ```bash
 VAULT=$(out AZURE_KEY_VAULT_NAME)
@@ -353,7 +364,7 @@ goes on through the template, never through `az containerapp update`. The releas
 ```bash
 source ~/swarm-public.env
 export SWARM_PUBLIC_DEPLOY_APP=true
-export SWARM_PUBLIC_GOOGLE_CLIENT_ID=<client ID>        # and/or SWARM_PUBLIC_GITHUB_CLIENT_ID; at least one
+export SWARM_PUBLIC_GOOGLE_CLIENT_ID=<client ID>        # and/or SWARM_PUBLIC_GITHUB_CLIENT_ID; at least one, unless SWARM_PUBLIC_GUEST_MODE=true (section 19)
 # SWARM_PUBLIC_CONTAINER_IMAGE and SWARM_PUBLIC_BUILD_SHA from section 8
 export SWARM_PUBLIC_OPS_KEY="$(openssl rand -hex 32)"
 export SWARM_PUBLIC_OPS_KEY_SHA256="$(printf '%s' "$SWARM_PUBLIC_OPS_KEY" | sha256sum | cut -d' ' -f1)"
@@ -365,7 +376,7 @@ SWARM_PUBLIC_OPS_KEY=stand-in-key-for-the-what-if-only-0000 \
 
 **What to look for:** `Create` of the container app and the alert rules, and nothing else of substance. In the app: `ingress.allowInsecure
 false`, `maxReplicas 1`, `activeRevisionsMode Single`, `cpu 0.5` and `memory 1Gi`, a `secrets` list of Key Vault URLs with **no
-`value`**, `PUBLIC_PEPPER` and the client secrets as `secretRef`, `TRUST_PROXY 1`, `SWARM_EDITION public`, `DEPLOYMENT_MODE production`, **no
+`value`**, `PUBLIC_PEPPER` and the client secrets as `secretRef` (in guest mode with no OAuth app: `PUBLIC_PEPPER` alone, and no client ID), `TRUST_PROXY 1`, `SWARM_EDITION public`, `DEPLOYMENT_MODE production`, **no
 `AUTH_` variable except the two session limits, no `FOUNDRY_DEPLOYMENT_REASONING`**, and the image you built. The budget and the action
 groups may show as `Modify` because the budget's start date and the webhook address are recomputed: read them, do not worry. The
 key does not appear in the preview, because you gave a stand-in.
@@ -410,7 +421,7 @@ projects`). It is how you learn, on the first deploy, whether the managed Postgr
 curl -sS -o /dev/null -w '%{http_code}\n' "https://$FQDN/api/health/live"       # 200
 curl -sS "https://$FQDN/api/health/ready"                                       # {"status":"ready","checks":{"database":"ok"}}
 curl -sS "https://$FQDN/api/public/status"  | jq    # status "ok"; freeTier.available true; byokEnabled; signupsOpen
-curl -sS "https://$FQDN/api/public/session" | jq    # edition "public"; signedIn false; providers lists exactly the ones you configured
+curl -sS "https://$FQDN/api/public/session" | jq    # edition "public"; signedIn false; providers lists exactly the ones you configured (guest mode: guestMode true)
 curl -sS "https://$FQDN/" | grep -o '<meta name="swarm-edition"[^>]*>'          # content="public"
 curl -sS -o /dev/null -w '%{http_code}\n' "http://$FQDN/"                        # a redirect to https (301 or 302): plain HTTP is not served
 ```
@@ -418,7 +429,9 @@ curl -sS -o /dev/null -w '%{http_code}\n' "http://$FQDN/"                       
 Do **not** use `npx tsx scripts/azure/pilot-smoke.ts` or `azure:release` smoke tests: they expect the pilot's Microsoft sign-in
 redirect, which this edition does not have.
 
-Then, in a browser, each once:
+Then, in a browser, each once. **In guest mode** ([section 19](#19-guest-mode-no-sign-in)) there is no sign-in and no Admin page: press
+"Try it now" for step 1, read the usage with the owner key instead of the Admin page in step 2, and use the owner key for the kill
+switch in step 5.
 
 1. **Sign in with Google, then with GitHub** (a second account if you can). Each is a separate account: the same address through
    both is two accounts, by design. A refused sign-in returns to `/?signin=<reason>`.
@@ -435,7 +448,8 @@ Then, in a browser, each once:
    (The same call: `POST /api/admin/free-tier {"enabled": false}`, an administrator's session, with `X-Swarm-CSRF: 1`.)
 
 **The budget webhook.** Prove that the key and its hash belong together, and that a wrong key is refused. **The second call turns
-the free tier off**; turn it back on from the Admin page afterwards.
+the free tier off**; turn it back on afterwards (from the Admin page, or in guest mode with the owner key,
+[section 19](#19-guest-mode-no-sign-in)).
 
 ```bash
 FQDN=$(out AZURE_CONTAINER_APP_FQDN)
@@ -508,10 +522,15 @@ run against PostgreSQL compiled to WebAssembly, not against the managed service.
       network service to be offered it.
 - [ ] **The caps are yours** (decision 2), and `SWARM_PUBLIC_MODEL_INPUT_PRICE_USD` and `SWARM_PUBLIC_MODEL_OUTPUT_PRICE_USD` are the real prices of **your** deployment.
 - [ ] **The budget amount and the contacts are right** (decision 9). Remember what it is: an alert.
-- [ ] **Administrators** are the people you mean (decision 7), by their verified address.
+- [ ] **Administrators** are the people you mean (decision 7), by their verified address. In guest mode with no provider nobody can sign
+      in, so nobody is an administrator: the owner key ([section 19](#19-guest-mode-no-sign-in)) is how you operate the site.
 - [ ] **The crawler is off** (`PUBLIC_ALLOW_RESEARCH`, the default) and **bot protection** is a decision (decision 10): turn Turnstile on at
       the first sign of signup farming, with its site key in `SWARM_PUBLIC_TURNSTILE_SITE_KEY` and its secret as the vault secret.
-- [ ] **The OAuth apps are published** ("In production" for Google) and registered under an account you will keep.
+- [ ] **The OAuth apps are published** ("In production" for Google) and registered under an account you will keep (if you use any: guest
+      mode needs none).
+- [ ] **In guest mode, the guest caps and the global caps are yours** ([section 19](#19-guest-mode-no-sign-in)): anyone with the link can
+      use them up, and `FREE_GLOBAL_DAILY_TOKENS` and `FREE_GLOBAL_DAILY_COST_USD` are what bound a flood. `SWARM_PUBLIC_OWNER_KEY_SHA256`
+      is set, and you have tried the key.
 - [ ] **Deploy it closed first.** Give `SWARM_PUBLIC_INGRESS_ALLOWED_CIDRS=<your address>/32`, apply, run all of section 10, then unset it
       and apply again. While the list is set, **Azure's webhook cannot reach the app either**, so the budget cannot switch the free
       tier off: that is acceptable only while nobody else can use it.
@@ -621,9 +640,9 @@ budget too.
 
 | What                                                     | Command                                                                                                                                                                                                                                                                      | Undo                                                      |
 | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
-| Free tier off, at once, shared by every replica          | The Admin page, or the webhook of section 10 (the budget calls it)                                                                                                                                                                                                           | The Admin page                                            |
+| Free tier off, at once, shared by every replica          | The Admin page, the owner key (section 19), or the webhook of section 10 (the budget calls it)                                                                                                                                                                               | The Admin page                                            |
 | Free tier off, from the environment (wins over the page) | `SWARM_PUBLIC_FREE_TIER_ENABLED=false`, apply                                                                                                                                                                                                                                | `true`, apply                                             |
-| No new accounts                                          | The Admin page ("signups"), or `SWARM_PUBLIC_SIGNUPS_ENABLED=false`                                                                                                                                                                                                          | the same                                                  |
+| No new accounts or guests                                | The Admin page ("signups"), the owner key (section 19), or `SWARM_PUBLIC_SIGNUPS_ENABLED=false`                                                                                                                                                                              | the same                                                  |
 | Close the door to everyone but you                       | `az containerapp ingress access-restriction set -g "$RG" -n "$APP" --rule-name operator-only --ip-address <your address>/32 --action Allow`                                                                                                                                  | `… access-restriction remove … --rule-name operator-only` |
 | The app cannot spend on the model, whatever it does      | `az role assignment delete --assignee <identity principal id> --role "Cognitive Services OpenAI User" --scope <model account resource id>`                                                                                                                                   | `az role assignment create` with the same, or apply       |
 | Stop the app                                             | `az containerapp revision deactivate -g "$RG" -n "$APP" --revision <active revision>`; if Azure refuses (**unverified**: it may not deactivate the only revision), `az containerapp delete -g "$RG" -n "$APP"`. The same name in the same environment gives the same address | `… revision activate …`, or section 9 again               |
@@ -697,7 +716,8 @@ statement that was false.
 | `publicBaseUrlIsAnHttpsOriginWithoutPath`    | `SWARM_PUBLIC_BASE_URL` must be `https://host` in lower case: no path, no port, no trailing slash                                                 |
 | `customDomainIsTheHostOfThePublicBaseUrl`    | `SWARM_PUBLIC_CUSTOM_DOMAIN` must be the host of `SWARM_PUBLIC_BASE_URL`                                                                          |
 | `customDomainHasACertificate`                | A custom domain needs `SWARM_PUBLIC_CUSTOM_DOMAIN_CERTIFICATE_ID`                                                                                 |
-| `atLeastOneSignInProviderIsConfigured`       | `deployApp` is true and neither client ID is set                                                                                                  |
+| `atLeastOneSignInProviderIsConfigured`       | `deployApp` is true, guest mode is off (`SWARM_PUBLIC_GUEST_MODE` is not `true`) and neither client ID is set                                     |
+| `ownerKeySha256IsEmptyOrSixtyFourHexDigits`  | `SWARM_PUBLIC_OWNER_KEY_SHA256` is set but is not 64 hexadecimal characters: the application would not start on it                                |
 | `containerImageIsGivenWhenTheAppIsDeployed`  | `deployApp` is true and `SWARM_PUBLIC_CONTAINER_IMAGE` is empty                                                                                   |
 | `imageIsFromThisDeploymentsRegistry`         | (when the app is made) the image is not from the registry of this deployment                                                                      |
 
@@ -710,7 +730,8 @@ exported. A value that is too short, or a budget of 0, is refused where the file
 Nothing here was run against Azure, Google, GitHub or a model. The development machine's Azure login is a limited service
 principal, and no resource was created. What was checked, **offline**:
 
-- `bicep build` and `bicep lint` of every template, and `bicep snapshot` of the deployment in both phases (`npm run iac:validate`);
+- `bicep build` and `bicep lint` of every template, and `bicep snapshot` of the deployment in both phases and in guest mode with no OAuth
+  client (no client ID and no provider secret reference in the app) (`npm run iac:validate`);
 - the invariants in [`scripts/iac/public-invariants.test.ts`](../../scripts/iac/public-invariants.test.ts): one replica at most, HTTPS
   only, single-revision mode, no secret literal, the four roles and no others, the budget and both action groups, the environment
   against [DESIGN.md section 3](DESIGN.md#configuration), and each refusal of section 17 (the ones that read a runtime value, the model
@@ -735,3 +756,85 @@ own what-if (sections 5 and 9) is the first real preview of what this template d
 - Behaviour under real load: one replica, one database connection per process, a synchronous database bridge.
 - The release tooling for this edition: `status`, `check` and `build` work in principle; the rest of `azure:release` and the pilot's smoke
   test need a public variant that does not exist yet.
+- Guest mode in Azure: that the app starts with no OAuth client and only the pepper in the vault, and what the owner-key routes
+  ([section 19](#19-guest-mode-no-sign-in)) answer on the live deployment.
+
+## 19. Guest mode (no sign-in)
+
+`SWARM_PUBLIC_GUEST_MODE=true` lets anyone with the link use the site **without signing in**: a visitor presses "Try it now" and gets a
+temporary private workspace on the free tier, under caps of its own. How it works, what a guest may do and the abuse limits are in
+[GUEST-MODE.md](GUEST-MODE.md); this section is what changes in a deployment.
+
+**What you do not need.** **No OAuth app and no OAuth secret.** Leave both client IDs empty and the template still deploys (its guard
+`atLeastOneSignInProviderIsConfigured` holds when guest mode is on), and the app gets no client ID and no secret reference for a
+provider you did not configure. So [section 6](#6-the-oauth-apps) is optional and [section 7](#7-the-secrets) needs only
+`public-pepper` (and `turnstile-secret-key` if you use Turnstile). Set a client ID and its secret and a visitor can also sign in: guest mode
+does not switch a provider off. With guest mode off, at least one client ID is required again, so turning it off with no provider
+configured is refused (`atLeastOneSignInProviderIsConfigured`, section 17): the site would have no way in.
+
+**Sign-ups must be enabled.** A guest is made only while new visitors are let in, which is the same switch as for any new account:
+`SWARM_PUBLIC_SIGNUPS_ENABLED=true` (the default, and the starting value of the run-time switch). With it `false`, no new guest and no
+new account is made.
+
+| Variable                                   | Default  | Meaning                                                                |
+| ------------------------------------------ | -------- | ---------------------------------------------------------------------- |
+| `SWARM_PUBLIC_GUEST_MODE`                  | `false`  | `true`: visitors may start with no sign-in                             |
+| `SWARM_PUBLIC_GUESTS_PER_IP_PER_HOUR`      | `10`     | New guests one address may make in an hour (1 to 1000)                 |
+| `SWARM_PUBLIC_GUESTS_PER_HOUR`             | `300`    | New guests the whole site may make in an hour (1 to 100000)            |
+| `SWARM_PUBLIC_GUEST_RETENTION_HOURS`       | `24`     | A guest's data is deleted after this many hours without use (1 to 168) |
+| `SWARM_PUBLIC_FREE_GUEST_DAILY_TOKENS`     | `80000`  | Tokens one guest may use per UTC day (0 to 100000000)                  |
+| `SWARM_PUBLIC_FREE_GUEST_DAILY_CALLS`      | `60`     | Model round trips one guest may make per UTC day (0 to 100000)         |
+| `SWARM_PUBLIC_FREE_GUEST_LIFETIME_TOKENS`  | `240000` | Tokens one guest may ever use on the free tier (0 to 1000000000)       |
+| `SWARM_PUBLIC_FREE_GUEST_CONCURRENT_RUNS`  | `2`      | Runs one guest may have at once (1 to 20)                              |
+| `SWARM_PUBLIC_FREE_GUEST_CONCURRENT_CALLS` | `4`      | Model round trips one guest may have in flight (1 to 50)               |
+| `SWARM_PUBLIC_FREE_GUEST_TOKENS_PER_RUN`   | `15000`  | What one run is taken to cost on a guest's meter (1000 to 10000000)    |
+| `SWARM_PUBLIC_OWNER_KEY_SHA256`            | empty    | The SHA-256 of the owner key, below. Empty: the owner routes are off   |
+
+A `0` in the three token and call caps means a guest may use **none** of the free tier, never "no limit" (they are the only caps the
+template lets be `0`). Guests draw on the same global daily caps as everybody, `FREE_GLOBAL_DAILY_TOKENS` and
+`FREE_GLOBAL_DAILY_COST_USD`: with no sign-in in the way, those and the address throttle are what bound the cost of a flood, so choose
+them first (section 11). Keep these variables in your environment file and export them on every apply, like all the others.
+
+**The owner key.** With no sign-in there is no administrator session and no Admin page, and the budget webhook can only turn the free
+tier **off**. The owner key is how you operate the site. Make it once and **keep it**: it is a secret, so a file outside the
+repository that only you can read (or a password manager). The template is given only its **hash**, which is not a secret:
+
+```bash
+(umask 077; mkdir -p ~/.swarm-public; openssl rand -hex 32 | tr -d '\n' > ~/.swarm-public/owner-key)
+# The hash: put this line in your environment file (section 4), which every apply exports. An apply without it leaves the setting out,
+# and the owner routes then answer 404 until an apply that has it.
+printf 'export SWARM_PUBLIC_OWNER_KEY_SHA256=%s\n' "$(sha256sum < ~/.swarm-public/owner-key | cut -d' ' -f1)"
+```
+
+The key is sent **only in the header `X-Swarm-Owner-Key`**, never in an address, to these routes, which need no sign-in:
+
+| Call                          | Does                                                                |
+| ----------------------------- | ------------------------------------------------------------------- |
+| `POST /api/ops/free-tier/off` | Turns the free tier off (the kill switch)                           |
+| `POST /api/ops/free-tier/on`  | Turns it on again                                                   |
+| `POST /api/ops/signups/off`   | Stops new guests and new accounts                                   |
+| `POST /api/ops/signups/on`    | Lets them in again                                                  |
+| `GET /api/ops/usage`          | The usage meter: spend by day, top users, refusals and the switches |
+
+Each is rate limited, answers 404 when no owner key is configured, and is recorded without the key. A key that is not the one whose hash
+is set is refused. Put the key on no command line (`ps` shows it): a curl config read from a descriptor keeps it off:
+
+```bash
+FQDN=$(out AZURE_CONTAINER_APP_FQDN)       # or your custom domain
+owner() {   # owner <GET|POST> <path>
+  curl -sS -X "$1" -K <(printf 'header = "X-Swarm-Owner-Key: %s"\nurl = "https://%s%s"\n' "$(cat ~/.swarm-public/owner-key)" "$FQDN" "$2")
+}
+owner GET  /api/ops/usage | jq          # the usage meter
+owner POST /api/ops/free-tier/off       # the kill switch; /api/ops/free-tier/on turns it on again
+owner POST /api/ops/signups/off         # no new guests or accounts; /api/ops/signups/on lets them in again
+```
+
+`SWARM_PUBLIC_FREE_TIER_ENABLED=false` in the environment still wins over `/api/ops/free-tier/on`, as it does over the Admin page.
+
+**Check it after the second deployment** (section 9), in this order:
+
+1. `curl -sS "https://$FQDN/api/public/session" | jq` says `guestMode: true`.
+2. In a browser, press "Try it now": a private workspace opens with no sign-in. Run one model-assisted step; the meter shows the free
+   runs left.
+3. `owner GET /api/ops/usage | jq` shows that step, and the switches.
+4. `owner POST /api/ops/signups/off`: a new visitor is not let in. Then `owner POST /api/ops/signups/on`.

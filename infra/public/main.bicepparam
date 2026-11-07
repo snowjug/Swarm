@@ -11,6 +11,10 @@ using './main.bicep'
 //
 // Not read here, and set with `--parameters name=value` when needed: location (use --location), resourceGroupName, extraTags,
 // budgetStartDate, the alert thresholds, the Log Analytics, Key Vault and storage settings, maxInactiveRevisions.
+//
+// GUEST MODE (SWARM_PUBLIC_GUEST_MODE=true): a visitor presses "Try it now" and gets a temporary private workspace, with no sign-in.
+// With it NEITHER OAuth client is required: leave both client IDs empty, register no OAuth app, and the only secret the vault needs
+// is public-pepper (docs/public/DEPLOY.md, "Guest mode"). Without it, at least one client ID is required when the app is deployed.
 
 param environmentName = readEnvironmentVariable('SWARM_PUBLIC_ENV_NAME', 'swarm-public')
 
@@ -36,11 +40,13 @@ param publicBaseUrl = readEnvironmentVariable('SWARM_PUBLIC_BASE_URL', '')
 // The client IDs are not secrets. The secrets are Key Vault secrets that a person puts there, never a value in this file or in the
 // environment: public-pepper (always: at least 32 characters, it keys the hashes of addresses and of deleted accounts, and must never
 // change), public-google-client-secret, public-github-client-secret and turnstile-secret-key (docs/public/DEPLOY.md).
-// At least one provider is required when SWARM_PUBLIC_DEPLOY_APP is true.
+// At least one provider is required when SWARM_PUBLIC_DEPLOY_APP is true, unless SWARM_PUBLIC_GUEST_MODE is true. A provider whose
+// client ID is empty has no secret reference in the app.
 param googleClientId = readEnvironmentVariable('SWARM_PUBLIC_GOOGLE_CLIENT_ID', '')
 param githubClientId = readEnvironmentVariable('SWARM_PUBLIC_GITHUB_CLIENT_ID', '')
 // Optional, comma separated: the verified e-mail addresses of the platform administrators. Personal data: never commit them.
 param adminEmails = readEnvironmentVariable('SWARM_PUBLIC_ADMIN_EMAILS', '')
+// Also decides whether new guests are made (guest mode): false makes none.
 param signupsEnabled = bool(readEnvironmentVariable('SWARM_PUBLIC_SIGNUPS_ENABLED', 'true'))
 // Optional, comma separated: e-mail domains that cannot sign up.
 param blockedEmailDomains = readEnvironmentVariable('SWARM_PUBLIC_BLOCKED_EMAIL_DOMAINS', '')
@@ -58,7 +64,16 @@ param allowResearch = bool(readEnvironmentVariable('SWARM_PUBLIC_ALLOW_RESEARCH'
 param projectModelCallLimit = int(readEnvironmentVariable('SWARM_PUBLIC_PROJECT_MODEL_CALL_LIMIT', '300'))
 param projectModelTokenLimit = int(readEnvironmentVariable('SWARM_PUBLIC_PROJECT_MODEL_TOKEN_LIMIT', '400000'))
 
-// The free tier and bring your own key: docs/public/DESIGN.md, sections 6 and 7. None of them can be 0.
+// Guest mode (docs/public/DESIGN.md, section 3): false (the default) or true. true: a visitor presses "Try it now" and gets a temporary
+// private workspace, and no OAuth client is required. New guests per address and for the whole site in an hour, and the hours without
+// use after which a guest and their data are deleted.
+param guestMode = bool(readEnvironmentVariable('SWARM_PUBLIC_GUEST_MODE', 'false'))
+param guestsPerIpPerHour = int(readEnvironmentVariable('SWARM_PUBLIC_GUESTS_PER_IP_PER_HOUR', '10'))
+param guestsPerHour = int(readEnvironmentVariable('SWARM_PUBLIC_GUESTS_PER_HOUR', '300'))
+param guestRetentionHours = int(readEnvironmentVariable('SWARM_PUBLIC_GUEST_RETENTION_HOURS', '24'))
+
+// The free tier and bring your own key: docs/public/DESIGN.md, sections 6 and 7. None of them can be 0, except the three per-guest caps
+// of tokens and calls below, where 0 means that a guest may use none of the free tier (never no limit).
 param freeTierEnabled = bool(readEnvironmentVariable('SWARM_PUBLIC_FREE_TIER_ENABLED', 'true'))
 param freeUserDailyTokens = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_USER_DAILY_TOKENS', '60000'))
 param freeUserDailyCalls = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_USER_DAILY_CALLS', '40'))
@@ -69,6 +84,14 @@ param freeGlobalDailyTokens = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GLO
 // US dollars a day, as text: 5, or 2.50.
 param freeGlobalDailyCostUsd = readEnvironmentVariable('SWARM_PUBLIC_FREE_GLOBAL_DAILY_COST_USD', '5')
 param freeTokensPerRun = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_TOKENS_PER_RUN', '15000'))
+// What a GUEST may use on the free tier (guest mode only): tokens and calls per UTC day, tokens in all, runs and calls at once, and what
+// one run is taken to cost for the meter.
+param freeGuestDailyTokens = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_DAILY_TOKENS', '80000'))
+param freeGuestDailyCalls = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_DAILY_CALLS', '60'))
+param freeGuestLifetimeTokens = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_LIFETIME_TOKENS', '240000'))
+param freeGuestConcurrentRuns = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_CONCURRENT_RUNS', '2'))
+param freeGuestConcurrentCalls = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_CONCURRENT_CALLS', '4'))
+param freeGuestTokensPerRun = int(readEnvironmentVariable('SWARM_PUBLIC_FREE_GUEST_TOKENS_PER_RUN', '15000'))
 // Optional JSON, per model role. Empty: the table in the application.
 param freeRoleMaxOutputTokens = readEnvironmentVariable('SWARM_PUBLIC_FREE_ROLE_MAX_OUTPUT_TOKENS', '')
 param byokEnabled = bool(readEnvironmentVariable('SWARM_PUBLIC_BYOK_ENABLED', 'true'))
@@ -94,6 +117,10 @@ param customDomainCertificateId = readEnvironmentVariable('SWARM_PUBLIC_CUSTOM_D
 // REQUIRED. The webhook key (a secret: openssl rand -hex 32, kept out of files) and its SHA-256 (printf '%s' "$KEY" | sha256sum).
 param opsKey = readEnvironmentVariable('SWARM_PUBLIC_OPS_KEY', '')
 param opsKeySha256 = readEnvironmentVariable('SWARM_PUBLIC_OPS_KEY_SHA256', '')
+// Optional. The SHA-256 (64 hex characters) of the OWNER's key: printf '%s' "$KEY" | sha256sum. A hash is not a secret, and the key itself
+// never goes in a file or in this environment. With the key, in the header X-Swarm-Owner-Key only, the owner turns the free tier and new
+// accounts and guests on and off and reads the usage, with no sign-in. Empty: those routes are off, and the setting is left out.
+param ownerKeySha256 = readEnvironmentVariable('SWARM_PUBLIC_OWNER_KEY_SHA256', '')
 
 // REQUIRED. Where alerts and budget notices go: a person or a shared mailbox, never committed. Additional addresses are comma separated.
 param alertEmailAddress = readEnvironmentVariable('SWARM_PUBLIC_ALERT_EMAIL', '')

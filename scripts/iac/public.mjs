@@ -53,6 +53,17 @@ export const PUBLIC_FOUNDATION_ENV = {
   SWARM_PUBLIC_DEPLOY_APP: 'false',
 };
 
+/** The app in guest mode: visitors need no sign-in, so there is no OAuth client ID, and so no provider secret. */
+export const PUBLIC_GUEST_ENV = {
+  ...Object.fromEntries(
+    Object.entries(PUBLIC_PLACEHOLDER_ENV).filter(
+      ([name]) =>
+        !['SWARM_PUBLIC_GOOGLE_CLIENT_ID', 'SWARM_PUBLIC_GITHUB_CLIENT_ID'].includes(name),
+    ),
+  ),
+  SWARM_PUBLIC_GUEST_MODE: 'true',
+};
+
 /** Every variable whose absence must stop a deployment before anything is created: no default, or an empty value the template refuses. */
 export const PUBLIC_REQUIRED_VARIABLES = [
   'SWARM_PUBLIC_DEPLOY_APP',

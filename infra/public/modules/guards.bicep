@@ -38,12 +38,16 @@ param customDomainIsTheHostOfThePublicBaseUrl bool
 @allowed([true])
 param customDomainHasACertificate bool
 
-@description('When the app is deployed, at least one of the Google and GitHub client IDs is set.')
+@description('When the app is deployed, guest mode is on or at least one of the Google and GitHub client IDs is set.')
 @allowed([true])
 param atLeastOneSignInProviderIsConfigured bool
+
+@description('The hash of the owner key is empty (the owner routes are off) or is a SHA-256 in hexadecimal: 64 characters, each 0 to 9 or a to f. The application refuses to start on anything else.')
+@allowed([true])
+param ownerKeySha256IsEmptyOrSixtyFourHexDigits bool
 
 @description('When the app is deployed, containerImage is given.')
 @allowed([true])
 param containerImageIsGivenWhenTheAppIsDeployed bool
 
-output allHold bool = resourceGroupAndEnvironmentAreNotThePilots && aiAccountResourceIdIsAnAccountId && freeDeploymentNameIsNotAReasoningFamily && freeDeploymentModelIsNotAReasoningFamily && publicBaseUrlIsAnHttpsOriginWithoutPath && customDomainIsTheHostOfThePublicBaseUrl && customDomainHasACertificate && atLeastOneSignInProviderIsConfigured && containerImageIsGivenWhenTheAppIsDeployed
+output allHold bool = resourceGroupAndEnvironmentAreNotThePilots && aiAccountResourceIdIsAnAccountId && freeDeploymentNameIsNotAReasoningFamily && freeDeploymentModelIsNotAReasoningFamily && publicBaseUrlIsAnHttpsOriginWithoutPath && customDomainIsTheHostOfThePublicBaseUrl && customDomainHasACertificate && atLeastOneSignInProviderIsConfigured && ownerKeySha256IsEmptyOrSixtyFourHexDigits && containerImageIsGivenWhenTheAppIsDeployed
