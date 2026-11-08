@@ -10,22 +10,30 @@ the real world. Its motto is **Explore scenarios, not predictions.**
 
 > Swarm explores possible scenarios. It does not predict the future.
 
+**Try it now, with nothing to install:** <https://ca-swarm-public.victoriousmoss-96160121.southeastasia.azurecontainerapps.io>
+Press **Try it now**. There is no sign-in: you get a temporary private workspace (deleted after 24 hours without use), a small
+daily allowance of model runs on the owner's Azure credits, and a sample case that uses no model at all. To use your own quota
+instead, paste a Google AI Studio (Gemini) key: it stays in your browser tab and is never stored. This is the **public edition**,
+a demonstration. Its terms and privacy pages are unreviewed placeholders, so use invented or public material only, and read
+[what it is and is not](#the-public-edition-and-the-live-demo) first.
+
 It runs on your machine, in a deterministic **rules mode that needs no model and no key**, and needs no
 network either while automatic research is off and you add no public page. A model provider is optional.
 It is one generic engine. Microsoft Copilot in Teams, an AWS price change and an online store are
 **demonstration packs**: a question plus a few synthetic documents, run through the same pipeline as any
 question you type.
 
-**Where it stands.** Swarm runs locally and its rules mode is complete end to end. It has never been
-deployed or run in Azure: the hosted shape exists as Bicep that was compiled and checked offline, no search
-provider is configured, the Foundry model path was proved against an in-process fake only, and its browser
-sign-in has only met a test identity provider. It is not ready for production use, and a first deployment
-would be a **production-candidate controlled pilot**, never a broad production service.
+**Where it stands.** Swarm runs locally and its rules mode is complete end to end. It is also deployed
+in Azure, in two separate shapes: a **controlled pilot** for the people of one Microsoft Entra tenant, and the
+**public edition** behind the link above. No search provider is configured, the public edition's Google and
+GitHub sign-in has only met fake identity providers, and no security, privacy, accessibility or legal review has
+been done. It is not ready for production use, and neither deployment is a production service.
 [Production status](#production-status), [honest limitations](#honest-limitations) and the
 [production-readiness gates](./docs/production-readiness.md) say what that means.
 
 **Three-minute judge path:** Swarm explores scenarios; it does not predict. Run the
-[quick start](#quick-start) below (rules mode, no key, no model), choose **Try a sample case** at the foot
+[quick start](#quick-start) below (rules mode, no key, no model), or open the [live demo](#the-public-edition-and-the-live-demo)
+and press **Try it now**, then choose **Try a sample case** at the foot
 of the first screen and then **Copilot in Teams**, and follow **The first demo**. Treat every result as
 simulated, under stated assumptions, and read the [four rules for reading a result](#from-a-question-to-a-decision)
 before acting on one. The [demo guide](./docs/demo/README.md) scripts a ten-minute walk-through of
@@ -102,6 +110,66 @@ says **Needs a source**, and you add a site, paste text or attach files.
 [Automatic research](#automatic-research) says what that does and does not do.
 
 The [demo guide](./docs/demo/README.md) says what to point at on each screen and what to say.
+
+## The public edition and the live demo
+
+**Live demo:** <https://ca-swarm-public.victoriousmoss-96160121.southeastasia.azurecontainerapps.io>
+
+The public edition (`SWARM_EDITION=public`) is the same engine as a separate deployment mode that anyone on the internet can use, with no
+account in any organisation. It does not change the controlled pilot: a test holds the pilot's behaviour fixed. The live demo runs it in
+**guest mode** (`PUBLIC_GUEST_MODE=true`), so there is nothing to sign up for.
+
+- **Try it now.** One press starts a guest: an opaque session cookie (`__Host-`, HttpOnly, Secure, SameSite=Lax, with an anti-forgery
+  header on every change) and a private workspace of its own. A guest's data is deleted after 24 hours without use, or at once with
+  **Delete my data**. Sign-in with Google or GitHub (authorization code with PKCE, a verified email) is optional: its buttons appear only
+  where a deployment has set it up, and a signed-in person also gets a private workspace of their own.
+- **A free tier on the owner's model credits, with hard caps.** Before every model call a usage ledger reserves the call's estimated
+  tokens, per person per day and for the whole site per day, in one atomic database statement, so concurrent requests cannot pass a cap
+  together; it settles with the real usage afterwards, hidden reasoning tokens included. The free tier uses a cheap non-reasoning
+  deployment (`gpt-4.1-mini` in the live demo) and refuses a reasoning one unless the owner allows it. A meter on the page shows the
+  free runs left today. When the day's ceiling is reached the page says so and points to a person's own key.
+- **A kill switch.** The owner turns the free tier, or new visitors, off at once with a secret key sent in a header (never in an address)
+  and no sign-in, and an Azure budget notice can switch the free tier off too, with a separate key. Azure budgets alert; they do not stop spend by
+  themselves, which is why the ceilings are in the application.
+- **Bring your own key.** A person pastes a Google AI Studio (Gemini) key and uses their own quota, with no draw on the owner's credits.
+  The key lives only in the browser tab, travels in a header with each request over HTTPS and is used for that request alone: it is
+  never stored, logged, exported or cached, a redaction layer covers every log and error path, and tests fail if a key-shaped string
+  turns up anywhere. It goes only to Google's fixed host: no base URL, host or proxy can be given. **Connect** checks it with one tiny
+  request and says plainly what it found, only the last four characters are ever shown, **Forget key** removes it and signing out
+  clears it. A person with a key is exempt from the free tier's global cap, and not from the abuse limits.
+- **People are kept apart by the database as well as by the application.** PostgreSQL row-level security, keyed by workspace, covers
+  every table that holds a person's data. The server refuses to start where it is not in force and checks it at every start.
+  [Every route, and what isolates it,](./docs/public/ISOLATION.md) is listed, and tests try to read, write and list another person's data
+  through each one.
+- **Abuse protection.** Rate limits per address and per person on sign-in, project creation, model runs and page fetches; request,
+  upload and storage limits; a cap on new guests per address; an optional Cloudflare Turnstile check (off by default); strict CORS,
+  content-security-policy and security headers; errors with no stack or internal identifier; switches to disable a user or to close
+  sign-ups; a page reader that refuses private, link-local, metadata and loopback addresses, after DNS and after redirects too; and an
+  audit log of security events that holds no personal content and no keys.
+- **A page made for visitors.** A landing page with one **Try it now**, a sample case that runs with no model (and uses none of the
+  allowance), the usage meter, a key panel, an account page, a status page and a short FAQ (what it costs, whether a key is safe, whether
+  data is private). The page links to the exact source it is running, as the AGPL-3.0 asks. The terms and privacy pages are
+  **placeholders** that the owner must fill in.
+- **Infrastructure as code, in a resource group of its own.** [`infra/public`](./infra/public/main.bicep) makes a separate stack: a
+  Container App held to one replica and a CPU and memory cap, PostgreSQL, Key Vault, a managed identity (the model is reached with
+  Microsoft Entra ID, so there is no model key), Log Analytics and Application Insights, a monthly budget with alerts, and the webhook
+  behind the kill switch. [DEPLOY.md](./docs/public/DEPLOY.md) has the commands, and [DEPLOY-LOG.md](./docs/public/DEPLOY-LOG.md) records
+  how the live demo was deployed and what was checked on it.
+
+| What                           | Default (a deployment may change it; the live demo's settings are in the deployment log)        |
+| ------------------------------ | ----------------------------------------------------------------------------------------------- |
+| One guest, per day             | 80,000 tokens and 60 model calls, with 2 runs and 4 calls at a time                             |
+| New guests                     | 10 an hour for one address, and 300 an hour for the whole site                                  |
+| Requests from one address      | 120 a minute, the page's own files included                                                     |
+| Everyone's free tier, together | a daily token ceiling and a daily cost ceiling (2,000,000 tokens and US$5), and the kill switch |
+| A guest's data                 | deleted after 24 hours without use                                                              |
+
+**Checked live on the demo:** a guest session and its cookie, the sample case with no model, a real model call on the free tier (from a
+browser too), two guests kept apart, the kill switch, the per-address limits and the row-level-security settings of the managed
+PostgreSQL. **Not checked:** real Google or GitHub sign-in, a real Gemini key, and a budget notice switching the free tier off by itself.
+Anyone with the link can use the free tier within its caps, and there has been no independent security review
+([Honest limitations](#honest-limitations)). Start at the [design and threat model](./docs/public/DESIGN.md), then
+[guest mode](./docs/public/GUEST-MODE.md) and the [decisions for the owner](./docs/public/DECISIONS-FOR-OWNER.md).
 
 ## What Swarm is, and is not
 
@@ -475,13 +543,14 @@ research off.
 
 ## Model modes
 
-| Mode                    | How to get it                                            | What it does                                                                                                                                                    |
-| ----------------------- | -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Rules** (the default) | `AI_PROVIDER=none`, or choose **Local rules**            | Every step runs with no model or key. Deterministic: the same inputs and seed give the same run                                                                 |
-| **Ollama**              | `AI_PROVIDER=ollama`, `AI_MODEL`, `OLLAMA_BASE_URL`      | A local model you install yourself. No paid API                                                                                                                 |
-| **OpenAI-compatible**   | `AI_PROVIDER=openai`, `AI_MODEL`, `OPENAI_API_KEY`       | A trusted v1 endpoint named by the administrator (`OPENAI_BASE_URL`)                                                                                            |
-| **Azure OpenAI**        | `AI_PROVIDER=azure`, `AI_MODEL`, `AZURE_OPENAI_ENDPOINT` | Microsoft Entra ID by default (`az login`), so no key exists. `AZURE_OPENAI_AUTH=key` is the legacy option                                                      |
-| **Microsoft Foundry**   | `AI_PROVIDER=foundry`, `AI_MODEL`, `FOUNDRY_ENDPOINT`    | The OpenAI-compatible v1 API with Entra ID by default, a deployment for each kind of task and strict structured outputs. Proved against an in-process fake only |
+| Mode                     | How to get it                                            | What it does                                                                                                                                                                                         |
+| ------------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Rules** (the default)  | `AI_PROVIDER=none`, or choose **Local rules**            | Every step runs with no model or key. Deterministic: the same inputs and seed give the same run                                                                                                      |
+| **Ollama**               | `AI_PROVIDER=ollama`, `AI_MODEL`, `OLLAMA_BASE_URL`      | A local model you install yourself. No paid API                                                                                                                                                      |
+| **OpenAI-compatible**    | `AI_PROVIDER=openai`, `AI_MODEL`, `OPENAI_API_KEY`       | A trusted v1 endpoint named by the administrator (`OPENAI_BASE_URL`)                                                                                                                                 |
+| **Azure OpenAI**         | `AI_PROVIDER=azure`, `AI_MODEL`, `AZURE_OPENAI_ENDPOINT` | Microsoft Entra ID by default (`az login`), so no key exists. `AZURE_OPENAI_AUTH=key` is the legacy option                                                                                           |
+| **Microsoft Foundry**    | `AI_PROVIDER=foundry`, `AI_MODEL`, `FOUNDRY_ENDPOINT`    | The OpenAI-compatible v1 API with Entra ID by default, a deployment for each kind of task and strict structured outputs. Used live by both hosted deployments, and tested against an in-process fake |
+| **Gemini, your own key** | the public edition's **Connect** panel                   | A person's own Google AI Studio key, used for their own requests only: kept in the browser and never stored                                                                                          |
 
 `AI_MODEL` is the model name, or the deployment name on Azure and Foundry. [`.env.example`](./.env.example) lists
 every variable and [CONFIGURATION.md](./docs/CONFIGURATION.md) describes them, the Azure and Foundry setup, the
@@ -504,9 +573,14 @@ FOUNDRY_ENDPOINT=<your-resource-endpoint>
 
 A provider is optional and never silent. **Model assisted** stays disabled (under **Options**, **Engine**)
 until the server has one, and the chip in the top bar names the provider (the lamp alone on a narrow bar) and
-says `connected` only after a real request has succeeded. A failure is shown as a failure, and Swarm never
-substitutes canned output. Where a step has a rules path (reading the question, finding stakeholders), it may use
-that path after a model fails, and a note says so.
+says `connected` only after a real request has succeeded. **Verify connection** sends one tiny strict-JSON request and
+says apart whether the provider was reachable, took the credentials, had the deployment and gave structured output, so
+"Connected" and "check failed" cannot contradict each other. A failure is shown as a failure, and Swarm never
+substitutes canned output. Where a step has a rules path, a failed model is never replaced in silence: reading the
+question falls back to the rules with a note; **finding the participants stops**, says what failed and offers **Retry with
+the model**, **Edit participants** or **Continue with rules**, and a list that the rules made after a failure is labelled
+"Participants from the rules fallback" on every screen and export; and the constraints fall back to the rules with the
+reason and an **Ask the model again** button.
 
 What a model can do, only in a project made in **Model assisted** mode on a server that has a
 provider: read your question when you choose **Explore** (the server sends the question and each
@@ -521,16 +595,21 @@ the repeated runs, which always use the rules engine, or word the brief or the D
 
 **One policy for what a model returns.** For research planning, participants and constraints, a model's reply
 is data until it has passed one policy (`backend/src/models/task.ts`): a strict schema, then the server's own
-checks, then one correction round, and then the rules' own answer, with a sanitised reason and none of the
-model's words. A refusal and a cancelled request are never answered from rules. The older steps check and
+checks, then one correction round, and then a failure with a sanitised reason and none of the
+model's words, which the step answers from the rules with that reason on the record (the participants stop and ask first, as above). A refusal and a cancelled request are never answered from rules. The older steps check and
 repair a reply by their own bounded paths. With a Foundry deployment the client also asks for strict structured
-output, and the model has no tools: it cannot fetch, run or call anything.
+output, and the model has no tools: it cannot fetch, run or call anything. Each kind of task has its own output budget and a
+low reasoning effort, because a reasoning model spends hidden tokens against the same limit; a reply that ended at its limit
+(`finish_reason: length`) is never read, and is asked for once more with twice the budget and less thinking; and a reply
+that still does not fit is a failure that says whether it was **truncated** or **schema-invalid**. The calls are recorded
+without any prompt or reply text ([Foundry models](./docs/models/foundry.md)).
 
 In model mode, bounded excerpts of your sources go to the provider you chose, together with the scenario you
 settled on (its time frame and every assumption, yours included) when it finds stakeholders, so check its
 privacy terms first. Keyless Azure access (`AI_PROVIDER=azure`) has been run end to end against one development
-deployment. The Foundry provider, with its routing, budgets, cache and safety signals, has been run only
-against an in-process fake of the service, and nothing else about Azure is claimed.
+deployment, and the Foundry provider has made real calls from both hosted deployments (with a managed identity, so no
+key). Its routing, budgets, cache and safety signals are tested mainly against an in-process fake of the service, and
+nothing else about Azure is claimed.
 
 ## Architecture
 
@@ -559,16 +638,16 @@ flowchart LR
 
 Current validated architecture. The application and database run locally; the browser never talks to
 a model or to the web. One Node.js process serves the UI and the API, and the lab's results are
-validated JSON documents kept with each project. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the
+validated JSON documents kept with each project. The two hosted deployments run this same process on Azure Container Apps, as the table below says. See [ARCHITECTURE.md](./ARCHITECTURE.md) for the
 components, the data flow and the stage workflow, [ADR 0014](./docs/adr/0014-scenario-lab.md) for the
 lab's decisions and [docs/analysis/](./docs/analysis/engine.md) for the simulator and the statistics.
 
-| Where it runs              | Components                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| -------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **On your machine**        | The browser interface, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`                                                                                                                                                                                                                                                                                                                                                                                                                |
-| **Deployed in Azure**      | Only a model deployment you own, and Microsoft Entra ID issuing the token that calls it, when you choose Azure. Nothing else is deployed                                                                                                                                                                                                                                                                                                                                                                                                                                                           |
-| **Authored, not deployed** | A hosted pilot: Azure Container Apps (blue/green revisions), a PostgreSQL server, a registry, a managed identity, Application Insights, alert rules and a budget, as Bicep in [`infra/pilot`](./infra/pilot/main.bicep). It compiles, lints and evaluates offline (`npm run iac:validate`) and **has never been deployed or run in Azure**; the release, rollback and pre-flight tools are dry-run by default and were tested against a fake `az`, and the rollback and restore drills have not been run. See [docs/AZURE.md](./docs/AZURE.md) and [docs/production/](./docs/production/README.md) |
-| **Proposed, not built**    | A separate hosted worker container (the pilot runs the API and the job runner in one process), Blob Storage, a search service and a web application firewall. (A search provider for automatic research is built and switched off: an owner chooses one.) See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                                                                                                                                                                                     |
+| Where it runs           | Components                                                                                                                                                                                                                                                                                                                                                                                                                    |
+| ----------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **On your machine**     | The browser interface, the API and everything behind it (one Node.js 24 process), the rules engine, and one SQLite file or a PostgreSQL database you provide through `DATABASE_URL`                                                                                                                                                                                                                                           |
+| **Deployed in Azure**   | A model deployment you own, and Microsoft Entra ID issuing the token that calls it, when you choose Azure; and two hosted stacks, each on Azure Container Apps with PostgreSQL, a registry, a managed identity, Application Insights, alert rules and a budget: the controlled pilot ([`infra/pilot`](./infra/pilot/main.bicep)) and the public edition ([`infra/public`](./infra/public/main.bicep), with Key Vault)         |
+| **Authored, not run**   | Both stacks compile, lint and evaluate offline (`npm run iac:validate`). The release, rollback and pre-flight tools are dry-run by default and were tested against a fake `az`; the rollback and restore drills have not been run, and the budget action that switches the public edition's free tier off has not been seen to fire. See [docs/AZURE.md](./docs/AZURE.md) and [docs/production/](./docs/production/README.md) |
+| **Proposed, not built** | A separate hosted worker container (the pilot runs the API and the job runner in one process), Blob Storage, a search service and a web application firewall. (A search provider for automatic research is built and switched off: an owner chooses one.) See [docs/AZURE.md](./docs/AZURE.md)                                                                                                                                |
 
 ## Security
 
@@ -580,9 +659,15 @@ Swarm is a **local, single-user application** by default. Read this before expos
   `AUTH_MODE=entra` a person signs in with Microsoft in the browser (Authorization Code with PKCE, run
   on the server, with an opaque HttpOnly session and no token in the page), or an API client sends an
   Entra bearer token. Seven roles from workspace and project membership authorise every request, and
-  routes with no policy are refused. That mode has only met a test identity provider, never a real
-  tenant. See [ADR 0008](./docs/adr/0008-browser-sign-in.md) and
+  routes with no policy are refused. The deployed pilot runs in that mode against a real Entra app registration, and the tests use a test identity provider. See [ADR 0008](./docs/adr/0008-browser-sign-in.md) and
   [CONFIGURATION.md](./docs/CONFIGURATION.md#browser-sign-in).
+- **The public edition is the one mode built to face the internet, and it is built differently.** There is no tenant
+  allow-list, because the people are strangers: each has a private workspace, PostgreSQL row-level security keeps the
+  workspaces apart even where an application check is wrong, a key that a person supplies is never stored or logged, every
+  model call is held to a ledger with a global ceiling and a kill switch, and the abuse limits of
+  [the public edition](#the-public-edition-and-the-live-demo) apply. Its threat model gives the mitigation and the test for
+  each risk (page-fetch SSRF, prompt injection, malicious uploads, key theft, account farming, cost exhaustion, data leaks):
+  [DESIGN.md](./docs/public/DESIGN.md).
 - **Prompt injection is an active risk and cannot be considered completely solved.** Source text,
   fetched pages, retrieved passages and model output are untrusted data. Embedded instructions are
   flagged, a reply that repeats one is rejected, and no model has a shell, a filesystem, a browser or a
@@ -595,7 +680,7 @@ Swarm is a **local, single-user application** by default. Read this before expos
 - **A hosted deployment declares itself.** With `DEPLOYMENT_MODE=pilot` or `production` the server refuses to
   start unless it is set up to be hosted (Entra sign-in, TLS to the database, exact hosts and origins,
   telemetry, https-only page reads, no test switches and more), with one error that lists every reason and
-  repeats no value. Nothing here has run in a deployed environment.
+  repeats no value. Both deployed stacks start under this guard.
 - **Audit.** Every successful write, and every refused request from a signed-in caller, goes to an
   append-only, hash-chained log. The log records identifiers and counts, never document text,
   questions or prompts. A test fails if a route has no audit rule.
@@ -609,7 +694,7 @@ Swarm is a **local, single-user application** by default. Read this before expos
   pages read at once and requests per minute are capped, and each project has a model budget.
 
 Residual risks: prompt injection; a model can still produce a plausible unsupported statement that
-the deterministic checks accept; tenant isolation lives in application code only; data at rest is
+the deterministic checks accept; tenant isolation lives in application code only (the public edition adds row-level security in PostgreSQL); data at rest in a local run is
 plain text in one SQLite file; and there has been no independent security review or penetration
 test. Details: [security model](./docs/security-model.md), [threat model](./docs/threat-model.md),
 [security review](./docs/security-review.md) and the
@@ -620,7 +705,7 @@ test. Details: [security model](./docs/security-model.md), [threat model](./docs
 ```bash
 npm run check          # typecheck of five projects, ESLint with no warnings, the Vitest suite, the build
 npm run format:check   # Prettier over code and docs
-npm run test:e2e       # real-browser tests of five projects against built servers (build first)
+npm run test:e2e       # real-browser tests of seven projects against built servers (build first)
 npm run test:postgres  # the unit suite again, on PostgreSQL running in the test process
 npm run eval:ai        # the AI-assisted setup against registered thresholds (rules and fake-Foundry modes)
 npm run iac:validate   # compile, lint and evaluate the Bicep offline (needs the pinned Bicep CLI)
@@ -628,15 +713,15 @@ npm run scan:secrets   # credentials in every reachable commit and the working t
 npm run demo:journey   # the recorded Larkholm presentation, against a running server and a real model
 ```
 
-| Command                 | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             |
-| ----------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model, the research crawler's safety suites on loopback sockets, the deployment guard and the privacy tests of telemetry, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build                                                                                                                                |
-| `npm run test:e2e`      | The `local`, `model`, `journey`, `signin`, `lab` and `public` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `public` project runs the public edition's journeys against fake Google, Foundry and Gemini servers. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
-| `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          |
-| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and two thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                                                                                                                                       |
-| `npm run iac:validate`  | Compiles, lints and evaluates every Bicep template offline with a pinned Bicep CLI; the unit suite then asserts invariants of what compiled. It says plainly that it skipped when the CLI is not installed (`npm run iac:install-bicep`). It is not a deployment                                                                                                                                                                                                                                                                                                                                                                                           |
-| `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                         |
-| `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                                                                                                                                           |
+| Command                 | What it covers                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     |
+| ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `npm run check`         | Strict types for backend, frontend, e2e, scripts and evaluation; lint; every unit and integration test (backend, frontend, evaluation, scripts), including the lab pipeline on the real engine with no model, the research crawler's safety suites on loopback sockets, the deployment guard and the privacy tests of telemetry, and the interface's own guards (colours only from the tokens, the contrast of every theme, the type, cascade and motion rules: see [UX.md](./docs/UX.md#guards)); and the production build                                                                                                                                                                                                                                                                                        |
+| `npm run test:e2e`      | The `local`, `model`, `journey`, `signin`, `lab`, `public` and `publicguest` Playwright projects, each on a server of its own with throwaway data, axe-core on the states it visits. The `public` project runs the public edition's journeys against fake Google, Foundry and Gemini servers, and `publicguest` runs the guest journey (**Try it now**, a free run, **Delete my data**, two guests kept apart) against a fake Foundry. The `lab` project covers the first screen, Ground, Map and the decision brief (its review, its export and Report Studio) through the pages, and walks a question from the first screen to the decision, with public pages served from fixtures, so no test reaches the internet. `npm run build` first, and `npx playwright install chromium` once (or `PW_CHANNEL=msedge`) |
+| `npm run test:postgres` | Every in-memory database in the unit tests becomes PostgreSQL (PGlite), so the SQLite stores and the PostgreSQL stores are held to the same tests                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| `npm run eval:ai`       | Participants, constraints, the crawler and extraction, the rule critics, the handling of model output, the research planner, whole research runs and the Decision Canvas, measured against thresholds that were registered before any result existed. It runs the rules and fake-Foundry modes; the live mode is **not measured** (no Azure authorization), and two thresholds are still breached ([AI evaluation](./docs/production/evaluation.md))                                                                                                                                                                                                                                                                                                                                                               |
+| `npm run iac:validate`  | Compiles, lints and evaluates every Bicep template offline with a pinned Bicep CLI; the unit suite then asserts invariants of what compiled. It says plainly that it skipped when the CLI is not installed (`npm run iac:install-bicep`). It is not a deployment                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
+| `npm run scan:secrets`  | Credential shapes in every commit and in the working tree. It prints the pattern and the location, never the match                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 |
+| `npm run demo:journey`  | The recorded presentation in a real browser against a server **you** started (`JOURNEY_URL`, default `http://127.0.0.1:3001`) that uses a real model. It refuses a rules-mode server unless `JOURNEY_ALLOW_LOCAL=1`. The `journey` project of `test:e2e` runs it without a model                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   |
 
 Also: `npm run eval` (the offline evaluation), `npm run mutation:security`, `npm run test:load`,
 `npm run test:resilience`, `npm run audit:ui` (screenshots and layout and accessibility metrics of
@@ -705,12 +790,11 @@ server process and are marked interrupted if it stops). The wider picture is in 
   which obeys such an instruction is accepted when the guard does not know its wording. A plan holds no address
   and what is fetched is decided by code, but the defect is not fixed ([limitations of the pilot](./docs/production/LIMITATIONS.md),
   A12).
-- **The model path is proved against fakes.** The Foundry provider, research planning, the model's side of
-  participants and constraints, the cost estimates and the safety signals have run only against an
+- **The model path has had little live use.** The Foundry provider has made real calls from both hosted deployments, but its
+  handling of cut-off replies (a reasoning model spends hidden tokens against the output limit), research planning, the model's
+  side of participants and constraints, the cost estimates and the safety signals have been tested mostly against an
   in-process fake of the service or scripted doubles. A model's own quality, its refusal rate and its cost are
-  not measured: the live mode of the evaluation refuses to run without an Azure authorization, which the
-  development machine does not have. The only live evidence is the older Azure provider, on one development
-  deployment.
+  not measured: the live mode of the evaluation has not been run.
 - **Constraints apply only what the simulation can express.** Eight kinds of effect are applied to the
   runs. A hard limit with none of them is read, listed and labelled as not modelled, and a violation is found
   only for an explicit hard block: a limit that the words state is not tested against the outcome.
@@ -740,38 +824,38 @@ server process and are marked interrupted if it stops). The wider picture is in 
   the thread for about a fifth of a second (a performance review measured 140 to 250 ms) and delays other
   requests by as much; how many pages are read at once is bounded (`URL_INGEST_CONCURRENCY`), and
   ordinary pages take a few milliseconds.
-- **Not hosted, and unreviewed.** Sign-in has only met a test provider, PostgreSQL has not met a
-  deployed server, the Bicep has never been deployed, the rollback and restore drills have not been run,
-  telemetry has reached no real monitoring resource, and security, privacy,
-  accessibility (screen reader) and legal reviews have not been done. The interface's contrast is
+- **Hosted twice, and unreviewed.** The controlled pilot and the public edition run in Azure, on managed PostgreSQL, and
+  telemetry reaches Application Insights (checked on the public edition). But the public edition's Google and GitHub sign-in has
+  met only fake identity providers and its Gemini path only a fake server, the rollback and restore drills have not been run, no
+  budget notice has been seen to fire, its terms and privacy pages are unreviewed placeholders, and security, privacy,
+  accessibility (screen reader) and legal reviews have not been done. Anyone with the public link can use its free tier, within
+  the caps. The interface's contrast is
   computed and its pages are scanned by a tool, which is not a review by people
   ([UX.md](./docs/UX.md#not-done) says what is left).
 
 ## Production status
 
-**Swarm has not been run in production, and nothing here may be called production.** The development machine
-has no Azure authorization, so nothing was provisioned, deployed or tested in Azure. What exists is the
-application, run locally, and the material for a first hosted run: Bicep for a container app, PostgreSQL, a
-registry, monitoring, alert rules and a budget (compiled, linted and evaluated offline), a deployment guard that
+**Swarm has not been run in production, and nothing here may be called production.** What exists is the
+application, run locally, and two hosted deployments on a dev/test credit subscription: a **production-candidate
+controlled pilot** of a few invited people (Microsoft sign-in, one tenant), and a separate **public edition** (below). They
+come from Bicep that is compiled, linted and evaluated offline, with a deployment guard that
 refuses an unsafe hosted start, release, rollback and pre-flight tools that are dry-run by default, and the
-runbooks, threat model and cost plan for them. The first deployment would be a **production-candidate
-controlled pilot** of a few invited people on a dev/test credit subscription, and the pages in
+runbooks, threat model and cost plan for them. The pages in
 [`docs/production/`](./docs/production/README.md) say what has to be true before any other words are used.
-Until then the right words are: a production-candidate controlled pilot, authored and validated offline,
-not deployed.
+Until then the right words are: a production-candidate controlled pilot, and a public demonstration.
 
-Not run, and so not known: the live Foundry evaluation, a journey against a deployed address, the rollback
-drill, the PostgreSQL restore from a hosted server, an alert firing, and PostgreSQL over TLS from Azure. Two
+Not run, and so not known: the live Foundry evaluation, the recorded `demo:journey` against a deployed address, the rollback
+drill, the PostgreSQL restore from a hosted server, and an alert or a budget notice firing. Two
 registered evaluation thresholds are still breached, both in rules mode (participant coverage, 67.1% against
 90%, and hard-constraint recall, 75.5% against 80%). No search provider is switched on, which is a decision for
 the owner.
 
-**A public edition** (`SWARM_EDITION=public`) is a separate mode for a deployment that anyone may sign up to: sign-in with
-Google or GitHub, a private workspace for each person under row-level security, a free tier on the owner's model credits
-with hard caps and a kill switch, and a person's own Google AI Studio key. It is authored and tested offline against fake
-providers, and is **not deployed**: no real sign-in, model call, key or Azure subscription has been used with it. The
-pilot above is unchanged by it. Start at [`docs/public/DESIGN.md`](./docs/public/DESIGN.md), which ends with the remaining
-risks, and [`docs/public/DEPLOY.md`](./docs/public/DEPLOY.md).
+**The public edition** (`SWARM_EDITION=public`) is a separate mode for a deployment that anyone may use: a temporary private
+guest workspace with no sign-in, optional sign-in with Google or GitHub, a private workspace for each person under row-level
+security, a free tier on the owner's model credits with hard caps and a kill switch, and a person's own Google AI Studio key.
+It is **deployed as a demonstration** ([the live demo](#the-public-edition-and-the-live-demo), which says what was checked on it
+and what was not), and the pilot is unchanged by it. Start at [`docs/public/DESIGN.md`](./docs/public/DESIGN.md), which ends
+with the remaining risks, and [`docs/public/DEPLOY.md`](./docs/public/DEPLOY.md).
 
 ## Repository map
 
@@ -792,13 +876,13 @@ risks, and [`docs/public/DEPLOY.md`](./docs/public/DEPLOY.md).
 | `backend/src/telemetry/`         | OpenTelemetry signals with an attribute allow-list and redaction, and the product signals. `backend/src/deployment.ts` is the guard that refuses an unsafe hosted start                                                                                                                                                                                                                                                                                                                                                    |
 | `backend/src/guided/` and others | The older five-stage deep dive: graph, environment, simulation, report, chat, branches, the evidence ledger (`grounding/`), Report Studio (`studio/`)                                                                                                                                                                                                                                                                                                                                                                      |
 | `backend/src/routes/`            | The HTTP routes. `auth/` holds the default-deny policy and `storage/` the stores, migrations and audit log                                                                                                                                                                                                                                                                                                                                                                                                                 |
-| `backend/src/public/`            | The public edition, used only when `SWARM_EDITION=public`: sign-in with Google and GitHub, the free tier's ledger and kill switch, a person's own Gemini key, abuse limits and the audit of security events ([design](./docs/public/DESIGN.md))                                                                                                                                                                                                                                                                            |
-| `frontend/src/public/`           | The public edition's page: landing, sign-in, usage meter, key panel, account and status. It is fetched only by a page that the server marked as the public edition                                                                                                                                                                                                                                                                                                                                                         |
+| `backend/src/public/`            | The public edition, used only when `SWARM_EDITION=public`: guest mode (no sign-in) and optional sign-in with Google and GitHub, the free tier's ledger and kill switch, a person's own Gemini key, abuse limits and the audit of security events ([design](./docs/public/DESIGN.md), [guest mode](./docs/public/GUEST-MODE.md))                                                                                                                                                                                            |
+| `frontend/src/public/`           | The public edition's page: landing with **Try it now**, sign-in, usage meter, key panel, account and status. It is fetched only by a page that the server marked as the public edition                                                                                                                                                                                                                                                                                                                                     |
 | `frontend/src/`                  | The React interface: `app/` (the shell: top bar, journey, dock, sheets, address), `scenes/` (one folder per scene: `ask`, `ground`, `map`, `simulate` with its `deep/` dive, `compare`, `decide`, and the `studio` and `report` it opens), `design/` (tokens, themes, surfaces, motion, primitives), `viz/` (the Ecosystem map), `panels/` (history, ask, audit, budget, access, provider), `hooks/`, `lib/` (pure logic) and `api/` (typed clients). `frontend/gallery.html` is a development-only page of the primitives |
-| `e2e/`                           | Playwright projects `local`, `model`, `journey`, `signin`, `lab` and `public`, with shared helpers and a fake model provider; `backend/test/support/` holds the sign-in, lab and public-edition fixture servers                                                                                                                                                                                                                                                                                                            |
+| `e2e/`                           | Playwright projects `local`, `model`, `journey`, `signin`, `lab`, `public` and `publicguest`, with shared helpers and a fake model provider; `backend/test/support/` holds the sign-in, lab and public-edition fixture servers                                                                                                                                                                                                                                                                                             |
 | `scripts/`                       | The demonstration seed and recorder, Azure provisioning and verification, the read-only Azure pre-flight, release, rollback and drill tools (`azure:*`), offline IaC validation (`iac:validate`), the UI audit and the colour check, the secret scan, load, resilience and mutation tests                                                                                                                                                                                                                                  |
 | `evaluation/`                    | Labelled datasets, the offline harness (`npm run eval`), the AI evaluation of the setup stages (`npm run eval:ai`), registered thresholds, the breaches that are known, and results                                                                                                                                                                                                                                                                                                                                        |
-| `infra/`                         | Bicep for the Azure model account and, authored and validated offline but **never deployed**, a controlled-pilot hosting stack (`infra/pilot`, with a pilot and a production-shaped parameter profile) and a separate stack for the public edition (`infra/public`)                                                                                                                                                                                                                                                        |
+| `infra/`                         | Bicep for the Azure model account, the controlled-pilot hosting stack (`infra/pilot`, with a pilot and a production-shaped parameter profile) and a separate stack for the public edition (`infra/public`). Both stacks are validated offline and have been deployed                                                                                                                                                                                                                                                       |
 | `docs/`                          | Guides, references, architecture decisions, the demo guide and example packs, and the pitch package                                                                                                                                                                                                                                                                                                                                                                                                                        |
 
 ## More documentation
@@ -812,7 +896,7 @@ risks, and [`docs/public/DEPLOY.md`](./docs/public/DEPLOY.md).
 | Architecture         | [ARCHITECTURE.md](./ARCHITECTURE.md), [architecture decisions](./docs/adr/README.md) (the interface: [ADR 0015](./docs/adr/0015-premium-interface.md))                                                                                                                                                                                                                                                                           |
 | Security             | [Security model](./docs/security-model.md), [threat model](./docs/threat-model.md), [security review](./docs/security-review.md), [reading web pages](./docs/security/url-ingestion.md), [identity and the deployment guard](./docs/production/identity.md), [privacy of telemetry](./docs/production/privacy-telemetry.md)                                                                                                      |
 | Status and limits    | [Production status and index](./docs/production/README.md), [production-readiness gates](./docs/production-readiness.md), [known limitations of the hosted pilot](./docs/production/LIMITATIONS.md), [requirements matrix](./docs/requirements-matrix.md), [risk register](./docs/program/risk-register.md), [roadmap](./docs/microsoft-product-roadmap.md)                                                                      |
-| Public edition       | [Design, threat model and self-review](./docs/public/DESIGN.md), [deploying it](./docs/public/DEPLOY.md), [decisions for the owner](./docs/public/DECISIONS-FOR-OWNER.md), [data isolation](./docs/public/ISOLATION.md)                                                                                                                                                                                                          |
+| Public edition       | [Design, threat model and self-review](./docs/public/DESIGN.md), [deploying it](./docs/public/DEPLOY.md), [decisions for the owner](./docs/public/DECISIONS-FOR-OWNER.md), [guest mode](./docs/public/GUEST-MODE.md), [deployment log](./docs/public/DEPLOY-LOG.md), [data isolation](./docs/public/ISOLATION.md)                                                                                                                |
 | Operations           | [Observability](./docs/operations/observability.md), [service levels and alerts](./docs/operations/slo-dashboards-alerts.md), [incident runbook](./docs/operations/runbook.md); for the hosted pilot: [pre-flight and cost plan](./docs/production/azure-preflight.md), [release and rollback](./docs/production/release-process.md), [runbook](./docs/production/runbook.md), [threat model](./docs/production/threat-model.md) |
 | Evaluation           | [Evaluation harness and datasets](./evaluation/README.md), [AI evaluation of the setup stages](./docs/production/evaluation.md), [results](./docs/pitch/evaluation-results.md)                                                                                                                                                                                                                                                   |
 | Origins and parity   | [Parity matrix](./docs/parity-matrix.md), [attribution](./NOTICE.md)                                                                                                                                                                                                                                                                                                                                                             |
@@ -849,4 +933,4 @@ results, compares repeated runs, and authenticates to Azure without a key.
 
 [AGPL-3.0](./LICENSE) (SPDX: `AGPL-3.0-only`). If you offer a modified version as a network service,
 you must offer its corresponding source to its users; set `SOURCE_URL` accordingly. See
-[NOTICE.md](./NOTICE.md). The licence needs a legal review before any hosted pilot.
+[NOTICE.md](./NOTICE.md). The licence needs a legal review, as do the placeholder terms and privacy pages of the public edition (`legal/`).
