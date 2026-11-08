@@ -7,6 +7,8 @@ import { AppError } from '../errors.js';
 import type { PublicContext } from './context.js';
 
 const UNSAFE_METHODS: ReadonlySet<string> = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
+/** How often the use of a guest is written down: the deletion of inactive guests does not need more exactness. */
+const GUEST_TOUCH_MS = 5 * 60_000;
 
 /**
  * The routes the public edition adds, in the same form as `auth/policy.ts`. A route with no entry in either table is
@@ -18,6 +20,10 @@ export const PUBLIC_ROUTE_POLICY: Readonly<Record<string, Access>> = {
   'GET /api/public/legal/:doc': { kind: 'public' },
   // Authenticated by its own key, never by a session.
   'POST /api/ops/free-tier/off': { kind: 'public' },
+  'POST /api/ops/free-tier/on': { kind: 'public' },
+  'POST /api/ops/signups/off': { kind: 'public' },
+  'POST /api/ops/signups/on': { kind: 'public' },
+  'GET /api/ops/usage': { kind: 'public' },
   'GET /api/account': { kind: 'signed-in' },
   'DELETE /api/account': { kind: 'signed-in' },
   'GET /api/usage': { kind: 'signed-in' },
@@ -98,10 +104,15 @@ export function createPublicGuard(context: PublicContext): PublicGuard {
       const principal: Principal = {
         id: user.id,
         tenantId: user.workspaceId,
-        // Decided from the address on every request, so that removing an administrator takes effect at once.
-        platformAdmin: pub.adminEmails.has(user.email),
+        // Decided from the address on every request, so that removing an administrator takes effect at once. A guest has
+        // no verified address, so it is never one.
+        platformAdmin: user.provider !== 'guest' && pub.adminEmails.has(user.email),
         bootstrapAdmin: false,
       };
+      // A guest that is being used is not inactive. Written at most once in a while, not once per request.
+      if (user.provider === 'guest' && context.now() - user.lastLoginAt > GUEST_TOUCH_MS) {
+        users.touchLogin(user.id);
+      }
       return { principal, session: found.info };
     },
   };

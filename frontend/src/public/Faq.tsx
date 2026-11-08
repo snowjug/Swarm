@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Disclosure } from '../design/ui';
 import type { PublicSession } from '../../../shared/public';
 import { POSITIONING_STATEMENT } from '../lib/product';
+import { guestHours, guestModeOf, hoursPhrase } from './guest';
 import { PublicFrame } from './PublicFrame';
 import { useDocumentTitle } from './useDocumentTitle';
 
@@ -11,6 +12,9 @@ interface Entry {
   answer: ReactNode;
 }
 
+type FaqSession = Pick<PublicSession, 'providers' | 'retentionDays'> &
+  Partial<Pick<PublicSession, 'guestMode' | 'guestRetentionHours'>>;
+
 function names(session: Pick<PublicSession, 'providers'> | null): string {
   const labels = session?.providers.map((provider) => provider.label) ?? [];
   return labels.length
@@ -18,10 +22,18 @@ function names(session: Pick<PublicSession, 'providers'> | null): string {
     : 'Google or GitHub, depending on what this site has turned on';
 }
 
-function entries(session: Pick<PublicSession, 'providers' | 'retentionDays'> | null): Entry[] {
+function entries(session: FaqSession | null): Entry[] {
   // The days a deleted account's counter is kept: what the site is set to, and the default until the page has heard.
   const days = session?.retentionDays ?? 30;
-  return [
+  const guestMode = guestModeOf(session);
+  // A site with no sign-in at all has no providers to name and no signing out to speak of.
+  const guestOnly = guestMode && (session?.providers.length ?? 0) === 0;
+  const leaving = guestOnly
+    ? 'Deleting your data'
+    : guestMode
+      ? 'Signing out, or deleting your data,'
+      : 'Signing out';
+  const common: Entry[] = [
     {
       id: 'cost',
       question: 'What does it cost?',
@@ -53,7 +65,7 @@ function entries(session: Pick<PublicSession, 'providers' | 'retentionDays'> | n
           </p>
           <p>
             Use a key with a spend limit. Forget key removes it from the tab and tells the server to
-            drop its copy. Signing out does both too, and closing the tab removes it from the tab.
+            drop its copy. {leaving} does both too, and closing the tab removes it from the tab.
           </p>
         </>
       ),
@@ -141,16 +153,25 @@ function entries(session: Pick<PublicSession, 'providers' | 'retentionDays'> | n
       answer: <p>No. {POSITIONING_STATEMENT}</p>,
     },
   ];
+  const account: Entry = {
+    id: 'account',
+    question: 'Do I need an account?',
+    answer: (
+      <p>
+        No. Press Try it now and you get a private temporary workspace. Guest data is deleted after{' '}
+        {hoursPhrase(guestHours(session?.guestRetentionHours))} without use. Signing in is optional
+        where it is offered.
+      </p>
+    ),
+  };
+  return [
+    ...(guestMode ? [account] : []),
+    ...common.filter((entry) => !(guestOnly && entry.id === 'sign-in')),
+  ];
 }
 
 /** The questions people ask, short and honest. Each is closed until asked for. */
-export function Faq({
-  session,
-  level = 2,
-}: {
-  session: Pick<PublicSession, 'providers' | 'retentionDays'> | null;
-  level?: 1 | 2;
-}) {
+export function Faq({ session, level = 2 }: { session: FaqSession | null; level?: 1 | 2 }) {
   const Title = level === 1 ? 'h1' : 'h2';
   return (
     <section className="sw-pub-faq" aria-labelledby="sw-pub-faq-title" data-testid="faq">

@@ -41,7 +41,7 @@ export default function PublicGate({ children }: { children: ReactNode }) {
     return () => setPublicEdition(false);
   }, []);
   const address = usePublicAddress();
-  const { gate, retry } = useGateSession();
+  const { gate, retry, startedAsGuest } = useGateSession();
   const at = address.indexOf('?');
   const page = pageOfPath(at < 0 ? address : address.slice(0, at));
   const search = at < 0 ? '' : address.slice(at);
@@ -59,7 +59,7 @@ export default function PublicGate({ children }: { children: ReactNode }) {
     return problem ? (
       <SignInProblemPage kind={problem} session={gate.session} />
     ) : (
-      <Landing session={gate.session} note={gate.note} />
+      <Landing session={gate.session} note={gate.note} onStarted={startedAsGuest} />
     );
   }
   return <SignedIn session={gate.session}>{children}</SignedIn>;

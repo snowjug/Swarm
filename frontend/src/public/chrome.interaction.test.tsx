@@ -9,7 +9,15 @@ import { clearByok, setByokKey } from './byokStore';
 import { PublicChrome } from './PublicChrome';
 import { setPublicEdition } from './runtime';
 import { takeNote } from './tabState';
-import { accountView, connectResult, signedInSession, TEST_KEY, usageView } from './test/fixtures';
+import {
+  accountView,
+  connectResult,
+  guestAccountView,
+  signedInGuest,
+  signedInSession,
+  TEST_KEY,
+  usageView,
+} from './test/fixtures';
 import { failure, fakeServer, json, noContent, type Handler } from './test/server';
 
 // The signed-in page: the meter in the bar, the account part of the menu, and what happens when a request is refused.
@@ -372,6 +380,38 @@ describe('when a request is refused', () => {
 
     await api.pause('p').catch(() => undefined);
     await waitFor(() => expect(reads()).toBe(3));
+  });
+});
+
+describe('the menu for a guest', () => {
+  const guestShell = () => (
+    <PublicChrome session={signedInGuest()}>
+      <Shell />
+    </PublicChrome>
+  );
+
+  it('says “Guest” where an address would be, and has no Sign out: deleting the data is how a guest leaves', async () => {
+    routes({ 'GET /api/account': guestAccountView() });
+    const { user } = renderWithApp(guestShell());
+    const menu = await openMenu(user);
+    expect(within(menu).getByText('Using Swarm as')).toBeTruthy();
+    expect(within(menu).getByTestId('menu-email').textContent).toBe('Guest');
+    expect(within(menu).getByTestId('menu-guest-reminder').textContent).toBe(
+      'Your data is temporary (deleted after 24 hours without use).',
+    );
+    for (const name of ['Account', 'Use your own Google key', 'Try a sample']) {
+      expect(within(menu).getByRole('menuitem', { name }), name).toBeTruthy();
+    }
+    expect(within(menu).queryByTestId('menu-signout')).toBeNull();
+    expect(menu.textContent).not.toMatch(/Signed in|Sign out/u);
+  });
+
+  it('opens the account panel from the menu, where the guest can delete their data', async () => {
+    routes({ 'GET /api/account': guestAccountView() });
+    const { user } = renderWithApp(guestShell());
+    await user.click(within(await openMenu(user)).getByRole('menuitem', { name: 'Account' }));
+    expect(await screen.findByRole('dialog', { name: 'Your account' })).toBeTruthy();
+    expect((await screen.findByTestId('account-delete')).textContent).toBe('Delete my data');
   });
 });
 

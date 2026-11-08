@@ -1,5 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
-import type { FastifyInstance } from 'fastify';
+import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { z } from 'zod';
 import type { AdminSwitches, AdminUsageView, UsageView } from '../../../../shared/public.js';
 import { principalOf } from '../../auth/guard.js';
@@ -46,13 +46,16 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
     const mine = ledger.userState(principal.tenantId);
     const reason = context.freeReason(principal.tenantId);
     const free = pub.free;
+    // A guest is held to a tighter set of limits than a person who signed in, and the meter shows the ones that apply.
+    const limits = ledger.limitsFor(principal.tenantId);
+    const tokensPerRun = context.runSizeFor(principal.tenantId);
     const used = mine.free.inputTokens + mine.free.outputTokens;
     const everyone = ledger.globalState();
     const left = Math.max(
       0,
       Math.min(
-        free.userDailyTokens - used - mine.free.reservedTokens,
-        free.userLifetimeTokens - mine.lifetimeTokens - mine.lifetimeReserved,
+        limits.userDailyTokens - used - mine.free.reservedTokens,
+        limits.userLifetimeTokens - mine.lifetimeTokens - mine.lifetimeReserved,
         free.globalDailyTokens -
           everyone.inputTokens -
           everyone.outputTokens -
@@ -67,14 +70,14 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
         resetsAt: nextResetAt(context.now()),
         today: {
           calls: mine.free.calls,
-          callLimit: free.userDailyCalls,
+          callLimit: limits.userDailyCalls,
           tokens: used,
-          tokenLimit: free.userDailyTokens,
-          runsLeft: reason === null ? Math.floor(left / free.tokensPerRun) : 0,
-          tokensPerRun: free.tokensPerRun,
+          tokenLimit: limits.userDailyTokens,
+          runsLeft: reason === null ? Math.floor(left / tokensPerRun) : 0,
+          tokensPerRun,
         },
-        lifetime: { tokens: mine.lifetimeTokens, limit: free.userLifetimeTokens },
-        inFlight: { calls: mine.free.reservedCalls, limit: free.userConcurrentCalls },
+        lifetime: { tokens: mine.lifetimeTokens, limit: limits.userLifetimeTokens },
+        inFlight: { calls: mine.free.reservedCalls, limit: limits.userConcurrentCalls },
       },
       byok: {
         enabled: pub.byok.enabled,
@@ -84,20 +87,24 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
     return view;
   });
 
-  app.get('/api/admin/usage', async (request) => {
-    const { days } = adminQuery.parse(request.query);
+  /** The administrator's view of everyone's use. Also read by the owner's key, with no sign-in. */
+  const adminUsageView = (days: number): AdminUsageView => {
     const today = ledger.globalState();
     const top = ledger.topWorkspaces(days, 10).map((row) => {
       const user = users.getByWorkspace(row.workspaceId);
       return {
         id: user?.id ?? 'deleted',
-        emailMasked: user ? maskEmail(user.email) : 'deleted account',
+        emailMasked: user
+          ? user.provider === 'guest'
+            ? 'guest'
+            : maskEmail(user.email)
+          : 'deleted account',
         tokens: row.tokens,
         calls: row.calls,
         disabled: user?.disabled ?? false,
       };
     });
-    const view: AdminUsageView = {
+    return {
       days: ledger.days(days).map((row) => ({
         day: row.day,
         calls: row.calls,
@@ -118,7 +125,11 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
         limits: { tokens: pub.free.globalDailyTokens, costUsd: pub.free.globalDailyCostUsd },
       },
     };
-    return view;
+  };
+
+  app.get('/api/admin/usage', async (request) => {
+    const { days } = adminQuery.parse(request.query);
+    return adminUsageView(days);
   });
 
   app.post('/api/admin/free-tier', async (request) => {
@@ -174,11 +185,57 @@ export function usageRoutes(app: FastifyInstance, context: PublicContext): void 
     };
   });
 
+  // The owner's key, with no sign-in: turns the free tier or new visitors on or off, and reads the usage. It is compared by
+  // hash, in constant time, and is read from a header only (never from an address, which is logged by proxies).
+  const ownerKeyOffered = (request: FastifyRequest): string | null => {
+    const value = request.headers['x-swarm-owner-key'];
+    return typeof value === 'string' && value.length > 0 ? value : null;
+  };
+  const ownerOnly = (request: FastifyRequest): void => {
+    if (!pub.ownerKeySha256) throw new AppError(404, 'NOT_AVAILABLE', 'This is not available.');
+    const given = ownerKeyOffered(request);
+    const offered = given ? createHash('sha256').update(given).digest('hex') : '';
+    if (!offered || !sameHash(offered, pub.ownerKeySha256)) {
+      throw new AppError(401, 'SIGN_IN_REQUIRED', 'This is not allowed.');
+    }
+  };
+  const ownerLimit = {
+    config: { rateLimit: { max: 20 * config.rateLimitScale, timeWindow: '1 minute' } },
+  };
+
+  app.post('/api/ops/free-tier/on', ownerLimit, async (request) => {
+    ownerOnly(request);
+    settings.setFlag('free_tier_enabled', true);
+    context.audit('public.ops.free-tier.on', 'owner');
+    return { freeTier: 'on' };
+  });
+
+  for (const state of ['on', 'off'] as const) {
+    app.post(`/api/ops/signups/${state}`, ownerLimit, async (request) => {
+      ownerOnly(request);
+      settings.setFlag('signups_enabled', state === 'on');
+      context.audit(`public.ops.signups.${state}`, 'owner');
+      return { signups: state };
+    });
+  }
+
+  app.get('/api/ops/usage', ownerLimit, async (request) => {
+    ownerOnly(request);
+    return adminUsageView(adminQuery.parse(request.query).days);
+  });
+
   // The budget automation: it can switch the free tier off, and nothing else. Its key is compared by hash, in constant time.
+  // The owner's key can switch it off too, from a header, and is the only way to switch it back on without signing in.
   app.post(
     '/api/ops/free-tier/off',
     { config: { rateLimit: { max: 10 * config.rateLimitScale, timeWindow: '1 minute' } } },
     async (request) => {
+      if (ownerKeyOffered(request)) {
+        ownerOnly(request);
+        settings.setFlag('free_tier_enabled', false);
+        context.audit('public.ops.free-tier.off', 'owner');
+        return { freeTier: 'off' };
+      }
       if (!pub.opsKeySha256) throw new AppError(404, 'NOT_AVAILABLE', 'This is not available.');
       const header = /^Bearer (.{16,200})$/u.exec(String(request.headers.authorization ?? ''))?.[1];
       const given = header ?? opsQuery.safeParse(request.query).data?.key;

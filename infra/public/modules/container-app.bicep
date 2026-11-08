@@ -14,8 +14,9 @@
 //  - CPU and memory are capped here (at most 1 vCPU and 2 GiB, the ratio of the Consumption profile), which bounds what a
 //    flood of requests can cost.
 //  - No secret value is defined here: every setting is an ordinary environment variable, every credential is a Microsoft
-//    Entra token of the attached managed identity, and the few values that cannot be (the OAuth client secrets and the
-//    Turnstile secret) are references to Key Vault secrets that a person puts there (docs/public/DEPLOY.md).
+//    Entra token of the attached managed identity, and the few values that cannot be (the pepper, the client secret of each
+//    OAuth provider that is configured, and the Turnstile secret) are references to Key Vault secrets that a person puts there
+//    (docs/public/DEPLOY.md). In guest mode with no provider, the pepper is the only one.
 //
 // The environment variables are built in main.bicep, where the contract of docs/public/DESIGN.md, section 3, is read in one place.
 targetScope = 'resourceGroup'

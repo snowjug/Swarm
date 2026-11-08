@@ -2,9 +2,11 @@ import type { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import {
   PUBLIC_SIGN_IN_PROBLEMS,
+  startGuestSchema,
   startSignInSchema,
   type PublicProviderId,
   type PublicSignInProblem,
+  type StartedGuest,
   type StartedSignIn,
 } from '../../../../shared/public.js';
 import { readCookie, serializeCookie } from '../../auth/cookies.js';
@@ -40,6 +42,74 @@ export function authRoutes(app: FastifyInstance, context: PublicContext): void {
 
   const redirectUri = (provider: PublicProviderId): string =>
     `${pub.baseUrl}/auth/callback/${provider}`;
+
+  /**
+   * A visitor who does not sign in: a guest with a private workspace of its own, and the same kind of session as a person
+   * who signed in. It is a change (so it carries the header another site cannot make a browser send), it is a new
+   * account (so it obeys the switch for new accounts), and it is throttled by address, so that one visitor cannot make
+   * allowances without end. Nothing is made by a visit alone: only by this call.
+   */
+  app.post('/auth/guest', limit, async (request, reply) => {
+    if (
+      request.headers[CSRF_HEADER] !== '1' ||
+      request.headers['sec-fetch-site'] === 'cross-site'
+    ) {
+      throw new AppError(
+        403,
+        'CSRF_REQUIRED',
+        'This must be started from the Swarm page itself. Reload it and try again.',
+      );
+    }
+    if (!pub.guestMode) {
+      throw new AppError(
+        403,
+        'NOT_AVAILABLE',
+        'Using this site without signing in is not available.',
+      );
+    }
+    const body = startGuestSchema.parse(request.body ?? {});
+    if (!context.signupsOpen()) {
+      throw new AppError(
+        403,
+        'NOT_AVAILABLE',
+        'New visitors are not being let in right now. Try again later.',
+      );
+    }
+    if (context.bot && !(await context.bot.verify(body.turnstileToken, request.ip))) {
+      throw new AppError(
+        403,
+        'BOT_CHECK_FAILED',
+        'We could not check that you are a person. Reload the page and try again.',
+      );
+    }
+    if (!context.guests.allows(request.ip)) {
+      context.ledger.recordBlocked('guest-rate-limited');
+      context.auditOnce('public.guest.refused', 'guests', 'rate-limited', {}, 'anonymous');
+      throw new AppError(
+        429,
+        'RATE_LIMITED',
+        'Too many new visitors have started from your network in the last hour. Wait a little while, then try again.',
+      );
+    }
+    const user = context.users.createGuest();
+    context.guests.record(request.ip);
+    const created = context.repository.sessions.create(
+      { id: user.id, tenantId: user.workspaceId, platformAdmin: false, bootstrapAdmin: false },
+      context.lifetime,
+    );
+    context.audit('public.guest.start', user.id);
+    const answer: StartedGuest = { started: true };
+    return reply
+      .header(
+        'set-cookie',
+        serializeCookie(context.sessionCookie, created.token, {
+          maxAge: created.maxAgeSeconds,
+          secure,
+        }),
+      )
+      .headers(noStore)
+      .send(answer);
+  });
 
   app.post('/auth/start/:provider', limit, async (request, reply) => {
     // A change, so it carries the header that another site cannot make a browser send.

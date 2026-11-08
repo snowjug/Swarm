@@ -1,7 +1,7 @@
-import { createHmac, randomBytes } from 'node:crypto';
+import { createHmac, randomBytes, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import type { SqlDatabase } from '../../storage/sql.js';
-import type { PublicProviderId } from '../../../../shared/public.js';
+import type { PublicAccountProvider, PublicProviderId } from '../../../../shared/public.js';
 
 /** An opaque identifier of 128 random bits, with a prefix that says what it names. */
 export const opaqueId = (prefix: 'u' | 'w'): string =>
@@ -11,9 +11,11 @@ export interface PublicUser {
   id: string;
   /** The private workspace: the `tenantId` of everything the person owns. */
   workspaceId: string;
-  provider: PublicProviderId;
+  /** `guest` is a visitor who did not sign in: no address, and data that is deleted after a period without use. */
+  provider: PublicAccountProvider;
   email: string;
   createdAt: number;
+  /** For a guest this is the last time it was used: it is what the deletion of inactive guests reads. */
   lastLoginAt: number;
   disabled: boolean;
 }
@@ -21,7 +23,7 @@ export interface PublicUser {
 const userRow = z.object({
   id: z.string(),
   workspace_id: z.string(),
-  provider: z.enum(['google', 'github']),
+  provider: z.enum(['google', 'github', 'guest']),
   email: z.string(),
   created_at: z.coerce.number(),
   last_login_at: z.coerce.number(),
@@ -110,6 +112,59 @@ export class PublicUserStore {
 
   count(): number {
     return Number(this.database.prepare('SELECT COUNT(*) AS n FROM public_users').get()?.n ?? 0);
+  }
+
+  /** Whether the workspace is a guest's. A workspace that does not exist is not. */
+  isGuestWorkspace(workspaceId: string): boolean {
+    const raw = this.database
+      .prepare('SELECT provider FROM public_users WHERE workspace_id = ?')
+      .get(workspaceId);
+    return raw !== undefined && String(raw.provider) === 'guest';
+  }
+
+  /**
+   * Makes a guest: an account with no provider and no address, its private workspace and the membership that makes it the
+   * workspace's owner, in one transaction. Its subject is random, so no one can sign in to it again, and nothing is kept
+   * after it is deleted (there is no one to recognise).
+   */
+  createGuest(): PublicUser {
+    return this.atomic(() => {
+      const at = this.now();
+      const id = opaqueId('u');
+      const workspaceId = opaqueId('w');
+      const email = `guest-${randomBytes(6).toString('hex')}@guest.invalid`;
+      this.database
+        .prepare(
+          `INSERT INTO public_users (id, workspace_id, provider, subject, email, created_at, last_login_at, disabled)
+           VALUES (?, ?, 'guest', ?, ?, ?, ?, 0)`,
+        )
+        .run(id, workspaceId, randomUUID(), email, at, at);
+      this.database
+        .prepare(
+          `INSERT INTO workspace_members (tenant_id, principal_id, role, added_by, added_at)
+           VALUES (?, ?, 'owner', 'guest', ?)`,
+        )
+        .run(workspaceId, id, new Date(at).toISOString());
+      return {
+        id,
+        workspaceId,
+        provider: 'guest',
+        email,
+        createdAt: at,
+        lastLoginAt: at,
+        disabled: false,
+      };
+    });
+  }
+
+  /** The guests that were last used before the moment given, oldest first. At most `limit`. */
+  inactiveGuests(before: number, limit = 100): string[] {
+    return this.database
+      .prepare(
+        `SELECT id FROM public_users WHERE provider = 'guest' AND last_login_at < ? ORDER BY last_login_at LIMIT ?`,
+      )
+      .all(before, limit)
+      .map((row) => String(row.id));
   }
 
   /** The keyed hash that stands for a provider account after the account is deleted. */
@@ -227,7 +282,8 @@ export class PublicUserStore {
       }
       let retained = false;
       const tokens = Number(used?.tokens ?? 0);
-      if (this.options.retentionDays > 0 && tokens > 0) {
+      // A guest is not recognised again, so there is nothing to keep a counter for.
+      if (this.options.retentionDays > 0 && tokens > 0 && user.provider !== 'guest') {
         this.database
           .prepare(
             `INSERT INTO deleted_accounts (key_hash, lifetime_tokens, deleted_at) VALUES (?, ?, ?)

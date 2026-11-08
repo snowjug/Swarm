@@ -1,12 +1,13 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, renderWithApp, screen, waitFor, within } from '../test/dom';
+import type { PublicSession } from '../../../shared/public';
 import { browser } from './browser';
 import { Landing } from './Landing';
 import { NETWORK_WORDS } from './problems';
 import { setPublicEdition } from './runtime';
-import { signedOutSession } from './test/fixtures';
-import { failure, fakeServer } from './test/server';
+import { guestSession, signedOutSession } from './test/fixtures';
+import { failure, fakeServer, json } from './test/server';
 import { setTurnstileLoader, type TurnstileApi, type TurnstileOptions } from './turnstile';
 
 // The landing page and the way in: what a visitor is told, which sign-ins they are offered, and what a press on one of
@@ -359,5 +360,239 @@ describe('the bot check', () => {
     expect((within(dialog).getByTestId('signin-google') as HTMLButtonElement).disabled).toBe(true);
     await user.click(within(dialog).getByRole('button', { name: 'Try again' }));
     await waitFor(() => expect(loader).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('the landing page when visitors can start as guests', () => {
+  const heroOf = () => screen.getByRole('region', { name: 'Explore what could happen next.' });
+  const button = () => screen.getByTestId('try-it-now') as HTMLButtonElement;
+
+  it('offers one prominent action, “Try it now”, and the note on temporary data, with nothing of signing in when no provider is set up', () => {
+    renderWithApp(<Landing session={guestSession()} note={null} />);
+    expect(
+      within(heroOf())
+        .getAllByRole('button')
+        .map((found) => found.textContent),
+    ).toEqual(['Try it now']);
+    expect(screen.queryByTestId('try-it-free')).toBeNull();
+    expect(screen.getByTestId('guest-note').textContent).toBe(
+      'Guest data is temporary: it is deleted after 24 hours without use, and you can delete it yourself at any time.',
+    );
+    // No sign-in wall: no button, no provider, no card, and no word of it anywhere on the page (the FAQ included).
+    expect(screen.queryByTestId('signin-secondary')).toBeNull();
+    expect(screen.queryByRole('button', { name: /sign in/iu })).toBeNull();
+    for (const part of [screen.getByRole('banner'), screen.getByTestId('landing')]) {
+      expect(part.textContent).not.toMatch(/\bsign[ -]in\b/iu);
+    }
+    expect(screen.queryByRole('dialog')).toBeNull();
+    // What the page is, the FAQ and the footer links are all still there.
+    expect(screen.getByTestId('faq')).toBeTruthy();
+    expect(
+      within(screen.getByRole('navigation', { name: 'About this site' }))
+        .getAllByRole('link')
+        .map((link) => link.textContent),
+    ).toEqual(['Terms', 'Privacy', 'FAQ', 'Status']);
+  });
+
+  it('says the hours the server gives, in the singular for one, and 24 when it gives none', () => {
+    const { unmount } = renderWithApp(
+      <Landing session={guestSession({ guestRetentionHours: 6 })} note={null} />,
+    );
+    expect(screen.getByTestId('guest-note').textContent).toContain('after 6 hours without use');
+    unmount();
+
+    const one = renderWithApp(
+      <Landing session={guestSession({ guestRetentionHours: 1 })} note={null} />,
+    );
+    expect(screen.getByTestId('guest-note').textContent).toContain('after 1 hour without use');
+    one.unmount();
+
+    const bare = guestSession() as Partial<PublicSession>;
+    delete bare.guestRetentionHours;
+    renderWithApp(<Landing session={bare as PublicSession} note={null} />);
+    expect(screen.getByTestId('guest-note').textContent).toContain('after 24 hours without use');
+  });
+
+  it('keeps the providers the server lists as one quiet line under it, which opens the sign-in card', async () => {
+    const one = renderWithApp(
+      <Landing
+        session={guestSession({ providers: [{ id: 'google', label: 'Google' }] })}
+        note={null}
+      />,
+    );
+    expect(button().textContent).toBe('Try it now');
+    expect(screen.getByTestId('signin-secondary').textContent).toBe('Or sign in with Google');
+    expect(screen.queryByTestId('signin-github')).toBeNull();
+    one.unmount();
+
+    const { user } = renderWithApp(
+      <Landing
+        session={guestSession({
+          providers: [
+            { id: 'google', label: 'Google' },
+            { id: 'github', label: 'GitHub' },
+          ],
+        })}
+        note={null}
+      />,
+    );
+    expect(screen.getByTestId('signin-secondary').textContent).toBe(
+      'Or sign in with Google or GitHub',
+    );
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByTestId('signin-secondary'));
+    const dialog = await screen.findByRole('dialog', { name: 'Sign in to Swarm' });
+    expect(within(dialog).getByTestId('signin-google')).toBeTruthy();
+    expect(within(dialog).getByTestId('signin-github')).toBeTruthy();
+  });
+
+  it('is the landing page as it was when guest mode is off, and when the server does not say', () => {
+    const absent = signedOutSession() as Partial<PublicSession>;
+    delete absent.guestMode;
+    delete absent.guestRetentionHours;
+    for (const session of [signedOutSession({ guestMode: false }), absent as PublicSession]) {
+      const { unmount } = renderWithApp(<Landing session={session} note={null} />);
+      expect(screen.getByTestId('try-it-free').textContent).toBe('Try it free');
+      expect(screen.getByRole('button', { name: 'Sign in' })).toBeTruthy();
+      expect(screen.queryByTestId('try-it-now')).toBeNull();
+      expect(screen.queryByTestId('guest-note')).toBeNull();
+      expect(screen.queryByTestId('signin-secondary')).toBeNull();
+      unmount();
+    }
+  });
+
+  it('asks the server for a guest session with the header only this page sends, stays busy while it waits, and has the session read again', async () => {
+    let answer!: (response: Response) => void;
+    const server = fakeServer({
+      'POST /auth/guest': () => new Promise<Response>((resolve) => (answer = resolve)),
+    });
+    const onStarted = vi.fn().mockResolvedValue(true);
+    const { user } = renderWithApp(
+      <Landing session={guestSession()} note={null} onStarted={onStarted} />,
+    );
+    await user.click(button());
+    expect(button().disabled).toBe(true);
+    expect(button().getAttribute('aria-busy')).toBe('true');
+    expect(onStarted).not.toHaveBeenCalled();
+
+    answer(json({ started: true }));
+    await waitFor(() => expect(onStarted).toHaveBeenCalledTimes(1));
+    expect(server.calls).toHaveLength(1);
+    const [call] = server.calls;
+    expect(call).toMatchObject({ method: 'POST', path: '/auth/guest', body: {} });
+    expect(call!.headers['x-swarm-csrf']).toBe('1');
+    expect(call!.headers['content-type']).toBe('application/json');
+    expect(call!.headers['x-swarm-provider-key']).toBeUndefined();
+    // The gate takes the page from here: the button stays busy until it has.
+    expect(button().disabled).toBe(true);
+    expect(screen.queryByRole('alert')).toBeNull();
+  });
+
+  it('starts from the first screen, because a new workspace has none of the explorations an old address points at', async () => {
+    fakeServer({ 'POST /auth/guest': { started: true } });
+    const onStarted = vi.fn().mockResolvedValue(true);
+    at('/?project=p1&scene=map');
+    const { user } = renderWithApp(
+      <Landing session={guestSession()} note={null} onStarted={onStarted} />,
+    );
+    await user.click(button());
+    await waitFor(() => expect(onStarted).toHaveBeenCalled());
+    expect(window.location.pathname + window.location.search).toBe('/');
+  });
+
+  it('loads the page again when nothing else is there to read the session', async () => {
+    fakeServer({ 'POST /auth/guest': { started: true } });
+    const reload = vi.spyOn(browser, 'reload').mockImplementation(() => undefined);
+    const { user } = renderWithApp(<Landing session={guestSession()} note={null} />);
+    await user.click(button());
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  });
+
+  it.each([
+    [
+      429,
+      'RATE_LIMITED',
+      'Too many people have started from your network lately. Wait a few minutes, then try again.',
+    ],
+    [403, 'NOT_AVAILABLE', 'Guest access is not available right now. Please try again later.'],
+    [403, 'BOT_CHECK_FAILED', 'We could not check that you are a person. Please try again.'],
+    [500, 'INTERNAL', 'We could not start your session. Please try again.'],
+  ])(
+    'says what a %i answer (%s) means, in a calm sentence, and lets the visitor try again',
+    async (status, code, words) => {
+      const server = fakeServer({
+        'POST /auth/guest': failure(status, code, 'RAW SERVER MESSAGE'),
+      });
+      const onStarted = vi.fn();
+      const { user } = renderWithApp(
+        <Landing session={guestSession()} note={null} onStarted={onStarted} />,
+      );
+      await user.click(button());
+      const alert = await screen.findByRole('alert');
+      expect(alert.textContent).toBe(words);
+      expect(alert.textContent).not.toContain('RAW SERVER MESSAGE');
+      expect(screen.getByTestId('guest-error')).toBeTruthy();
+      expect(onStarted).not.toHaveBeenCalled();
+      expect(button().disabled).toBe(false);
+      expect(server.calls).toHaveLength(1);
+    },
+  );
+
+  it('says it cannot reach the service when there is no answer, and when the browser keeps no session', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('fetch failed')));
+    const first = renderWithApp(<Landing session={guestSession()} note={null} />);
+    await first.user.click(button());
+    expect((await screen.findByRole('alert')).textContent).toContain(NETWORK_WORDS);
+    first.unmount();
+
+    fakeServer({ 'POST /auth/guest': { started: true } });
+    const notKept = vi.fn().mockResolvedValue(false);
+    const second = renderWithApp(
+      <Landing session={guestSession()} note={null} onStarted={notKept} />,
+    );
+    await second.user.click(button());
+    expect((await screen.findByRole('alert')).textContent).toMatch(/allows cookies for this site/u);
+    expect(button().disabled).toBe(false);
+  });
+
+  it('waits for the bot check where the server asks for it, and sends the token it gives', async () => {
+    const turnstile = fakeTurnstile();
+    const server = fakeServer({ 'POST /auth/guest': { started: true } });
+    const onStarted = vi.fn().mockResolvedValue(true);
+    const { user } = renderWithApp(
+      <Landing
+        session={guestSession({ bot: { kind: 'turnstile', siteKey: 'site-key-123' } })}
+        note={null}
+        onStarted={onStarted}
+      />,
+    );
+    await waitFor(() => expect(turnstile.api.render).toHaveBeenCalledTimes(1));
+    expect(turnstile.widgets[0]).toMatchObject({ sitekey: 'site-key-123' });
+    expect(button().disabled).toBe(true);
+    expect(screen.getByText('Checking that you are a person…')).toBeTruthy();
+
+    await turnstile.solve('token-one');
+    await waitFor(() => expect(button().disabled).toBe(false));
+    await user.click(button());
+    await waitFor(() => expect(onStarted).toHaveBeenCalled());
+    expect(server.calls[0]!.body).toEqual({ turnstileToken: 'token-one' });
+  });
+
+  it('says that the session ended in words that never ask a guest to sign in', () => {
+    const only = renderWithApp(<Landing session={guestSession()} note="expired" />);
+    const note = screen.getByTestId('landing-note');
+    expect(note.getAttribute('data-kind')).toBe('expired');
+    expect(note.textContent).toBe('Your session ended. Press Try it now to start again.');
+    only.unmount();
+
+    renderWithApp(
+      <Landing
+        session={guestSession({ providers: [{ id: 'google', label: 'Google' }] })}
+        note="expired"
+      />,
+    );
+    expect(screen.getByTestId('landing-note').textContent).toBe(
+      'Your session ended. Press Try it now to start again, or sign in again if you have an account.',
+    );
   });
 });

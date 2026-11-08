@@ -14,6 +14,9 @@ const labWebPort = Number(process.env.E2E_LAB_WEB_PORT || 3117);
 const labWebFixturePort = Number(process.env.E2E_LAB_WEB_FIXTURE_PORT || 3118);
 const publicPort = Number(process.env.E2E_PUBLIC_PORT || 3119);
 const publicControlPort = Number(process.env.E2E_PUBLIC_CONTROL_PORT || 3120);
+const publicGuestPort = Number(process.env.E2E_PUBLIC_GUEST_PORT || 3121);
+const publicGuestControlPort = Number(process.env.E2E_PUBLIC_GUEST_CONTROL_PORT || 3122);
+process.env.E2E_PUBLIC_GUEST_CONTROL_PORT ??= String(publicGuestControlPort);
 // Where the specs that add public web pages as evidence (ask-evidence.spec.ts, ask-pipeline.spec.ts) find
 // their server and the fixture web server behind it; workers inherit them.
 process.env.E2E_LAB_WEB_URL ??= `http://127.0.0.1:${labWebPort}`;
@@ -127,6 +130,29 @@ const suites: Record<string, { project: Project; servers: WebServer[] }> = {
         env: {
           E2E_PUBLIC_PORT: String(publicPort),
           E2E_PUBLIC_CONTROL_PORT: String(publicControlPort),
+        },
+      },
+    ],
+  },
+  publicguest: {
+    // The public edition in GUEST MODE, as it is deployed: no sign-in provider at all, "Try it now" on the landing page, a private
+    // temporary workspace under row-level security, and "Delete my data" (backend/test/support/public-e2e-server.ts with
+    // E2E_PUBLIC_GUEST=1, on ports of its own).
+    project: {
+      name: 'publicguest',
+      testMatch: /publicguest\/.*\.spec\.ts/u,
+      use: { baseURL: `http://127.0.0.1:${publicGuestPort}` },
+    },
+    servers: [
+      {
+        command: 'node --import tsx backend/test/support/public-e2e-server.ts',
+        url: `http://127.0.0.1:${publicGuestControlPort}/__health`,
+        reuseExistingServer: false,
+        timeout: 180_000,
+        env: {
+          E2E_PUBLIC_PORT: String(publicGuestPort),
+          E2E_PUBLIC_CONTROL_PORT: String(publicGuestControlPort),
+          E2E_PUBLIC_GUEST: '1',
         },
       },
     ],

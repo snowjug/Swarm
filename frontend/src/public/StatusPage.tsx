@@ -4,6 +4,7 @@ import type { LucideIcon } from 'lucide-react';
 import { Button, Notice, Skeleton } from '../design/ui';
 import type { PublicHealth, PublicSession, PublicStatus } from '../../../shared/public';
 import { formatLocal } from './format';
+import { guestModeOf } from './guest';
 import { FREE_TIER_WORDS, SERVICE_UNREACHABLE } from './problems';
 import { fetchStatus } from './publicApi';
 import { PublicFrame } from './PublicFrame';
@@ -109,7 +110,7 @@ export function StatusPage({ session }: { session: PublicSession | null }) {
                 <dd>{status.byokEnabled ? 'Available' : 'Switched off right now'}</dd>
               </div>
               <div className="sw-pub-status__row" data-testid="status-signups">
-                <dt>New accounts</dt>
+                <dt>{guestModeOf(session) ? 'New visitors' : 'New accounts'}</dt>
                 <dd>{status.signupsOpen ? 'Open' : 'Closed for now'}</dd>
               </div>
               <div className="sw-pub-status__row">

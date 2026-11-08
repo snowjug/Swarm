@@ -26,6 +26,16 @@ export interface FreeTierConfig {
   tokensPerRun: number;
   /** At most this many output tokens for a call of the role, on the free tier. */
   roleMaxOutputTokens: Readonly<Partial<Record<ModelRole, number>>>;
+  /** What a guest (a visitor who did not sign in) may use. The global caps above are shared by everyone. */
+  guest: {
+    dailyTokens: number;
+    dailyCalls: number;
+    lifetimeTokens: number;
+    concurrentRuns: number;
+    concurrentCalls: number;
+    /** Only for the meter, as `tokensPerRun` is for a signed-in person. */
+    tokensPerRun: number;
+  };
 }
 
 export interface PublicConfig {
@@ -38,6 +48,19 @@ export interface PublicConfig {
   /** Verified e-mail addresses (lower case) that are platform administrators. */
   adminEmails: ReadonlySet<string>;
   signupsEnabled: boolean;
+  /**
+   * Visitors can start with no sign-in (`POST /auth/guest`): a temporary private workspace. Needs `signupsEnabled`, like
+   * any new account. With it, Google and GitHub are optional.
+   */
+  guestMode: boolean;
+  guests: {
+    /** New guests one address may make in an hour. */
+    perIpPerHour: number;
+    /** New guests in all in an hour. */
+    perHour: number;
+    /** A guest's data is deleted after this many hours without use. */
+    retentionHours: number;
+  };
   blockedEmailDomains: ReadonlySet<string>;
   maxProjects: number;
   storageQuotaBytes: number;
@@ -48,9 +71,20 @@ export interface PublicConfig {
   allowUnsafeSqlite: boolean;
   /** SHA-256, hex, of the key the budget automation presents. Null: the endpoint is off. */
   opsKeySha256: string | null;
+  /**
+   * SHA-256, hex, of the owner's key, which turns the free tier or new visitors on or off and reads the usage with no
+   * sign-in (`X-Swarm-Owner-Key`, header only). Null: those routes are off.
+   */
+  ownerKeySha256: string | null;
   /** Keys the hashes of addresses and of deleted accounts. A secret. */
   pepper: string;
   signups: { perIpPerDay: number; perHour: number };
+  /**
+   * What one address may ask of the site in a minute, before the rate limit scale: the page's own files count, and so does the
+   * polling of a run in progress. An office or a demonstration room shares one address, so a deployment may raise it. The costly
+   * routes have limits of their own and the ledger holds the spending, whatever this is.
+   */
+  ipRequestsPerMinute: number;
   /**
    * What one account may do in a window, before the rate limit scale. An address may do three times as much, because a
    * household or an office shares one.
@@ -97,6 +131,10 @@ const environmentSchema = z.object({
   PUBLIC_GITHUB_CLIENT_SECRET: text(500),
   PUBLIC_ADMIN_EMAILS: z.preprocess(unset, z.string().max(2_000).optional()),
   PUBLIC_SIGNUPS_ENABLED: flag(true),
+  PUBLIC_GUEST_MODE: flag(false),
+  PUBLIC_GUESTS_PER_IP_PER_HOUR: whole(10, 1, 1_000),
+  PUBLIC_GUESTS_PER_HOUR: whole(300, 1, 100_000),
+  PUBLIC_GUEST_RETENTION_HOURS: whole(24, 1, 168),
   PUBLIC_BLOCKED_EMAIL_DOMAINS: z.preprocess(unset, z.string().max(4_000).optional()),
   PUBLIC_MAX_PROJECTS: whole(10, 1, 100),
   PUBLIC_STORAGE_QUOTA_MB: whole(20, 1, 1_000),
@@ -118,9 +156,17 @@ const environmentSchema = z.object({
       .regex(/^[0-9a-f]{64}$/u)
       .optional(),
   ),
+  PUBLIC_OWNER_KEY_SHA256: z.preprocess(
+    unset,
+    z
+      .string()
+      .regex(/^[0-9a-f]{64}$/u)
+      .optional(),
+  ),
   PUBLIC_PEPPER: z.preprocess(unset, z.string().min(32).max(500).optional()),
   PUBLIC_SIGNUPS_PER_IP_PER_DAY: whole(5, 1, 1_000),
   PUBLIC_SIGNUPS_PER_HOUR: whole(60, 1, 100_000),
+  PUBLIC_IP_REQUESTS_PER_MINUTE: whole(120, 30, 1_200),
   PUBLIC_RATE_WRITES_PER_5MIN: whole(300, 10, 1_000_000),
   PUBLIC_RATE_CREATE_PER_HOUR: whole(20, 1, 100_000),
   PUBLIC_RATE_STORE_PER_HOUR: whole(60, 1, 100_000),
@@ -136,6 +182,12 @@ const environmentSchema = z.object({
   FREE_GLOBAL_DAILY_TOKENS: whole(2_000_000, 0, 10_000_000_000),
   FREE_GLOBAL_DAILY_COST_USD: amount(5, 0, 100_000),
   FREE_TOKENS_PER_RUN: whole(15_000, 1_000, 10_000_000),
+  FREE_GUEST_DAILY_TOKENS: whole(80_000, 0, 100_000_000),
+  FREE_GUEST_DAILY_CALLS: whole(60, 0, 100_000),
+  FREE_GUEST_LIFETIME_TOKENS: whole(240_000, 0, 1_000_000_000),
+  FREE_GUEST_CONCURRENT_RUNS: whole(2, 1, 20),
+  FREE_GUEST_CONCURRENT_CALLS: whole(4, 1, 50),
+  FREE_GUEST_TOKENS_PER_RUN: whole(15_000, 1_000, 10_000_000),
   FREE_ROLE_MAX_OUTPUT_TOKENS: z.preprocess(unset, z.string().max(2_000).optional()),
   BYOK_ENABLED: flag(true),
   BYOK_MAX_CONCURRENT_CALLS: whole(4, 1, 50),
@@ -231,9 +283,9 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
     google: pair(input.PUBLIC_GOOGLE_CLIENT_ID, input.PUBLIC_GOOGLE_CLIENT_SECRET, 'PUBLIC_GOOGLE'),
     github: pair(input.PUBLIC_GITHUB_CLIENT_ID, input.PUBLIC_GITHUB_CLIENT_SECRET, 'PUBLIC_GITHUB'),
   };
-  if (!providers.google && !providers.github) {
+  if (!providers.google && !providers.github && !input.PUBLIC_GUEST_MODE) {
     throw new Error(
-      'SWARM_EDITION=public needs a way to sign in: set PUBLIC_GOOGLE_CLIENT_ID and _CLIENT_SECRET, or PUBLIC_GITHUB_CLIENT_ID and _CLIENT_SECRET.',
+      'SWARM_EDITION=public needs a way to sign in, or guest mode: set PUBLIC_GOOGLE_CLIENT_ID and _CLIENT_SECRET, or PUBLIC_GITHUB_CLIENT_ID and _CLIENT_SECRET, or PUBLIC_GUEST_MODE=true (visitors then need no sign-in).',
     );
   }
   if (!input.PUBLIC_PEPPER) {
@@ -257,6 +309,14 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
     globalDailyCostUsd: input.FREE_GLOBAL_DAILY_COST_USD,
     tokensPerRun: input.FREE_TOKENS_PER_RUN,
     roleMaxOutputTokens: roleCaps(input.FREE_ROLE_MAX_OUTPUT_TOKENS),
+    guest: {
+      dailyTokens: input.FREE_GUEST_DAILY_TOKENS,
+      dailyCalls: input.FREE_GUEST_DAILY_CALLS,
+      lifetimeTokens: input.FREE_GUEST_LIFETIME_TOKENS,
+      concurrentRuns: input.FREE_GUEST_CONCURRENT_RUNS,
+      concurrentCalls: input.FREE_GUEST_CONCURRENT_CALLS,
+      tokensPerRun: input.FREE_GUEST_TOKENS_PER_RUN,
+    },
   };
   return {
     host: base.host,
@@ -265,6 +325,12 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
     providers,
     adminEmails: new Set(list(input.PUBLIC_ADMIN_EMAILS)),
     signupsEnabled: input.PUBLIC_SIGNUPS_ENABLED,
+    guestMode: input.PUBLIC_GUEST_MODE,
+    guests: {
+      perIpPerHour: input.PUBLIC_GUESTS_PER_IP_PER_HOUR,
+      perHour: input.PUBLIC_GUESTS_PER_HOUR,
+      retentionHours: input.PUBLIC_GUEST_RETENTION_HOURS,
+    },
     blockedEmailDomains: new Set(list(input.PUBLIC_BLOCKED_EMAIL_DOMAINS)),
     maxProjects: input.PUBLIC_MAX_PROJECTS,
     storageQuotaBytes: input.PUBLIC_STORAGE_QUOTA_MB * 1_000_000,
@@ -273,11 +339,13 @@ export function loadPublicConfig(environment: Record<string, string | undefined>
     runtimeRole: input.PUBLIC_DB_RUNTIME_ROLE,
     allowUnsafeSqlite: input.PUBLIC_ALLOW_UNSAFE_SQLITE,
     opsKeySha256: input.PUBLIC_OPS_KEY_SHA256 ?? null,
+    ownerKeySha256: input.PUBLIC_OWNER_KEY_SHA256 ?? null,
     pepper: input.PUBLIC_PEPPER,
     signups: {
       perIpPerDay: input.PUBLIC_SIGNUPS_PER_IP_PER_DAY,
       perHour: input.PUBLIC_SIGNUPS_PER_HOUR,
     },
+    ipRequestsPerMinute: input.PUBLIC_IP_REQUESTS_PER_MINUTE,
     rates: {
       writesPer5Min: input.PUBLIC_RATE_WRITES_PER_5MIN,
       createPerHour: input.PUBLIC_RATE_CREATE_PER_HOUR,

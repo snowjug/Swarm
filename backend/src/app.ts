@@ -115,6 +115,12 @@ export interface AppOptions {
 /** The routes a platform's health probes call. They answer without sign-in, and for any host. */
 const PROBE_ROUTES: ReadonlySet<string> = new Set(['/api/health/live', '/api/health/ready']);
 
+/**
+ * What one address may ask of the server in a minute, before the rate limit scale, on every route that has no limit of its
+ * own (the page's own files and the reads among them). The public edition may raise it, for a room of people behind one address.
+ */
+const REQUESTS_PER_MINUTE = 120;
+
 /** How often ended sessions and abandoned sign-ins are removed from the database. */
 const SESSION_PURGE_INTERVAL_MS = 10 * 60_000;
 
@@ -302,7 +308,7 @@ export async function buildApp(options: AppOptions) {
     });
   }
   await app.register(rateLimit, {
-    max: 120 * config.rateLimitScale,
+    max: (config.public?.ipRequestsPerMinute ?? REQUESTS_PER_MINUTE) * config.rateLimitScale,
     timeWindow: '1 minute',
     // The plugin throws whatever this returns, so it must be an error the handler understands;
     // a plain object here previously surfaced as a 500 INTERNAL_ERROR instead of a 429.

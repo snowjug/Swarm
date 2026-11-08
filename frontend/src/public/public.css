@@ -142,6 +142,13 @@
   .sw-pub-hero .sw-caption {
     max-width: 34rem;
   }
+  .sw-pub-hero__error {
+    width: min(100%, 34rem);
+    text-align: left;
+  }
+  .sw-pub-hero .sw-pub-signin__check {
+    justify-items: center;
+  }
   .sw-pub-how {
     display: grid;
     gap: var(--s-5);
@@ -568,6 +575,10 @@
     color: var(--ink-2);
     font-size: var(--fs-small);
     overflow-wrap: anywhere;
+  }
+  .sw-pub-who--note {
+    max-width: 15rem;
+    color: var(--ink-3);
   }
 
   /* ---- Cards over the application ------------------------------------------------------------------------ */

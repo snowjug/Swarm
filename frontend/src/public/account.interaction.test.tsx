@@ -7,7 +7,13 @@ import { clearByok, holdsByokKey, setByokKey } from './byokStore';
 import { formatDay } from './format';
 import { setPublicEdition } from './runtime';
 import { takeNote } from './tabState';
-import { accountView, signedInSession, TEST_KEY } from './test/fixtures';
+import {
+  accountView,
+  guestAccountView,
+  signedInGuest,
+  signedInSession,
+  TEST_KEY,
+} from './test/fixtures';
 import { failure, fakeServer, noContent } from './test/server';
 
 // The account panel: who is signed in and what they have used, signing out, and deleting the account for good.
@@ -250,5 +256,97 @@ describe('deleting the account', () => {
     expect(assign).not.toHaveBeenCalled();
     expect(holdsByokKey()).toBe(true);
     expect(takeNote()).toBeNull();
+  });
+});
+
+describe('a guest’s account', () => {
+  const openGuest = (hours?: number) =>
+    openPanel({
+      session: signedInGuest(hours === undefined ? {} : { guestRetentionHours: hours }),
+      view: guestAccountView(),
+    });
+
+  async function toTheGuestQuestion() {
+    const opened = await openGuest();
+    await opened.user.click(screen.getByTestId('account-delete'));
+    await screen.findByRole('dialog', { name: 'Delete my data?' });
+    return opened;
+  }
+
+  it('says “Guest” where an address would be, that the data is temporary, and has no provider and no way to sign out', async () => {
+    await openGuest();
+    expect((await screen.findByTestId('account-email')).textContent).toBe('Guest');
+    expect(screen.queryByTestId('account-provider')).toBeNull();
+    expect(screen.getByTestId('guest-reminder').textContent).toBe(
+      'Your data is temporary (deleted after 24 hours without use).',
+    );
+    expect(screen.queryByTestId('account-signout')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+    expect(screen.getByTestId('account-delete').textContent).toBe('Delete my data');
+    expect(within(screen.getByTestId('account-projects')).getByText(/2 of 10/u)).toBeTruthy();
+  });
+
+  it('gives the reminder as soon as it opens, in the hours the site is set to', async () => {
+    await openGuest(6);
+    expect(screen.getByTestId('guest-reminder').textContent).toContain('after 6 hours without use');
+  });
+
+  it('asks one plain question and nothing to type, then deletes with the phrase the server needs, clears the key and the tab, and returns with the note', async () => {
+    const { user, server, assign } = await toTheGuestQuestion();
+    server.set('DELETE /api/account', noContent());
+    setByokKey(TEST_KEY, 'gemini-2.5-flash');
+    window.sessionStorage.setItem('swarm.something', 'cached');
+    const dialog = screen.getByRole('dialog', { name: 'Delete my data?' });
+    expect(
+      within(dialog).getByText('This removes your projects and cannot be undone.'),
+    ).toBeTruthy();
+    expect(screen.queryByTestId('account-delete-confirm-input')).toBeNull();
+    expect(dialog.textContent).not.toMatch(/delete my account/iu);
+    const confirm = screen.getByTestId('account-delete-confirm') as HTMLButtonElement;
+    expect(confirm.textContent).toBe('Delete my data');
+    expect(confirm.disabled).toBe(false);
+    expect(server.to('DELETE /api/account')).toEqual([]);
+
+    await user.click(confirm);
+    await waitFor(() => expect(assign).toHaveBeenCalledWith('/'));
+    const [call] = server.to('DELETE /api/account');
+    expect(call).toMatchObject({ method: 'DELETE', body: { confirm: 'delete my account' } });
+    expect(call!.headers['x-swarm-csrf']).toBe('1');
+    expect(holdsByokKey()).toBe(false);
+    expect(window.sessionStorage.getItem('swarm.something')).toBeNull();
+    expect(takeNote()).toBe('deleted');
+  });
+
+  it('goes back to the panel, deleting nothing, when the guest changes their mind', async () => {
+    const { user, server } = await toTheGuestQuestion();
+    await user.click(screen.getByRole('button', { name: 'Keep my data' }));
+    expect(await screen.findByRole('dialog', { name: 'Your account' })).toBeTruthy();
+    expect(server.to('DELETE /api/account')).toEqual([]);
+  });
+
+  it('says so, and keeps everything, when the server does not delete', async () => {
+    const { user, server, assign } = await toTheGuestQuestion();
+    server.set('DELETE /api/account', failure(500, 'INTERNAL', 'Not now.'));
+    setByokKey(TEST_KEY, null);
+    await user.click(screen.getByTestId('account-delete-confirm'));
+    expect(await screen.findByText('That was not done')).toBeTruthy();
+    expect(screen.getByText(/Not now\./u)).toBeTruthy();
+    expect(assign).not.toHaveBeenCalled();
+    expect(holdsByokKey()).toBe(true);
+    expect(takeNote()).toBeNull();
+    expect((screen.getByTestId('account-delete-confirm') as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
+
+  it('is only for a guest: a person who signed in keeps Sign out and the phrase, on a site where guest mode is on', async () => {
+    const { user } = await openPanel({ session: signedInSession({ guestMode: true }) });
+    expect(screen.getByTestId('account-signout')).toBeTruthy();
+    expect(screen.queryByTestId('guest-reminder')).toBeNull();
+    expect((await screen.findByTestId('account-email')).textContent).toBe('a***@example.com');
+    await user.click(screen.getByTestId('account-delete'));
+    await screen.findByRole('dialog', { name: 'Delete your account?' });
+    expect(screen.getByTestId('account-delete-confirm-input')).toBeTruthy();
+    expect((screen.getByTestId('account-delete-confirm') as HTMLButtonElement).disabled).toBe(true);
   });
 });

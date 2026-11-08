@@ -68,11 +68,15 @@ says anything about the real services (what cannot be verified here is listed in
   session cookie, expiry, forgery, sign-up throttles, deleting an account), `ledger`, `ledger-race` (real threads that
   race for a cap) and `freetier` (the caps, the used-up state and the kill switch), `byok-parts` and `byok` (a person's own
   key: valid, invalid, rate-limited, cut off, malformed, and the key in no log line, answer, export or table row),
-  `abuse` (limits, quotas, headers, the bot check, errors without internals), `ssrf` and `injection`, and `reading` (what a
-  question read by a model says when the free tier is used up).
+  `abuse` (limits, quotas, headers, the bot check, errors without internals), `ssrf` and `injection`, `reading` (what a
+  question read by a model says when the free tier is used up), and `guest` (guest mode: one call starts a private
+  workspace, two guests kept apart, the guest allowance and its exhaustion, the address throttle, the owner's key as
+  kill switch, and the deletion of a guest after a day without use).
 - **`frontend/src/public`**: the page, with the pilot's page shown to be untouched (`pilot.test.ts`).
 - **`scripts/iac/public-invariants.test.ts`**: what the Bicep must hold, offline.
-- **`e2e/public`**: the browser journeys above.
+- **`e2e/public`**: the browser journeys above. **`e2e/publicguest`** (the `publicguest` project, on ports 3121 and 3122):
+  guest mode as it is deployed, with no sign-in provider: "Try it now", a free run on the guest allowance, "Delete my data",
+  and two visitors kept apart.
 - **Mutation checks**: the rules that keep one person from another, and a key from a log, are in
   `scripts/mutation/mutants.json` with the others (`npm run mutation:security -- --area=public`).
 

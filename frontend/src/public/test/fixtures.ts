@@ -18,6 +18,8 @@ export const signedOutSession = (over: Partial<PublicSession> = {}): PublicSessi
     { id: 'github', label: 'GitHub' },
   ],
   signupsOpen: true,
+  guestMode: false,
+  guestRetentionHours: 24,
   bot: null,
   freeTier: { available: true, reason: null },
   byokEnabled: true,
@@ -37,6 +39,7 @@ export const signedInSession = (
     user: {
       emailMasked: 'a***@example.com',
       provider: 'google',
+      guest: false,
       isAdmin: false,
       createdAt: '2026-11-01T09:00:00.000Z',
       ...user,
@@ -44,6 +47,17 @@ export const signedInSession = (
     session: { idleExpiresAt: '2026-11-06T11:00:00.000Z', expiresAt: '2026-11-06T18:00:00.000Z' },
     ...over,
   });
+
+/** The landing of a site that lets visitors start as guests. It has no sign-in unless a test lists providers. */
+export const guestSession = (over: Partial<PublicSession> = {}): PublicSession =>
+  signedOutSession({ guestMode: true, providers: [], ...over });
+
+/** A visitor who started as a guest: no address and no provider, on a site where guest mode is on. */
+export const signedInGuest = (over: Partial<PublicSession> = {}): PublicSession =>
+  signedInSession(
+    { guestMode: true, providers: [], ...over },
+    { emailMasked: 'guest', provider: 'guest', guest: true },
+  );
 
 export const usageView = (
   over: Partial<Omit<UsageView, 'free'>> & { free?: Partial<UsageView['free']> } = {},
@@ -75,12 +89,16 @@ export const usageView = (
 export const accountView = (over: Partial<AccountView> = {}): AccountView => ({
   emailMasked: 'a***@example.com',
   provider: 'google',
+  guest: false,
   createdAt: '2026-11-01T09:00:00.000Z',
   isAdmin: false,
   projects: { count: 2, limit: 10 },
   storage: { usedBytes: 1_500_000, limitBytes: 20_971_520 },
   ...over,
 });
+
+export const guestAccountView = (over: Partial<AccountView> = {}): AccountView =>
+  accountView({ emailMasked: 'guest', provider: 'guest', guest: true, ...over });
 
 export const statusView = (over: Partial<PublicStatus> = {}): PublicStatus => ({
   status: 'ok',

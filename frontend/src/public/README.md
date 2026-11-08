@@ -1,7 +1,8 @@
 # The public edition of the page
 
-What the browser does in the **public edition** (`SWARM_EDITION=public`): a landing page, sign-in with Google or GitHub, a
-meter of free runs, a panel for the person's own Google Gemini key, an account panel that can delete the account, a
+What the browser does in the **public edition** (`SWARM_EDITION=public`): a landing page with a one-press guest start
+("Try it now", no sign-in) and, where the server lists them, an optional sign-in with Google or GitHub, a meter of free
+runs, a panel for the person's own Google Gemini key, an account panel that can delete the account (or a guest's data), a
 sample that needs no model, and the status, FAQ, legal and administrator pages. The contract it is built to is
 [`docs/public/DESIGN.md`](../../../docs/public/DESIGN.md), section 9, and [`shared/public.ts`](../../../shared/public.ts).
 
@@ -46,10 +47,15 @@ the "Who has access" item is also hidden whenever the public slots are present, 
    | HTTP 503                                         | the maintenance screen (`maintenance`)                                     |
    | no answer, other error, or not the session shape | "We can't reach the service right now." (`unreachable`) with Try again     |
    | `signedIn: false`, and `/?signin=<reason>`       | the explanation of that reason (`signin-problem`, `data-problem=<reason>`) |
+   | `signedIn: false`, `guestMode: true`             | the landing page with "Try it now" (`try-it-now`) and `guest-note`         |
    | `signedIn: false`                                | the landing page (`landing`)                                               |
    | `signedIn: true`                                 | the existing `<Application />` inside `PublicChrome`                       |
+   | `signedIn: true`, `user.guest`                   | the same, with "Guest" for the address, no Sign out, "Delete my data"      |
 
-   A field the server leaves out takes the value that hides nothing (`signupsOpen`, `byokEnabled`: true).
+   A field the server leaves out takes the value that hides nothing (`signupsOpen`, `byokEnabled`: true; `guestMode`,
+   `user.guest`: false; `guestRetentionHours`: 24). With `guestMode` the landing offers "Try it now" first, the providers
+   the server lists as one quiet line ("Or sign in with Google", `signin-secondary`) and, if it lists none, nothing of
+   signing in at all.
 
 3. **Paths** (`pages.ts`). The server already falls back to `index.html` for any HTML `GET` outside `/api` and `/auth/`.
    `/status`, `/faq`, `/legal/terms`, `/legal/privacy` need no session and are shown whatever the session answer is.
@@ -59,8 +65,9 @@ the "Who has access" item is also hidden whenever the public slots are present, 
 4. **Signed in** (`PublicChrome.tsx`) adds around the unchanged application: the usage meter in the top bar, the public
    part of the settings menu, the BYOK and account panels, the limit card, and the sample for an empty account.
 5. **A 401 `SIGN_IN_REQUIRED`** on any request: the key is forgotten, the gate returns to the landing page with the line
-   "Your session ended. Sign in again to continue." (`landing-note`, `data-kind=expired`). `ACCOUNT_DISABLED` does the
-   same with `data-kind=disabled`. The request that found out never settles, as in the pilot.
+   "Your session ended. Sign in again to continue." (`landing-note`, `data-kind=expired`; with `guestMode`, "Your session
+   ended. Press Try it now to start again."). `ACCOUNT_DISABLED` does the same with `data-kind=disabled`. The request that
+   found out never settles, as in the pilot.
 
 ## The key
 
@@ -74,7 +81,8 @@ thrown message or a toast. Only its last four characters are shown (`…1234`), 
   `POST /api/byok/connect` only the key that is in the field.
 - **Cleared** by Forget key (which also asks the server to drop its in-memory copy, `DELETE /api/byok`, after the key has
   left the tab so that the request does not carry it), by sign-out (before the request is sent), by account deletion (after
-  it succeeds), and by any 401 or `ACCOUNT_DISABLED`.
+  it succeeds; for a guest that is "Delete my data", the same code path, and the server drops its copy as it deletes), and
+  by any 401 or `ACCOUNT_DISABLED`.
 - Kept only if the key is valid. A key is checked for shape (visible characters, 8 to 512) before anything is sent.
 
 ## Errors and limits
@@ -94,9 +102,13 @@ application that shows a request error shows it too. Codes that the person can a
 | `BYOK_QUOTA`                                                         | `byok-quota`                                                        | Check my key (BYOK panel)     |
 | `BYOK_BLOCKED`, `PROJECT_LIMIT`, `STORAGE_LIMIT`, `RUN_IN_PROGRESS`  | `byok-blocked`, `project-limit`, `storage-limit`, `run-in-progress` | Okay                          |
 | `ACCOUNT_DISABLED`                                                   | none: back to the landing page                                      |                               |
-| `BOT_CHECK_FAILED` (sign-in), `NOT_AVAILABLE`                        | none: told in place, no card                                        |                               |
+| `BOT_CHECK_FAILED` (sign-in or guest), `NOT_AVAILABLE`               | none: told in place, no card                                        |                               |
 
 The card also has `data-code` (the code as sent) and its button is `limit-action`.
+
+Starting as a guest (`guestFailure`) is told in place, in `guest-error` (`role="alert"`), from the code and never the
+server's message: `NOT_AVAILABLE` ("Guest access is not available right now"), `429` or `RATE_LIMITED` ("Wait a few
+minutes"), `BOT_CHECK_FAILED`, a network failure, and one calm sentence for anything else.
 
 The meter says the same for a free tier that cannot be used (`usage-meter`, `data-usage="limit"`, `data-reason`): its
 popover holds the sentence and the one step. Only **one** element with `data-testid="limit-reached"` exists at a time: the
@@ -114,6 +126,8 @@ only while a key is held.
 | `/legal/terms`, `/legal/privacy`                                                                                                                                                            | `GET /api/public/legal/terms` or `privacy`                  | `Accept`                                                                                          |                                                                                                                                                                                                                                                                |
 | A provider button (plain `fetch`)                                                                                                                                                           | `POST /auth/start/:provider`                                | `Content-Type: application/json`, CSRF                                                            | `{ returnTo?, turnstileToken? }` (`{}` when neither)                                                                                                                                                                                                           |
 | Then                                                                                                                                                                                        | `window.location.assign(response.url)`                      |                                                                                                   | only a `http:` or `https:` address is followed                                                                                                                                                                                                                 |
+| "Try it now" (plain `fetch`), only with `session.guestMode`                                                                                                                                 | `POST /auth/guest`                                          | `Content-Type: application/json`, CSRF                                                            | `{}` (`{ turnstileToken }` when `session.bot` is set). The session cookie is in the answer's headers: the page never sees it                                                                                                                                   |
+| Then                                                                                                                                                                                        | `GET /api/public/session`                                   | `Accept`                                                                                          | read again so that the gate shows the application; the address's query (`?project=...`) is dropped first                                                                                                                                                       |
 | Only when `session.bot` is set, in the sign-in card                                                                                                                                         | `GET https://challenges.cloudflare.com/turnstile/v0/api.js` | (a script tag)                                                                                    | never loaded otherwise                                                                                                                                                                                                                                         |
 | Signed in: on load, 0.5 s and 8 s after each accepted change, after a refusal (once per code every 10 s), when the key is added or forgotten, when the tab is shown, every 30 s while it is | `GET /api/usage`                                            | + key                                                                                             |                                                                                                                                                                                                                                                                |
 | Signed in, first screen without `?project=`, not put away                                                                                                                                   | `GET /api/account`                                          |                                                                                                   | (shows the sample when `projects.count` is 0)                                                                                                                                                                                                                  |
@@ -122,6 +136,7 @@ only while a key is held.
 | Forget key                                                                                                                                                                                  | `DELETE /api/byok`                                          | CSRF (the key has already gone from the tab)                                                      |
 | Sign out                                                                                                                                                                                    | `POST /auth/logout`                                         | CSRF (the key is already gone)                                                                    |                                                                                                                                                                                                                                                                |
 | Delete my account and all my data                                                                                                                                                           | `DELETE /api/account`                                       | `Content-Type`, CSRF, + key                                                                       | `{ "confirm": "delete my account" }`                                                                                                                                                                                                                           |
+| Delete my data (a guest)                                                                                                                                                                    | `DELETE /api/account`                                       | `Content-Type`, CSRF, + key                                                                       | the same body, sent by the page: nothing is typed                                                                                                                                                                                                              |
 | Try a sample                                                                                                                                                                                | `POST /api/projects`                                        | `Content-Type`, CSRF, + key                                                                       | a new exploration: `name` "Sample: Launch pricing", the example's `question` and `documents`, `workflow: "guided"`, `settings: { mode: "local", agentCount: 12, rounds: 8, seed: 42, network: "community", intervention: null }`; no `scenario`, no `research` |
 | Then                                                                                                                                                                                        | `POST /api/projects/:id/steps/knowledge`                    | CSRF, + key                                                                                       | none. A failure here is ignored: Ground offers to read the evidence again                                                                                                                                                                                      |
 | Then                                                                                                                                                                                        | `window.location.assign("/?project=:id")`                   |                                                                                                   |                                                                                                                                                                                                                                                                |
@@ -141,14 +156,15 @@ For the end-to-end tests. They are stable: change one only together with its tes
 | Where                   | `data-testid`                                                                                                                                                                                                                                                                                                       |
 | ----------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Landing                 | `landing`, `try-it-free` (the "Try it free" button), `landing-note` (`data-kind`: `expired`, `disabled`, `deleted`, `signed-out`), `faq` (the same section on the landing page and on `/faq`)                                                                                                                       |
+| Landing, guest mode     | `try-it-now` (the one primary button; `try-it-free` is not there), `guest-note`, `guest-error` (a refusal, `role="alert"`), `signin-secondary` (the quiet "Or sign in with Google" line: only for providers the server lists, and none when it lists none)                                                          |
 | Sign-in card (a dialog) | `signin-card`, `signin-google`, `signin-github` (`signin-<id>` for any provider the server lists)                                                                                                                                                                                                                   |
 | Sign-in problem         | `signin-problem` (`data-problem`: `failed`, `closed`, `unverified`, `disabled`, `blocked`)                                                                                                                                                                                                                          |
 | Gate screens            | `gate-loading`, `maintenance`, `unreachable`                                                                                                                                                                                                                                                                        |
 | Usage meter (top bar)   | `usage-meter` (the chip: its text is the whole line; `data-usage` = `free`, `byok`, `limit`, `unknown`; `data-reason` for `limit`; `data-tone`), `usage-upgrade` (the quiet link in its popover)                                                                                                                    |
 | Limit state             | `limit-reached` (`data-reason`, `data-code`), `limit-action` (its button)                                                                                                                                                                                                                                           |
 | BYOK panel              | `byok-panel`, `byok-key` (password field), `byok-connect`, `byok-status` (`data-status`: `idle`, `connected`, `valid`, `invalid`, `rate-limited`, `quota`, `region`, `unreachable`, `disabled`, `local`, `forgotten`), `byok-held`, `byok-hint` (only `…1234`), `byok-model` (select), `byok-forget`, `byok-notice` |
-| Account panel           | `account-panel`, `account-email`, `account-provider`, `account-projects`, `account-storage`, `account-signout`, `account-delete`, `account-delete-confirm-input`, `account-delete-confirm`                                                                                                                          |
-| Settings menu           | `menu-account`, `menu-byok`, `try-sample-menu`, `menu-signout`, `menu-email`                                                                                                                                                                                                                                        |
+| Account panel           | `account-panel`, `account-email`, `account-provider`, `account-projects`, `account-storage`, `account-signout`, `account-delete`, `account-delete-confirm-input`, `account-delete-confirm`, `guest-reminder` (a guest only)                                                                                         |
+| Settings menu           | `menu-account`, `menu-byok`, `try-sample-menu`, `menu-signout`, `menu-email`, `menu-guest-reminder` (a guest only)                                                                                                                                                                                                  |
 | Sample                  | `welcome` (the card for an empty account), `try-sample` (its button), `try-sample-menu` (the menu item)                                                                                                                                                                                                             |
 | Status                  | `status-page` (`data-status`: `loading`, `ok`, `degraded`, `maintenance`, `unreachable`), `status-free-tier`, `status-resets`, `status-byok`, `status-signups`                                                                                                                                                      |
 | Legal                   | `legal-page` (`data-doc`), `legal-unreviewed` (the banner, only when `reviewed` is false)                                                                                                                                                                                                                           |
@@ -157,6 +173,13 @@ For the end-to-end tests. They are stable: change one only together with its tes
 ## Things an end-to-end test will meet
 
 - **Sign-in navigates the page** with `window.location.assign(url)`. A fake identity provider's `url` may be `http://`.
+- **"Try it now" does not navigate**: `POST /auth/guest` sets the session cookie, the page reads `GET /api/public/session` again,
+  and the gate swaps the landing page for the application with no reload (the address's query is dropped first). With
+  `session.bot` the button, like the sign-in buttons, waits for the Turnstile token.
+- **A guest** has `menu-email` and `account-email` saying "Guest" (and the reminder that the data is temporary in
+  `menu-guest-reminder` and `guest-reminder`); no `menu-signout`, no `account-signout` and no `account-provider`;
+  `account-delete` and `account-delete-confirm` read "Delete my data", and the confirm step has no
+  `account-delete-confirm-input`: the page sends the phrase itself. The dialog is still named "Your account".
 - **Dialogs** (sign-in, BYOK, account) are Radix dialogs; they animate for about 0.3 s unless the browser asks for reduced motion.
 - **The meter** is read 0.5 s after an accepted change and again 8 s later, so a run that finishes shows its use without a reload.
 - **The sample reloads the page** at `/?project=<id>` once the project exists.
@@ -178,7 +201,7 @@ For the end-to-end tests. They are stable: change one only together with its tes
 | `problems.ts`                                                                                                                                           | every word about a limit, a refusal or a sign-in that did not work                              |
 | `publicApi.ts`, `useGateSession.ts`, `pages.ts`, `PageLink.tsx`                                                                                         | the requests, the session and its shape, the paths                                              |
 | `PublicGate.tsx`, `GateScreens.tsx`, `StandaloneCard.tsx`, `PublicFrame.tsx`                                                                            | the gate and the pages around it                                                                |
-| `Landing.tsx`, `SignInCard.tsx`, `turnstile.ts`, `useTurnstile.ts`                                                                                      | the landing page, the way in, the bot check                                                     |
+| `Landing.tsx`, `GuestStart.tsx`, `SignInCard.tsx`, `BotCheck.tsx`, `turnstile.ts`, `useTurnstile.ts`, `guest.ts`                                        | the landing page, the ways in (guest, sign-in), the bot check, the guest words                  |
 | `Faq.tsx`, `StatusPage.tsx`, `LegalPage.tsx`, `legalText.ts`, `AdminPage.tsx`, `format.ts`                                                              | the other pages                                                                                 |
 | `PublicChrome.tsx`, `slots.ts`, `UsageMeter.tsx`, `usageView.ts`, `useUsage.ts`                                                                         | what a signed-in person gets around the application                                             |
 | `ByokPanel.tsx`, `AccountPanel.tsx`, `accountActions.ts`, `LimitReached.tsx`, `Welcome.tsx`, `PublicMenu.tsx`, `sample.ts`, `tabState.ts`, `browser.ts` | the panels, the cards, the sample, the tab's state, and the browser calls that a test can watch |

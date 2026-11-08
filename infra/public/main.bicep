@@ -1,11 +1,12 @@
 // Swarm PUBLIC EDITION at subscription scope: a SEPARATE deployment of the same application (SWARM_EDITION=public), where anyone can
-// sign in with Google or GitHub and run on the owner's Azure OpenAI credits under strict caps (the free tier), or on their own
-// Gemini key (bring your own key). It creates its own resource group, and in it:
+// sign in with Google or GitHub, or, in guest mode, press "Try it now" and get a temporary private workspace with no sign-in at all,
+// and run on the owner's Azure OpenAI credits under strict caps (the free tier), or on their own Gemini key (bring your own key).
+// It creates its own resource group, and in it:
 //
 //   identity            one user-assigned managed identity: the only credential holder (database, model, registry, vault, telemetry)
 //   monitoring          Log Analytics workspace and Application Insights (local authentication off)
-//   key vault           RBAC, soft delete and PURGE PROTECTION; holds the application's secrets (the pepper, the OAuth client secrets and,
-//                       if used, the Turnstile secret), which a person puts there: none is in this template
+//   key vault           RBAC, soft delete and PURGE PROTECTION; holds the application's secrets (the pepper, the client secret of each OAuth
+//                       provider that is configured and, if used, the Turnstile secret), which a person puts there: none is in this template
 //   registry            Container Registry (Basic, admin user off, no anonymous pull); the identity pulls with AcrPull
 //   database            PostgreSQL flexible server (Burstable B1ms), Microsoft Entra only: the app's identity is its administrator,
 //                       which the application needs to create its row-level-security role (docs/public/DESIGN.md, section 5)
@@ -22,8 +23,8 @@
 // not contain a secret, so a person puts the secrets in the vault between two deployments of this template (docs/public/DEPLOY.md):
 //   1. deployApp = false    everything above except the container app and its alerts. The outputs name the address of the site, which is
 //                           what the OAuth redirect URIs and the first image need.
-//   2. by hand              register the Google and GitHub OAuth apps, put their secrets and the pepper into the vault, build the image
-//                           in the new registry.
+//   2. by hand              register the Google and GitHub OAuth apps and put their secrets into the vault (guest mode needs neither), put
+//                           the pepper into the vault, build the image in the new registry.
 //   3. deployApp = true     the container app, with references to secrets that now exist, and its alerts.
 // Nothing is created before the checks in modules/guards.bicep hold, and a required value that is missing is refused (the parameter
 // file reads every value from the environment, and an empty one is "not set").
@@ -49,7 +50,7 @@ param resourceGroupName string = 'rg-${environmentName}'
 @description('Region of every resource created here. Defaults to the location given to `az deployment sub create --location`.')
 param location string = deployment().location
 
-@description('REQUIRED, no default, on purpose. false: everything except the container app and its alerts (the first deployment). true: the container app too, which needs the pepper and the provider secrets in the vault and an image in the registry. Never answer false once the app exists: a re-deployment does not remove it, but it no longer applies its settings.')
+@description('REQUIRED, no default, on purpose. false: everything except the container app and its alerts (the first deployment). true: the container app too, which needs the pepper and the secrets of the providers you configure in the vault (guest mode with no provider: the pepper only) and an image in the registry. Never answer false once the app exists: a re-deployment does not remove it, but it no longer applies its settings.')
 param deployApp bool
 
 @description('Extra tags on every resource, for example an owner alias or a cost centre. Never put a person\'s name or address in a tag.')
@@ -95,16 +96,16 @@ param defaultEngine string = 'rules'
 @description('The https origin of the site, in lower case, with no path, port or trailing slash (PUBLIC_BASE_URL). Empty: the default address of the app, https://<app>.<environment domain>. A custom domain is set here AND in customDomainName once its certificate exists (docs/public/DEPLOY.md, "Custom domain"). The OAuth redirect URIs derive from it.')
 param publicBaseUrl string = ''
 
-@description('Client ID of the Google OAuth client (PUBLIC_GOOGLE_CLIENT_ID). Not a secret. Empty: no Google sign-in. Its secret is the Key Vault secret public-google-client-secret, which a person puts in the vault. At least one of Google and GitHub is required when deployApp is true.')
+@description('Client ID of the Google OAuth client (PUBLIC_GOOGLE_CLIENT_ID). Not a secret. Empty: no Google sign-in. Its secret is the Key Vault secret public-google-client-secret, which a person puts in the vault. At least one of Google and GitHub is required when deployApp is true, unless guestMode is true.')
 param googleClientId string = ''
 
 @description('Client ID of the GitHub OAuth app (PUBLIC_GITHUB_CLIENT_ID). Not a secret. Empty: no GitHub sign-in. Its secret is the Key Vault secret public-github-client-secret.')
 param githubClientId string = ''
 
-@description('Comma-separated verified e-mail addresses that are platform administrators (PUBLIC_ADMIN_EMAILS): they can switch the free tier and signups off and disable accounts. Personal data: read from the environment, never committed. Empty: nobody (the budget webhook still works).')
+@description('Comma-separated verified e-mail addresses that are platform administrators (PUBLIC_ADMIN_EMAILS): they can switch the free tier and signups off and disable accounts. Personal data: read from the environment, never committed. Empty: nobody (the budget webhook and the owner key still work). With no provider (guest mode alone) nobody can sign in, so nobody is an administrator: the owner key (ownerKeySha256) does the same with no sign-in.')
 param adminEmails string = ''
 
-@description('Starting value of the "signups open" switch (PUBLIC_SIGNUPS_ENABLED). An administrator can flip it at run time.')
+@description('Starting value of the "signups open" switch (PUBLIC_SIGNUPS_ENABLED). An administrator can flip it at run time. It also decides whether new guests can be made (guestMode): false makes none.')
 param signupsEnabled bool = true
 
 @description('Comma-separated e-mail domains that cannot sign up, for example disposable mail (PUBLIC_BLOCKED_EMAIL_DOMAINS). Empty: none.')
@@ -138,6 +139,11 @@ param signupsPerIpPerDay int = 5
 @maxValue(100000)
 param signupsPerHour int = 60
 
+@description('Requests one address may make to the site in a minute (PUBLIC_IP_REQUESTS_PER_MINUTE): the page\'s own files count, and so does the polling of a run in progress. An office or a demonstration room shares one address, so a deployment may raise it. The costly routes have limits of their own and the ledger holds the spending, whatever this is. RATE_LIMIT_SCALE stays 1: a hosted deployment refuses to start with more.')
+@minValue(30)
+@maxValue(1200)
+param ipRequestsPerMinute int = 120
+
 @description('Minutes a session may sit idle before it ends (AUTH_SESSION_IDLE_MINUTES). A hosted deployment allows at most 60: the application refuses to start with more, so a larger value is refused here instead.')
 @minValue(5)
 @maxValue(60)
@@ -162,11 +168,39 @@ param projectModelCallLimit int = 300
 param projectModelTokenLimit int = 400000
 
 // ---------------------------------------------------------------------------------------------
+// Guest mode: no sign-in (docs/public/DESIGN.md, section 3, and docs/public/DEPLOY.md, "Guest mode")
+//
+// A visitor presses "Try it now" and gets a temporary private workspace: no sign-in and no OAuth app. A guest is held to caps of
+// their own on the free tier (the freeGuest* parameters in the next block) and is deleted, with their data, after
+// guestRetentionHours without use. New guests are made only while signupsEnabled is true.
+// ---------------------------------------------------------------------------------------------
+
+@description('Guest mode (PUBLIC_GUEST_MODE): a visitor presses "Try it now" and gets a temporary private workspace, with no sign-in. It is what lets the app be deployed with NO Google or GitHub client ID: the guard atLeastOneSignInProviderIsConfigured then holds, and a provider that is not configured has no client ID and no secret reference in the app. It does not switch the providers off: with a client ID set, a visitor can also sign in. Guests are made only while signupsEnabled is true.')
+param guestMode bool = false
+
+@description('New guests one address may make in an hour (PUBLIC_GUESTS_PER_IP_PER_HOUR). Counted from the hashes of addresses, keyed with the pepper, so that no address is stored. It works only because TRUST_PROXY is 1.')
+@minValue(1)
+@maxValue(1000)
+param guestsPerIpPerHour int = 10
+
+@description('New guests the whole site may make in an hour (PUBLIC_GUESTS_PER_HOUR). A second line of defence against a flood, whatever addresses it uses.')
+@minValue(1)
+@maxValue(100000)
+param guestsPerHour int = 300
+
+@description('Hours without use after which a guest and all of their data are deleted (PUBLIC_GUEST_RETENTION_HOURS).')
+@minValue(1)
+@maxValue(168)
+param guestRetentionHours int = 24
+
+// ---------------------------------------------------------------------------------------------
 // The free tier and bring your own key: the caps (docs/public/DESIGN.md, sections 6 and 7)
 //
 // Every value is read from the environment by main.bicepparam, so that an apply that forgets one puts back the default and
-// not an older, stricter value that was given on the command line: keep one environment file. None of these can be 0:
-// a cap of 0 is a free tier that is off in everything but name, and `freeTierEnabled = false` says that plainly.
+// not an older, stricter value that was given on the command line: keep one environment file. None of these can be 0, except the
+// three per-guest caps of tokens and calls (freeGuestDailyTokens, freeGuestDailyCalls, freeGuestLifetimeTokens), where 0 means
+// that a guest may use none of the free tier, never no limit. For everybody else a cap of 0 is a free tier that is off in
+// everything but name, and `freeTierEnabled = false` says that plainly.
 // ---------------------------------------------------------------------------------------------
 
 @description('Hard switch from the environment (FREE_TIER_ENABLED): false turns the free tier off for the process, and wins over the run-time switch. It cannot be turned on at run time.')
@@ -211,6 +245,36 @@ param freeGlobalDailyCostUsd string = '5'
 @minValue(1000)
 @maxValue(200000)
 param freeTokensPerRun int = 15000
+
+@description('Tokens (input, output and hidden reasoning) one GUEST may use per UTC day (FREE_GUEST_DAILY_TOKENS). 0 is allowed here, and means that a guest may use none of the free tier: never no limit.')
+@minValue(0)
+@maxValue(100000000)
+param freeGuestDailyTokens int = 80000
+
+@description('Model round trips one guest may make per UTC day (FREE_GUEST_DAILY_CALLS). 0 is allowed here, and means none.')
+@minValue(0)
+@maxValue(100000)
+param freeGuestDailyCalls int = 60
+
+@description('Tokens one guest may ever use on the free tier (FREE_GUEST_LIFETIME_TOKENS). 0 is allowed here, and means none.')
+@minValue(0)
+@maxValue(1000000000)
+param freeGuestLifetimeTokens int = 240000
+
+@description('Runs (queued or running jobs) one guest workspace may have at once (FREE_GUEST_CONCURRENT_RUNS).')
+@minValue(1)
+@maxValue(20)
+param freeGuestConcurrentRuns int = 2
+
+@description('Model round trips one guest may have in flight (FREE_GUEST_CONCURRENT_CALLS).')
+@minValue(1)
+@maxValue(50)
+param freeGuestConcurrentCalls int = 4
+
+@description('Only for the meter of a guest: what one run is taken to cost, in tokens (FREE_GUEST_TOKENS_PER_RUN).')
+@minValue(1000)
+@maxValue(10000000)
+param freeGuestTokensPerRun int = 15000
 
 @description('JSON, per model role, of the most output tokens the free tier allows (FREE_ROLE_MAX_OUTPUT_TOKENS). Empty: the table in the application.')
 param freeRoleMaxOutputTokens string = ''
@@ -265,7 +329,7 @@ param customDomainName string = ''
 param customDomainCertificateId string = ''
 
 // ---------------------------------------------------------------------------------------------
-// The webhook key
+// The webhook key, and the owner key
 // ---------------------------------------------------------------------------------------------
 
 @description('The key the budget webhook presents to the application (?key=). A secret: generate it with `openssl rand -hex 32` and keep it out of every file. It goes only into the webhook address of the action group, which Azure shows to whoever can read the action group; the application can only be told to turn the free tier OFF with it. Never an output.')
@@ -277,6 +341,10 @@ param opsKey string
 @minLength(64)
 @maxLength(64)
 param opsKeySha256 string
+
+@description('SHA-256 of the OWNER\'s key in hexadecimal, 64 characters (PUBLIC_OWNER_KEY_SHA256), made by `printf \'%s\' "$KEY" | sha256sum`. Not a secret: it is the hash, and the key itself is never given to this template. The key, sent only in the header X-Swarm-Owner-Key, lets the owner turn the free tier on and off, turn the making of new accounts and guests on and off, and read the usage, with no sign-in. Empty (the default): those routes are off and the setting is left out. Anything but 64 hexadecimal characters is refused (modules/guards.bicep), because the application would not start on it.')
+@maxLength(64)
+param ownerKeySha256 string = ''
 
 // ---------------------------------------------------------------------------------------------
 // Budget and alerts
@@ -412,6 +480,12 @@ module model 'modules/model-deployment.bicep' = {
   }
 }
 
+// The hash of the owner's key, as the application reads it (^[0-9a-f]{64}$ in backend/src/public/config.ts, after the toLower where it
+// is set): 64 characters, each a hexadecimal digit. A variable and not a function, because the offline evaluator of
+// `npm run iac:validate` cannot read a function parameter inside a lambda.
+var ownerKeyCharacters = map(range(0, length(ownerKeySha256)), position => substring(toLower(ownerKeySha256), position, 1))
+var ownerKeyIsASha256 = length(ownerKeySha256) == 64 && empty(filter(ownerKeyCharacters, character => !contains('0123456789abcdef', character)))
+
 // `any()` because the checked parameters allow only the value true, which a Boolean expression is not a literal of.
 module guards 'modules/guards.bicep' = {
   name: '${baseName}-guards'
@@ -423,7 +497,8 @@ module guards 'modules/guards.bicep' = {
     publicBaseUrlIsAnHttpsOriginWithoutPath: any(empty(publicBaseUrl) || isHttpsOrigin(publicBaseUrl))
     customDomainIsTheHostOfThePublicBaseUrl: any(empty(customDomainName) || customDomainName == publicHost)
     customDomainHasACertificate: any(empty(customDomainName) || !empty(customDomainCertificateId))
-    atLeastOneSignInProviderIsConfigured: any(!deployApp || !empty(googleClientId) || !empty(githubClientId))
+    atLeastOneSignInProviderIsConfigured: any(!deployApp || guestMode || !empty(googleClientId) || !empty(githubClientId))
+    ownerKeySha256IsEmptyOrSixtyFourHexDigits: any(empty(ownerKeySha256) || ownerKeyIsASha256)
     containerImageIsGivenWhenTheAppIsDeployed: any(!deployApp || !empty(containerImage))
   }
 }
@@ -616,6 +691,11 @@ var publicEnvironment = concat(
     { name: 'SWARM_EDITION', value: 'public' }
     { name: 'PUBLIC_BASE_URL', value: baseUrl }
     { name: 'PUBLIC_SIGNUPS_ENABLED', value: signupsEnabled ? 'true' : 'false' }
+    // Guest mode: no sign-in. New guests obey PUBLIC_SIGNUPS_ENABLED above, and are counted per address and for the whole site.
+    { name: 'PUBLIC_GUEST_MODE', value: guestMode ? 'true' : 'false' }
+    { name: 'PUBLIC_GUESTS_PER_IP_PER_HOUR', value: string(guestsPerIpPerHour) }
+    { name: 'PUBLIC_GUESTS_PER_HOUR', value: string(guestsPerHour) }
+    { name: 'PUBLIC_GUEST_RETENTION_HOURS', value: string(guestRetentionHours) }
     { name: 'PUBLIC_MAX_PROJECTS', value: string(maxProjects) }
     { name: 'PUBLIC_STORAGE_QUOTA_MB', value: string(storageQuotaMb) }
     { name: 'PUBLIC_DELETED_ACCOUNT_RETENTION_DAYS', value: string(deletedAccountRetentionDays) }
@@ -623,6 +703,7 @@ var publicEnvironment = concat(
     { name: 'PUBLIC_OPS_KEY_SHA256', value: toLower(opsKeySha256) }
     { name: 'PUBLIC_SIGNUPS_PER_IP_PER_DAY', value: string(signupsPerIpPerDay) }
     { name: 'PUBLIC_SIGNUPS_PER_HOUR', value: string(signupsPerHour) }
+    { name: 'PUBLIC_IP_REQUESTS_PER_MINUTE', value: string(ipRequestsPerMinute) }
     // The session limits of a hosted deployment (at most 60 idle minutes and 12 hours), which the parameters cannot exceed.
     { name: 'AUTH_SESSION_IDLE_MINUTES', value: string(sessionIdleMinutes) }
     { name: 'AUTH_SESSION_ABSOLUTE_HOURS', value: string(sessionAbsoluteHours) }
@@ -635,6 +716,12 @@ var publicEnvironment = concat(
     { name: 'FREE_GLOBAL_DAILY_TOKENS', value: string(freeGlobalDailyTokens) }
     { name: 'FREE_GLOBAL_DAILY_COST_USD', value: freeGlobalDailyCostUsd }
     { name: 'FREE_TOKENS_PER_RUN', value: string(freeTokensPerRun) }
+    { name: 'FREE_GUEST_DAILY_TOKENS', value: string(freeGuestDailyTokens) }
+    { name: 'FREE_GUEST_DAILY_CALLS', value: string(freeGuestDailyCalls) }
+    { name: 'FREE_GUEST_LIFETIME_TOKENS', value: string(freeGuestLifetimeTokens) }
+    { name: 'FREE_GUEST_CONCURRENT_RUNS', value: string(freeGuestConcurrentRuns) }
+    { name: 'FREE_GUEST_CONCURRENT_CALLS', value: string(freeGuestConcurrentCalls) }
+    { name: 'FREE_GUEST_TOKENS_PER_RUN', value: string(freeGuestTokensPerRun) }
     { name: 'BYOK_ENABLED', value: byokEnabled ? 'true' : 'false' }
     { name: 'BYOK_MAX_CONCURRENT_CALLS', value: string(byokMaxConcurrentCalls) }
   ],
@@ -642,6 +729,7 @@ var publicEnvironment = concat(
   optionalSetting('PUBLIC_GITHUB_CLIENT_ID', githubClientId),
   optionalSetting('PUBLIC_ADMIN_EMAILS', adminEmails),
   optionalSetting('PUBLIC_BLOCKED_EMAIL_DOMAINS', blockedEmailDomains),
+  optionalSetting('PUBLIC_OWNER_KEY_SHA256', toLower(ownerKeySha256)),
   optionalSetting('TURNSTILE_SITE_KEY', turnstileSiteKey),
   optionalSetting('FREE_ROLE_MAX_OUTPUT_TOKENS', freeRoleMaxOutputTokens),
   optionalSetting('SOURCE_URL', sourceUrl),
@@ -651,7 +739,8 @@ var publicEnvironment = concat(
 // The secrets of the public edition. Each is read from Key Vault by the app's identity when a replica starts; the vault holds the
 // value, a person put it there, and this template never sees it. The pepper (PUBLIC_PEPPER, at least 32 characters) is always
 // needed: it keys the hashes of addresses and of deleted accounts, and the application refuses to start without it. A provider is
-// offered only when both its client ID and its secret are set, so a provider that is not configured has no reference at all.
+// offered only when both its client ID and its secret are set, so a provider that is not configured has no reference at all: in
+// guest mode with no provider, the pepper is the only reference (and the Turnstile secret, when its site key is set).
 var secretSettings = concat(
   [{ env: 'PUBLIC_PEPPER', secretName: 'public-pepper' }],
   empty(googleClientId) ? [] : [{ env: 'PUBLIC_GOOGLE_CLIENT_SECRET', secretName: 'public-google-client-secret' }],

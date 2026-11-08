@@ -46,6 +46,8 @@ export interface PublicEdition {
   attach(services: { jobs: Orchestrator; interaction: InteractionService }): void;
   /** Registers the routes that belong to this edition. Needs `attach` first. */
   registerRoutes(app: FastifyInstance): void;
+  /** Runs the housekeeping now: it also runs every ten minutes. Deletes the guests that nobody has used for a day. */
+  housekeeping(): void;
   /** Stops what the edition runs in the background. */
   close(): void;
 }
@@ -81,14 +83,30 @@ export function createPublicEdition(input: {
   let services: { jobs: Orchestrator; interaction: InteractionService } | null = null;
 
   // Housekeeping of what the edition keeps: expired sign-ins, old sign-up records, old days of usage, reservations that
-  // a crashed process left, and the counters of accounts that were deleted long ago.
+  // a crashed process left, the counters of accounts that were deleted long ago, and the guests that nobody has used for
+  // the retention period (with everything that was theirs).
+  const purgeGuests = (): void => {
+    const before = context.now() - pub.guests.retentionHours * 3_600_000;
+    repository.asSystem(() => {
+      for (const id of context.users.inactiveGuests(before)) {
+        repository.atomic(() => {
+          const report = context.users.delete(id);
+          if (report) context.audit('public.guest.purged', 'system', { projects: report.projects });
+        });
+      }
+    });
+  };
+  const housekeeping = (): void => {
+    context.logins.purge();
+    context.signups.purge();
+    context.users.purgeDeleted();
+    context.ledger.sweep(60 * 60_000);
+    context.ledger.prune();
+    purgeGuests();
+  };
   const purge = setInterval(() => {
     try {
-      context.logins.purge();
-      context.signups.purge();
-      context.users.purgeDeleted();
-      context.ledger.sweep(60 * 60_000);
-      context.ledger.prune();
+      housekeeping();
     } catch {
       // Housekeeping is retried at the next tick; it never takes a request down.
     }
@@ -98,12 +116,14 @@ export function createPublicEdition(input: {
   const guard = createPublicGuard(context);
   const funding = publicFundingSource(context);
 
-  /** One workspace holds at most this many runs at once, whatever pays for them. */
+  /** One workspace holds at most this many runs at once, whatever pays for them: a guest's limit, or a person's. */
   const admit = (projectId: string): void => {
-    const limit = config.public!.free.userConcurrentRuns;
+    let limit = pub.free.userConcurrentRuns;
     const active = repository.extend((database) => {
       const owner = database.prepare('SELECT tenant_id FROM projects WHERE id = ?').get(projectId);
       if (!owner) return 0;
+      const tenant = String(owner.tenant_id);
+      if (context.isGuestWorkspace(tenant)) limit = pub.free.guest.concurrentRuns;
       return Number(
         database
           .prepare(
@@ -111,7 +131,7 @@ export function createPublicEdition(input: {
               WHERE p.tenant_id = ? AND j.project_id <> ?
                 AND j.state IN ('queued', 'running', 'retrying', 'cancelling')`,
           )
-          .get(String(owner.tenant_id), projectId)?.n ?? 0,
+          .get(tenant, projectId)?.n ?? 0,
       );
     });
     if (active >= limit) {
@@ -132,6 +152,7 @@ export function createPublicEdition(input: {
       enterScope({ tenant: null, system: false }, done);
     },
     abuseHook: createAbuseHook(context),
+    housekeeping,
     fundingHook(request, _reply, done) {
       const principal = request.principal;
       if (!principal) {

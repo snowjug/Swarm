@@ -1558,7 +1558,7 @@
       "area": "public",
       "claim": "Every signed-in person is a platform administrator",
       "file": "backend/src/public/guard.ts",
-      "find": "platformAdmin: pub.adminEmails.has(user.email),",
+      "find": "platformAdmin: user.provider !== 'guest' && pub.adminEmails.has(user.email),",
       "replace": "platformAdmin: true,",
       "tests": ["backend/test/public/auth.test.ts", "backend/test/public/freetier.test.ts"]
     },

@@ -6,6 +6,7 @@ import { signOutOfPublic } from './accountActions';
 import { AccountPanel } from './AccountPanel';
 import { browser } from './browser';
 import { ByokPanel } from './ByokPanel';
+import { guestHours } from './guest';
 import { LimitReached } from './LimitReached';
 import { problemOf, type Problem } from './problems';
 import { publicApi } from './publicApi';
@@ -128,6 +129,8 @@ export function PublicChrome({
       menu: (
         <PublicMenu
           emailMasked={session.user?.emailMasked ?? null}
+          guest={session.user?.guest === true}
+          guestHours={guestHours(session.guestRetentionHours)}
           byokEnabled={session.byokEnabled}
           sampleBusy={sampling}
           onAccount={() => setPanel('account')}

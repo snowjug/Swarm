@@ -6,7 +6,7 @@ generates `isolation.test.ts`, which runs an attack on every project route and t
 taken away, so that what is left is the database (row-level security). A route that is added is in both without
 anyone remembering to add it. How the isolation is built is in [DESIGN.md](DESIGN.md), section 5.
 
-119 routes. By access: not-api 3, platform 6, project 82, public 7, refused 6, signed-in 10, workspace 5.
+124 routes. By access: not-api 4, platform 6, project 82, public 11, refused 6, signed-in 10, workspace 5.
 
 ## What each kind of route is held by
 
@@ -41,6 +41,10 @@ anyone remembering to add it. How the isolation is built is in [DESIGN.md](DESIG
 | `GET /api/health/live`                                          | public    |
 | `GET /api/health/ready`                                         | public    |
 | `POST /api/ops/free-tier/off`                                   | public    |
+| `POST /api/ops/free-tier/on`                                    | public    |
+| `POST /api/ops/signups/off`                                     | public    |
+| `POST /api/ops/signups/on`                                      | public    |
+| `GET /api/ops/usage`                                            | public    |
 | `GET /api/projects`                                             | signed-in |
 | `POST /api/projects`                                            | workspace |
 | `DELETE /api/projects/:id`                                      | project   |
@@ -141,5 +145,6 @@ anyone remembering to add it. How the isolation is built is in [DESIGN.md](DESIG
 | `DELETE /api/workspace/members/:principalId`                    | refused   |
 | `PUT /api/workspace/members/:principalId`                       | refused   |
 | `GET /auth/callback/:provider`                                  | not-api   |
+| `POST /auth/guest`                                              | not-api   |
 | `POST /auth/logout`                                             | not-api   |
 | `POST /auth/start/:provider`                                    | not-api   |

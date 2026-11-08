@@ -26,6 +26,18 @@ export interface LedgerLimits {
   byokConcurrentCalls: number;
 }
 
+/** What a guest is held to instead of a signed-in person's four limits. The global caps are everyone's. */
+export type GuestLimits = Pick<
+  LedgerLimits,
+  'userDailyTokens' | 'userDailyCalls' | 'userLifetimeTokens' | 'userConcurrentCalls'
+>;
+
+export interface GuestPolicy {
+  /** Whether the workspace is a guest's. */
+  isGuest(workspaceId: string): boolean;
+  limits: GuestLimits;
+}
+
 /** Why a reservation was refused. The reason is one of the states a person is shown. */
 export class LedgerRefusal extends Error {
   constructor(readonly reason: FreeTierReason | 'byok-concurrent') {
@@ -78,7 +90,16 @@ export class UsageLedger {
     private readonly database: SqlDatabase,
     private readonly limits: LedgerLimits,
     private readonly now: () => number = Date.now,
+    /** Absent: everyone is held to `limits`, which is what a deployment without guests does. */
+    private readonly guests: GuestPolicy | null = null,
   ) {}
+
+  /** The limits that apply to this workspace: a guest's, or the signed-in person's. */
+  limitsFor(workspaceId: string): LedgerLimits {
+    return this.guests?.isGuest(workspaceId)
+      ? { ...this.limits, ...this.guests.limits }
+      : this.limits;
+  }
 
   today(): string {
     return dayOf(this.now());
@@ -132,7 +153,7 @@ export class UsageLedger {
     id: string,
     at: number,
   ): void {
-    const L = this.limits;
+    const L = this.limitsFor(workspaceId);
     const db = this.database;
     const own = funding === 'free' ? `u:${workspaceId}` : `b:${workspaceId}`;
     this.ensureDay(day, own);
@@ -329,7 +350,7 @@ export class UsageLedger {
    * than `minTokens` is left of it (what one run is taken to cost), so that the state to show and the meter agree.
    */
   freeReason(workspaceId?: string, minTokens = 0): FreeTierReason | null {
-    const L = this.limits;
+    const L = workspaceId ? this.limitsFor(workspaceId) : this.limits;
     const all = this.globalState();
     const least = Math.max(1, minTokens);
     if (

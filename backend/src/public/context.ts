@@ -15,6 +15,7 @@ import { WindowLimiter } from './limits.js';
 import type { IdentityProvider } from './identity/provider.js';
 import { PublicLoginStore } from './storage/login.js';
 import { PublicSettings } from './storage/settings.js';
+import { GuestLog } from './storage/guests.js';
 import { SignupLog } from './storage/signups.js';
 import { UsageLedger } from './storage/ledger.js';
 import { ProjectFundingStore } from './storage/funding.js';
@@ -54,6 +55,8 @@ export interface PublicContext {
   logins: PublicLoginStore;
   settings: PublicSettings;
   signups: SignupLog;
+  /** The throttle on new guests (only used in guest mode). */
+  guests: GuestLog;
   ledger: UsageLedger;
   /** What each project's model work is paid for with. */
   projectFunding: ProjectFundingStore;
@@ -77,6 +80,10 @@ export interface PublicContext {
   isAdmin(email: string): boolean;
   /** New accounts may be made: the environment says so, and so does the run-time switch. */
   signupsOpen(): boolean;
+  /** Whether the workspace is a guest's (a visitor who did not sign in). */
+  isGuestWorkspace(workspaceId: string): boolean;
+  /** What one run is taken to cost for this workspace, for the meter and for the state to show: a guest's or a person's. */
+  runSizeFor(workspaceId?: string): number;
   /** Records a security event: an actor, a word and codes, never an address, a key or a document. */
   audit(
     action: string,
@@ -105,22 +112,29 @@ export function createContext(
   const pub = config.public;
   if (!pub) throw new Error('The public edition was asked for without its settings.');
   const now = options.now ?? Date.now;
-  const { users, logins, settings, signups, ledger, projectFunding } = repository.extend(
+  const { users, logins, settings, signups, guests, ledger, projectFunding } = repository.extend(
     (database) => {
       // Their rows belong to no workspace and are looked up before anyone is known: the platform's database.
       const platform = asSystemView(database);
+      const users = new PublicUserStore(platform, {
+        pepper: pub.pepper,
+        retentionDays: pub.deletedAccountRetentionDays,
+        now,
+      });
       return {
-        users: new PublicUserStore(platform, {
-          pepper: pub.pepper,
-          retentionDays: pub.deletedAccountRetentionDays,
-          now,
-        }),
+        users,
         logins: new PublicLoginStore(platform, now),
         settings: new PublicSettings(platform, now),
         signups: new SignupLog(platform, {
           pepper: pub.pepper,
           perIpPerDay: pub.signups.perIpPerDay,
           perHour: pub.signups.perHour,
+          now,
+        }),
+        guests: new GuestLog(platform, {
+          pepper: pub.pepper,
+          perIpPerHour: pub.guests.perIpPerHour,
+          perHour: pub.guests.perHour,
           now,
         }),
         ledger: new UsageLedger(
@@ -135,6 +149,15 @@ export function createContext(
             byokConcurrentCalls: pub.byok.maxConcurrentCalls,
           },
           now,
+          {
+            isGuest: (workspaceId) => users.isGuestWorkspace(workspaceId),
+            limits: {
+              userDailyTokens: pub.free.guest.dailyTokens,
+              userDailyCalls: pub.free.guest.dailyCalls,
+              userLifetimeTokens: pub.free.guest.lifetimeTokens,
+              userConcurrentCalls: pub.free.guest.concurrentCalls,
+            },
+          },
         ),
         projectFunding: new ProjectFundingStore(platform, now),
       };
@@ -144,7 +167,10 @@ export function createContext(
     pub.free.enabled && config.provider.configured && settings.flag('free_tier_enabled', true);
   // The free tier counts as used up when less than one run is left of a cap, which is also when the meter says no runs
   // are left. A call is still let in or refused by the ledger alone, on the worst case of that call.
-  const runSize = pub.free.tokensPerRun;
+  const runSizeFor = (workspaceId?: string): number =>
+    workspaceId && users.isGuestWorkspace(workspaceId)
+      ? pub.free.guest.tokensPerRun
+      : pub.free.tokensPerRun;
   /** When an event of a scope and a kind was last written, for `auditOnce`. */
   const noted = new Map<string, number>();
   const context: PublicContext = {
@@ -155,6 +181,7 @@ export function createContext(
     logins,
     settings,
     signups,
+    guests,
     ledger,
     projectFunding,
     keys: new EphemeralKeys({ now }),
@@ -174,9 +201,11 @@ export function createContext(
     options,
     isAdmin: (email) => pub.adminEmails.has(email.toLowerCase()),
     signupsOpen: () => pub.signupsEnabled && settings.flag('signups_enabled', true),
+    isGuestWorkspace: (workspaceId) => users.isGuestWorkspace(workspaceId),
+    runSizeFor,
     freeEnabled,
     freeReason: (workspaceId) =>
-      freeEnabled() ? ledger.freeReason(workspaceId, runSize) : 'disabled',
+      freeEnabled() ? ledger.freeReason(workspaceId, runSizeFor(workspaceId)) : 'disabled',
     audit(action, actor, detail = {}) {
       repository.audit.record({
         actor,

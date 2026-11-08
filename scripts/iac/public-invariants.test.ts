@@ -10,6 +10,7 @@ import {
 } from './duplicates.mjs';
 import {
   PUBLIC_FOUNDATION_ENV,
+  PUBLIC_GUEST_ENV,
   PUBLIC_PARAM_FILE,
   PUBLIC_PLACEHOLDER_ENV,
   PUBLIC_REQUIRED_VARIABLES,
@@ -156,6 +157,8 @@ const UNTAGGED_TYPES = new Set([
 const SUBSCRIPTION = '/subscriptions/00000000-0000-0000-0000-000000000000';
 const OTHER_SUBSCRIPTION = '/subscriptions/11111111-1111-1111-1111-111111111111';
 const PLACEHOLDER_KEY = PUBLIC_PLACEHOLDER_ENV.SWARM_PUBLIC_OPS_KEY ?? '';
+/** A SHA-256, which is not a secret: only the hash of the owner's key is ever given to the template. */
+const OWNER_KEY_SHA256 = '0123456789abcdef'.repeat(4);
 
 /** The same document, with everything an operator may set, set. */
 const EVERYTHING = {
@@ -176,8 +179,21 @@ const EVERYTHING = {
   SWARM_PUBLIC_FREE_USER_DAILY_TOKENS: '30000',
   SWARM_PUBLIC_SIGNUPS_PER_IP_PER_DAY: '3',
   SWARM_PUBLIC_SIGNUPS_PER_HOUR: '30',
+  SWARM_PUBLIC_IP_REQUESTS_PER_MINUTE: '240',
   SWARM_PUBLIC_SESSION_IDLE_MINUTES: '20',
   SWARM_PUBLIC_SESSION_ABSOLUTE_HOURS: '6',
+  SWARM_PUBLIC_GUEST_MODE: 'true',
+  SWARM_PUBLIC_GUESTS_PER_IP_PER_HOUR: '7',
+  SWARM_PUBLIC_GUESTS_PER_HOUR: '150',
+  SWARM_PUBLIC_GUEST_RETENTION_HOURS: '12',
+  SWARM_PUBLIC_FREE_GUEST_DAILY_TOKENS: '50000',
+  SWARM_PUBLIC_FREE_GUEST_DAILY_CALLS: '30',
+  SWARM_PUBLIC_FREE_GUEST_LIFETIME_TOKENS: '150000',
+  SWARM_PUBLIC_FREE_GUEST_CONCURRENT_RUNS: '1',
+  SWARM_PUBLIC_FREE_GUEST_CONCURRENT_CALLS: '2',
+  SWARM_PUBLIC_FREE_GUEST_TOKENS_PER_RUN: '12000',
+  // In capitals on purpose: the application reads only lower case, so the template lower-cases it.
+  SWARM_PUBLIC_OWNER_KEY_SHA256: OWNER_KEY_SHA256.toUpperCase(),
   SWARM_PUBLIC_ADDITIONAL_ALERT_EMAILS: 'second@example.invalid',
 };
 
@@ -238,6 +254,11 @@ const PARAMETER_OF: Record<string, string> = {
   PUBLIC_ALLOW_RESEARCH: 'allowResearch',
   PUBLIC_SIGNUPS_PER_IP_PER_DAY: 'signupsPerIpPerDay',
   PUBLIC_SIGNUPS_PER_HOUR: 'signupsPerHour',
+  PUBLIC_IP_REQUESTS_PER_MINUTE: 'ipRequestsPerMinute',
+  PUBLIC_GUEST_MODE: 'guestMode',
+  PUBLIC_GUESTS_PER_IP_PER_HOUR: 'guestsPerIpPerHour',
+  PUBLIC_GUESTS_PER_HOUR: 'guestsPerHour',
+  PUBLIC_GUEST_RETENTION_HOURS: 'guestRetentionHours',
   AUTH_SESSION_IDLE_MINUTES: 'sessionIdleMinutes',
   AUTH_SESSION_ABSOLUTE_HOURS: 'sessionAbsoluteHours',
   FREE_TIER_ENABLED: 'freeTierEnabled',
@@ -249,6 +270,12 @@ const PARAMETER_OF: Record<string, string> = {
   FREE_GLOBAL_DAILY_TOKENS: 'freeGlobalDailyTokens',
   FREE_GLOBAL_DAILY_COST_USD: 'freeGlobalDailyCostUsd',
   FREE_TOKENS_PER_RUN: 'freeTokensPerRun',
+  FREE_GUEST_DAILY_TOKENS: 'freeGuestDailyTokens',
+  FREE_GUEST_DAILY_CALLS: 'freeGuestDailyCalls',
+  FREE_GUEST_LIFETIME_TOKENS: 'freeGuestLifetimeTokens',
+  FREE_GUEST_CONCURRENT_RUNS: 'freeGuestConcurrentRuns',
+  FREE_GUEST_CONCURRENT_CALLS: 'freeGuestConcurrentCalls',
+  FREE_GUEST_TOKENS_PER_RUN: 'freeGuestTokensPerRun',
   BYOK_ENABLED: 'byokEnabled',
   BYOK_MAX_CONCURRENT_CALLS: 'byokMaxConcurrentCalls',
 };
@@ -275,6 +302,7 @@ describe.skipIf(!bicep || postgresRun)(
     let foundation: Json;
     let everything: Json;
     let elsewhere: Json;
+    let guestOnly: Json;
 
     beforeAll(() => {
       const cli = bicep as BicepCli;
@@ -291,6 +319,7 @@ describe.skipIf(!bicep || postgresRun)(
       foundation = run(PUBLIC_FOUNDATION_ENV);
       everything = run(EVERYTHING);
       elsewhere = run(ELSEWHERE);
+      guestOnly = run(PUBLIC_GUEST_ENV);
     }, 600_000);
 
     describe('a deployment of its own', () => {
@@ -331,6 +360,7 @@ describe.skipIf(!bicep || postgresRun)(
           foundation,
           everything,
           elsewhere,
+          guestOnly,
         })) {
           expect(findDuplicatePredictions(snapshot as never), name).toEqual([]);
         }
@@ -444,7 +474,7 @@ describe.skipIf(!bicep || postgresRun)(
         ofType(predicted(snapshot), 'Microsoft.App/containerApps')[0];
 
       it('runs at most ONE replica, whatever is asked: a BYOK key lives in the memory of one process', () => {
-        for (const snapshot of [withApp, everything, elsewhere]) {
+        for (const snapshot of [withApp, everything, elsewhere, guestOnly]) {
           expect(get(appOf(snapshot), 'properties', 'template', 'scale', 'maxReplicas')).toBe(1);
         }
         // Not a parameter at all: nothing can raise it, from a parameter file or from the command line.
@@ -458,6 +488,7 @@ describe.skipIf(!bicep || postgresRun)(
 
       it('keeps one replica running by default, and allows only 0 or 1', () => {
         expect(get(appOf(withApp), 'properties', 'template', 'scale', 'minReplicas')).toBe(1);
+        expect(get(appOf(guestOnly), 'properties', 'template', 'scale', 'minReplicas')).toBe(1);
         expect(get(appOf(everything), 'properties', 'template', 'scale', 'minReplicas')).toBe(0);
         expect(get(main, 'parameters', 'minReplicas', 'defaultValue')).toBe(1);
         expect(get(main, 'parameters', 'minReplicas', 'allowedValues')).toEqual([0, 1]);
@@ -675,12 +706,13 @@ describe.skipIf(!bicep || postgresRun)(
         expect(changed).toMatchObject({
           PUBLIC_SIGNUPS_PER_IP_PER_DAY: '3',
           PUBLIC_SIGNUPS_PER_HOUR: '30',
+          PUBLIC_IP_REQUESTS_PER_MINUTE: '240',
           AUTH_SESSION_IDLE_MINUTES: '20',
           AUTH_SESSION_ABSOLUTE_HOURS: '6',
         });
       });
 
-      it('never sets what is a way round a safety check, and no cap can be 0 (the pilot reads 0 as no limit)', () => {
+      it("never sets what is a way round a safety check, and no cap can be 0 but a guest's tokens and calls (the pilot reads 0 as no limit)", () => {
         for (const snapshot of [withApp, everything]) {
           const names = environmentOf(snapshot).map((entry) => String(entry.name));
           expect(names).not.toContain('FOUNDRY_DEPLOYMENT_REASONING');
@@ -688,7 +720,7 @@ describe.skipIf(!bicep || postgresRun)(
           expect(names).not.toContain('PUBLIC_ALLOW_REASONING_DEPLOYMENT');
           for (const [name, value] of Object.entries(valuesOf(snapshot))) {
             if (
-              /^(?:FREE_(?!TIER_ENABLED|ROLE_)|BYOK_(?!ENABLED)|PROJECT_MODEL_|PUBLIC_MAX_|PUBLIC_STORAGE|PUBLIC_SIGNUPS_PER_|AUTH_SESSION_)/u.test(
+              /^(?:FREE_(?!TIER_ENABLED|ROLE_)|BYOK_(?!ENABLED)|PROJECT_MODEL_|PUBLIC_MAX_|PUBLIC_STORAGE|PUBLIC_SIGNUPS_PER_|PUBLIC_GUESTS?_(?!MODE)|AUTH_SESSION_)/u.test(
                 name,
               )
             ) {
@@ -697,12 +729,20 @@ describe.skipIf(!bicep || postgresRun)(
           }
         }
         expect(JSON.stringify(main)).not.toContain('FOUNDRY_DEPLOYMENT_REASONING');
+        // The three per-guest caps of tokens and calls may be set to 0, and 0 then means that a guest may use none of the free tier
+        // (the application reads every FREE_ cap of 0 so), never that there is no limit. Every other cap is at least 1.
+        const MAY_BE_ZERO = [
+          'freeGuestDailyTokens',
+          'freeGuestDailyCalls',
+          'freeGuestLifetimeTokens',
+        ];
         for (const [parameter, definition] of Object.entries(
           isObj(get(main, 'parameters')) ? (get(main, 'parameters') as Obj) : {},
         )) {
           if (
-            /^(?:free|byok|projectModel|signupsPer|session)/u.test(parameter) &&
-            get(definition, 'type') === 'int'
+            /^(?:free|byok|projectModel|signupsPer|guest|session)/u.test(parameter) &&
+            get(definition, 'type') === 'int' &&
+            !MAY_BE_ZERO.includes(parameter)
           ) {
             expect(Number(get(definition, 'minValue')), parameter).toBeGreaterThanOrEqual(1);
           }
@@ -743,6 +783,95 @@ describe.skipIf(!bicep || postgresRun)(
         }
         expect(JSON.stringify(environmentOf(everything))).not.toContain(PLACEHOLDER_KEY);
         expect(valuesOf(withApp).PUBLIC_OPS_KEY_SHA256).toMatch(/^[0-9a-f]{64}$/u);
+      });
+    });
+
+    describe('guest mode (no sign-in)', () => {
+      const appOf = (snapshot: Json) =>
+        ofType(predicted(snapshot), 'Microsoft.App/containerApps')[0];
+
+      it('deploys the app with no OAuth client at all: no client ID, no provider secret, and the pepper as the only reference', () => {
+        expect(ofType(predicted(guestOnly), 'Microsoft.App/containerApps')).toHaveLength(1);
+        const names = environmentOf(guestOnly).map((entry) => String(entry.name));
+        expect(names.filter((name) => /GOOGLE|GITHUB|TURNSTILE/u.test(name))).toEqual([]);
+        expect(environmentOf(guestOnly).filter((entry) => 'secretRef' in entry)).toEqual([
+          { name: 'PUBLIC_PEPPER', secretRef: 'public-pepper' },
+        ]);
+        expect(
+          objects(get(appOf(guestOnly), 'properties', 'configuration', 'secrets')).map(
+            (secret) => secret.name,
+          ),
+        ).toEqual(['public-pepper']);
+        expect(JSON.stringify(predicted(guestOnly))).not.toMatch(/client-secret/u);
+        // Guest creation obeys the sign-ups switch, which stays a parameter of its own.
+        expect(valuesOf(guestOnly).PUBLIC_SIGNUPS_ENABLED).toBe('true');
+      });
+
+      it('sets PUBLIC_GUEST_MODE to true only when the parameter says so', () => {
+        expect(valuesOf(withApp).PUBLIC_GUEST_MODE).toBe('false');
+        expect(valuesOf(guestOnly).PUBLIC_GUEST_MODE).toBe('true');
+        expect(valuesOf(everything).PUBLIC_GUEST_MODE).toBe('true');
+        // Guest mode does not switch a provider off: the pair of a client ID and its secret is as it was.
+        expect(valuesOf(everything).PUBLIC_GOOGLE_CLIENT_ID).toBe(
+          PUBLIC_PLACEHOLDER_ENV.SWARM_PUBLIC_GOOGLE_CLIENT_ID,
+        );
+      });
+
+      it('passes the guest limits and the owner key hash on as given (the defaults are the table)', () => {
+        expect(valuesOf(everything)).toMatchObject({
+          PUBLIC_GUESTS_PER_IP_PER_HOUR: '7',
+          PUBLIC_GUESTS_PER_HOUR: '150',
+          PUBLIC_GUEST_RETENTION_HOURS: '12',
+          FREE_GUEST_DAILY_TOKENS: '50000',
+          FREE_GUEST_DAILY_CALLS: '30',
+          FREE_GUEST_LIFETIME_TOKENS: '150000',
+          FREE_GUEST_CONCURRENT_RUNS: '1',
+          FREE_GUEST_CONCURRENT_CALLS: '2',
+          FREE_GUEST_TOKENS_PER_RUN: '12000',
+          PUBLIC_OWNER_KEY_SHA256: OWNER_KEY_SHA256,
+        });
+        // Left out when empty, like every optional setting. Only the hash is a parameter: the key never reaches the template.
+        for (const snapshot of [withApp, guestOnly]) {
+          expect(environmentOf(snapshot).map((entry) => entry.name)).not.toContain(
+            'PUBLIC_OWNER_KEY_SHA256',
+          );
+        }
+        expect(get(main, 'parameters', 'ownerKeySha256', 'defaultValue')).toBe('');
+        expect(get(main, 'parameters', 'ownerKey')).toBeUndefined();
+      });
+
+      it("takes the application's default and range for every guest limit and for the requests of one address (backend/src/public/config.ts)", () => {
+        const source = readFileSync(
+          join(REPO_ROOT, 'backend', 'src', 'public', 'config.ts'),
+          'utf8',
+        );
+        const application = new Map<string, number[]>();
+        for (const match of source.matchAll(/\b([A-Z][A-Z0-9_]+): whole\(([^)]*)\)/gu)) {
+          application.set(
+            String(match[1]),
+            String(match[2])
+              .split(',')
+              .map((part) => Number(part.trim().replaceAll('_', ''))),
+          );
+        }
+        const limits = Object.entries(PARAMETER_OF).filter(
+          ([name]) =>
+            (/^(?:PUBLIC_GUESTS?_|FREE_GUEST_)/u.test(name) && name !== 'PUBLIC_GUEST_MODE') ||
+            name === 'PUBLIC_IP_REQUESTS_PER_MINUTE',
+        );
+        expect(
+          limits,
+          'the nine guest limits of the table and the requests of one address',
+        ).toHaveLength(10);
+        for (const [name, parameter] of limits) {
+          const [fallback, min, max] = application.get(name) ?? [];
+          expect(fallback, `${name} is read with whole() in config.ts`).toBeDefined();
+          expect(get(main, 'parameters', parameter, 'defaultValue'), `${parameter} default`).toBe(
+            fallback,
+          );
+          expect(get(main, 'parameters', parameter, 'minValue'), `${parameter} minimum`).toBe(min);
+          expect(get(main, 'parameters', parameter, 'maxValue'), `${parameter} maximum`).toBe(max);
+        }
       });
     });
 
@@ -897,6 +1026,30 @@ describe.skipIf(!bicep || postgresRun)(
         expect(predicted(foundation).length).toBeGreaterThan(0);
       }, 240_000);
 
+      it('guest mode lifts only the sign-in requirement: with it off, an app with no provider is refused again, and the image is still needed', () => {
+        expect(refused({ ...PUBLIC_GUEST_ENV, SWARM_PUBLIC_GUEST_MODE: 'false' })).toContain(
+          'atLeastOneSignInProviderIsConfigured',
+        );
+        expect(refused(PUBLIC_GUEST_ENV, ['SWARM_PUBLIC_CONTAINER_IMAGE'])).toContain(
+          'containerImageIsGivenWhenTheAppIsDeployed',
+        );
+      }, 240_000);
+
+      it('refuses an owner key hash that is not 64 hexadecimal characters, which the application would not start on', () => {
+        for (const hash of [
+          'a'.repeat(63),
+          `g${'a'.repeat(63)}`,
+          `${'a'.repeat(32)} ${'a'.repeat(31)}`,
+        ]) {
+          expect(
+            refused({ ...PUBLIC_GUEST_ENV, SWARM_PUBLIC_OWNER_KEY_SHA256: hash }),
+            hash,
+          ).toContain('ownerKeySha256IsEmptyOrSixtyFourHexDigits');
+        }
+        // Too long is refused where the parameter is read, before any check.
+        refused({ ...PUBLIC_GUEST_ENV, SWARM_PUBLIC_OWNER_KEY_SHA256: 'a'.repeat(65) });
+      }, 240_000);
+
       it('refuses a public address that is not the https origin of a site, and takes one that is', () => {
         // The deployment is refused, naming the check, for one address of each kind of mistake...
         expect(
@@ -972,6 +1125,7 @@ describe.skipIf(!bicep || postgresRun)(
             'customDomainIsTheHostOfThePublicBaseUrl',
             'freeDeploymentModelIsNotAReasoningFamily',
             'freeDeploymentNameIsNotAReasoningFamily',
+            'ownerKeySha256IsEmptyOrSixtyFourHexDigits',
             'publicBaseUrlIsAnHttpsOriginWithoutPath',
             'resourceGroupAndEnvironmentAreNotThePilots',
           ].sort(),

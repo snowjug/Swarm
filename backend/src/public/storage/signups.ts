@@ -6,7 +6,9 @@ const HOUR_MS = 3_600_000;
 
 /**
  * Account-creation throttling. An address is stored only as a keyed hash that changes every UTC day, so the table can
- * say "this address made five accounts today" and cannot say who it was, or link one day to the next.
+ * say "this address made five accounts today" and cannot say who it was, or link one day to the next. The table is
+ * shared with the throttle on new guests (`GuestLog`), whose records have an identifier that begins `g_`; a sign-up's
+ * begins `s_`, and only sign-ups are counted here.
  */
 export class SignupLog {
   constructor(
@@ -39,7 +41,9 @@ export class SignupLog {
     if (sameAddress >= this.options.perIpPerDay) return false;
     const lastHour = Number(
       this.database
-        .prepare('SELECT COUNT(*) AS n FROM signup_log WHERE created_at > ?')
+        .prepare(
+          `SELECT COUNT(*) AS n FROM signup_log WHERE created_at > ? AND SUBSTR(id, 1, 2) <> 'g_'`,
+        )
         .get(at - HOUR_MS)?.n ?? 0,
     );
     return lastHour < this.options.perHour;
@@ -48,7 +52,7 @@ export class SignupLog {
   record(ip: string): void {
     this.database
       .prepare('INSERT INTO signup_log (id, ip_hash, created_at) VALUES (?, ?, ?)')
-      .run(randomBytes(12).toString('base64url'), this.hashOf(ip), this.now());
+      .run(`s_${randomBytes(12).toString('base64url')}`, this.hashOf(ip), this.now());
   }
 
   /** Forgets what is older than the longest window. */

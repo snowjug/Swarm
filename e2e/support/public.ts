@@ -12,8 +12,11 @@ import { PUBLIC_E2E_PORTS, type Seen } from '../../backend/test/support/public-e
 
 const controlUrl = `http://127.0.0.1:${process.env.E2E_PUBLIC_CONTROL_PORT || PUBLIC_E2E_PORTS.control}`;
 
-export async function control(playwright: PlaywrightWorkerArgs['playwright']) {
-  const request = await playwright.request.newContext({ baseURL: controlUrl });
+/** The control interface of a server of the public edition: the default one, or the one on `port` (guest mode has its own). */
+export async function control(playwright: PlaywrightWorkerArgs['playwright'], port?: number) {
+  const request = await playwright.request.newContext({
+    baseURL: port === undefined ? controlUrl : `http://127.0.0.1:${port}`,
+  });
   return {
     seen: async (): Promise<Seen> => (await request.get('/__seen')).json() as Promise<Seen>,
     reset: async (): Promise<void> => void (await request.post('/__reset')),

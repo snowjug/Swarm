@@ -32,6 +32,12 @@ export const EDITION_META_NAME = 'swarm-edition';
 
 export type PublicProviderId = 'google' | 'github';
 
+/**
+ * What an account was made with: a provider, or `guest` (no sign-in: a temporary private workspace that starts with
+ * `POST /auth/guest` and is deleted after a period without use).
+ */
+export type PublicAccountProvider = PublicProviderId | 'guest';
+
 export interface PublicProviderInfo {
   id: PublicProviderId;
   label: string;
@@ -49,8 +55,16 @@ export interface FreeTierAvailability {
 export interface PublicSession {
   edition: 'public';
   signedIn: boolean;
+  /** Only the providers whose client ID and secret are configured. Empty is a site that is guest-only. */
   providers: PublicProviderInfo[];
   signupsOpen: boolean;
+  /**
+   * A visitor can start with no sign-in: `POST /auth/guest` (header `X-Swarm-CSRF: 1`) makes a temporary private
+   * workspace and sets the session cookie. False when the owner has not turned guest mode on, or sign-ups are closed.
+   */
+  guestMode: boolean;
+  /** How many hours without use a guest's data is kept before it is deleted. */
+  guestRetentionHours: number;
   bot: { kind: 'turnstile'; siteKey: string } | null;
   freeTier: FreeTierAvailability;
   byokEnabled: boolean;
@@ -59,7 +73,9 @@ export interface PublicSession {
   legal: { terms: string; privacy: string };
   user: {
     emailMasked: string;
-    provider: PublicProviderId;
+    provider: PublicAccountProvider;
+    /** A guest has no e-mail address and no provider: its data is temporary. */
+    guest: boolean;
     isAdmin: boolean;
     createdAt: string;
   } | null;
@@ -101,6 +117,19 @@ export interface StartedSignIn {
   url: string;
 }
 
+/**
+ * `POST /auth/guest` (header `X-Swarm-CSRF: 1`, no body needed). The session cookie is in the answer's headers; the page then
+ * asks `GET /api/public/session` again. Refused with 403 `NOT_AVAILABLE` (guest mode off, or new visitors are not being
+ * let in), 429 `RATE_LIMITED` (too many new guests from this address) or 403 `BOT_CHECK_FAILED`.
+ */
+export const startGuestSchema = z
+  .object({ turnstileToken: z.string().max(4_096).optional() })
+  .strict();
+export type StartGuest = z.infer<typeof startGuestSchema>;
+export interface StartedGuest {
+  started: true;
+}
+
 /** The reasons `/?signin=` carries after a sign-in that did not produce a session. */
 export const PUBLIC_SIGN_IN_PROBLEMS = [
   'failed',
@@ -113,8 +142,11 @@ export type PublicSignInProblem = (typeof PUBLIC_SIGN_IN_PROBLEMS)[number];
 
 /** `GET /api/account`. */
 export interface AccountView {
+  /** `guest` for a guest: it has no address. */
   emailMasked: string;
-  provider: PublicProviderId;
+  provider: PublicAccountProvider;
+  /** A guest's data is temporary: it is deleted after `guestRetentionHours` without use, or when the guest says so. */
+  guest: boolean;
   createdAt: string;
   isAdmin: boolean;
   projects: { count: number; limit: number };
